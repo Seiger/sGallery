@@ -1,5 +1,7 @@
 # sGallery for Evolution CMS 3
 
+**sGallery** Plugin for attaching Images and Video clips (YouTube) to a resource in the Evolution CMS admin panel.
+
 ## Install by artisan package installer:
 
 Run in you /core/ folder:

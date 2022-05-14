@@ -1,8 +1,8 @@
 <?php
 use Illuminate\Support\Facades\Route;
+use Seiger\sGallery\Controllers\sGalleryController;
 
-Route::get('sgallery', function () {
-
-    return \View::make('sGallery::index', ['data'=>'1']);
-
+Route::middleware('mgr')->group(function () {
+    Route::get('sgallery', [sGalleryController::class, 'index']);
+    Route::post('sgallery/upload', [sGalleryController::class, 'uploadFile'])->name('sGallery.upload');
 });
