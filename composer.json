@@ -1,0 +1,26 @@
+{
+  "name": "seiger/sgallery",
+  "license": "GPL-3.0",
+  "type": "EvolutionCMS-Plugin",
+  "description": "Evocms package for work with Gallery for Resource in Evolution CMS",
+  "authors": [
+    {
+      "name": "Serhii Korneliuk",
+      "email": "info@seigerit.com"
+    }
+  ],
+  "require": {
+  },
+  "autoload": {
+    "psr-4": {
+      "Seiger\\sGallery\\": "src"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Seiger\\sGallery\\sGalleryServiceProvider"
+      ]
+    }
+  }
+}
