@@ -13,6 +13,10 @@
         </button>
     </div>
 
+    <form id="imgForm" enctype="multipart/form-data" method="post">
+        <ul id="uploadBase"></ul>
+    </form>
+
 </div>
 
 @push('scripts.bot')
@@ -33,7 +37,7 @@
             }
 
             let uploads = [];
-            for(let i = 0; i < totalFilesToUpload; i++) {
+            for (let i = 0; i < totalFilesToUpload; i++) {
                 uploads.push(uploadFile(files[i]));
             }
 
@@ -44,9 +48,11 @@
             console.log(`Starting with ${f.name}`);
             let form = new FormData();
             form.append('file', f);
-            let resp = await fetch('{{route('sGallery.upload', ['cat' => 1])}}', {method: 'POST', body:form});
+            let resp = await fetch('{{route('sGallery.upload', ['cat' => request()->get('id')])}}', {method: 'POST', body:form});
             let data = await resp.json();
             console.log(`Done with ${f.name}`);
+            var uploadBase = document.getElementById('uploadBase');
+            uploadBase.insertAdjacentHTML('beforeend', '<li>'+data.preview+'</li>');
             return data;
         }
     </script>
