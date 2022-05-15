@@ -13,3 +13,7 @@ name **sGalleryTemplateConfig.php** the file should return a
 comma-separated list of templates.
 
 ``echo '<?php return 1;' > custom/config/cms/settings/sGalleryTemplateConfig.php``
+
+Run make DB structure with command:
+
+``php artisan migrate``

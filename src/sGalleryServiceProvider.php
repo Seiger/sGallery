@@ -5,8 +5,6 @@ use Event;
 
 class sGalleryServiceProvider extends ServiceProvider
 {
-    use PublishesMigrations;
-
     protected $namespace = '';
 
     public function boot()
@@ -16,7 +14,7 @@ class sGalleryServiceProvider extends ServiceProvider
             include(__DIR__.'/Http/routes.php');
 
             //Migration for create tables
-            $this->publishMigrations(__DIR__ . '/../database/migrations');
+            $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
             //Views
             $this->loadViewsFrom(__DIR__ . '/../views', 'sGallery');
