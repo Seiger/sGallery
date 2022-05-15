@@ -15,7 +15,8 @@
   },
   "autoload": {
     "psr-4": {
-      "Seiger\\sGallery\\": "src"
+      "Seiger\\sGallery\\": "src",
+      "Seiger\\sGallery\\": "database"
     }
   },
   "extra": {
@@ -27,9 +28,11 @@
   },
   "scripts": {
     "post-install-cmd": [
+      "php artisan optimize",
       "php artisan migrate"
     ],
     "post-update-cmd": [
+      "php artisan optimize",
       "php artisan migrate"
     ]
   }
