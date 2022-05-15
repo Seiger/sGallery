@@ -1,4 +1,4 @@
-<?php namespace Seiger\sGallery;
+<?php namespace Seiger\sGallery\Models;
 
 class sGallery extends Eloquent\Model
 {
