@@ -1,7 +1,4 @@
-<?php
-
-namespace Seiger\sGallery\Controllers;
-
+<?php namespace Seiger\sGallery\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
