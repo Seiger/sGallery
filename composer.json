@@ -27,12 +27,12 @@
     }
   },
   "scripts": {
-    "post-update-cmd": "php echo 'post-update-cmd'",
+    "post-update-cmd": "php echo 'post-update-cmd'; die();",
     "post-autoload-dump": [
-      "php echo 'post-autoload-dump'"
+      "php echo 'post-autoload-dump'; die();"
     ],
     "post-create-project-cmd": [
-      "php echo 'post-autoload-dump'"
+      "php echo 'post-autoload-dump'; die();"
     ]
   }
 }
