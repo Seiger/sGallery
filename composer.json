@@ -24,5 +24,10 @@
         "Seiger\\sGallery\\sGalleryServiceProvider"
       ]
     }
+  },
+  "scripts": {
+    "post-autoload-dump": [
+      "@php artisan migrate"
+    ]
   }
 }
