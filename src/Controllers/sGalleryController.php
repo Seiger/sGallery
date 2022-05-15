@@ -13,6 +13,9 @@ class sGalleryController
 
     public function index()
     {
+        $cat = request()->id;
+        $images = glob(self::UPLOAD . $cat . "/*", GLOB_NOSORT);
+        dd($images);
         return $this->view('index');
     }
 
