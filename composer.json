@@ -15,7 +15,8 @@
   },
   "autoload": {
     "psr-4": {
-      "Seiger\\sGallery\\": "src"
+      "Seiger\\sGallery\\": "src",
+      "Seiger\\sGallery\\": "database"
     }
   },
   "extra": {
