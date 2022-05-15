@@ -27,11 +27,8 @@
     }
   },
   "scripts": {
-    "post-install-cmd": [
-      "echo post-install-cmd"
-    ],
-    "post-update-cmd": [
-      "echo post-update-cmd"
+    "post-autoload-dump": [
+      "echo post-autoload-dump"
     ]
   }
 }
