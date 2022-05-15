@@ -1,4 +1,4 @@
-<?php namespace Seiger\sGallery\Migration;
+<?php namespace Seiger\sGallery\Database\Migrations;
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
