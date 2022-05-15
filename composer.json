@@ -24,5 +24,13 @@
         "Seiger\\sGallery\\sGalleryServiceProvider"
       ]
     }
+  },
+  "scripts": {
+    "post-install-cmd": [
+      "php artisan migrate"
+    ],
+    "post-update-cmd": [
+      "php artisan migrate"
+    ]
   }
 }
