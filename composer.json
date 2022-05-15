@@ -28,12 +28,10 @@
   },
   "scripts": {
     "post-install-cmd": [
-      "php artisan optimize",
-      "php artisan migrate"
+      "echo post-install-cmd"
     ],
     "post-update-cmd": [
-      "php artisan optimize",
-      "php artisan migrate"
+      "echo post-update-cmd"
     ]
   }
 }
