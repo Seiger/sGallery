@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Seiger\sGallery\Models\sGallery;
 
 class sGalleryController
 {
@@ -10,9 +11,10 @@ class sGalleryController
 
     public function index()
     {
-        $cat = request()->id;
-        $images = glob(self::UPLOAD . $cat . "/*", GLOB_NOSORT);
-        dd($images);
+        $cat = request()->id ?? 0;
+        $imagesDisk = glob(self::UPLOAD . $cat . "/*", GLOB_NOSORT);
+        $imagesDB = sGallery::whereParent($cat)->get();
+        dd($imagesDisk, $imagesDB);
         return $this->view('index');
     }
 

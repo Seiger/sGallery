@@ -2,7 +2,7 @@
 
 use Illuminate\Database\Eloquent;
 
-class sGallery extends Eloquent\Model
+class sGalleryField extends Eloquent\Model
 {
 
 }

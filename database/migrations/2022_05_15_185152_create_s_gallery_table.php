@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreateSGalleryTable extends Migration
+class CreateSGallerysTable extends Migration
 {
     /**
      * Run the migrations.
@@ -13,7 +13,7 @@ class CreateSGalleryTable extends Migration
      */
     public function up()
     {
-        Schema::create('s_gallery', function (Blueprint $table) {
+        Schema::create('s_galleries', function (Blueprint $table) {
             $table->id();
             $table->integer('parent')->index();
             $table->integer('position')->default(0);
@@ -43,6 +43,6 @@ class CreateSGalleryTable extends Migration
     public function down()
     {
         Schema::dropIfExists('s_gallery_fields');
-        Schema::dropIfExists('s_gallery');
+        Schema::dropIfExists('s_galleries');
     }
 }
