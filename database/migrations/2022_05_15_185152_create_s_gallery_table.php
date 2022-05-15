@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreateSGallerysTable extends Migration
+class CreateSGalleryTable extends Migration
 {
     /**
      * Run the migrations.
