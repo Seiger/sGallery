@@ -14,7 +14,7 @@ class sGalleryServiceProvider extends ServiceProvider
             include(__DIR__.'/Http/routes.php');
 
             //Migration for create tables
-            $this->loadMigrationsFrom(__DIR__ . '/../migrations');
+            $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
             //Views
             $this->loadViewsFrom(__DIR__ . '/../views', 'sGallery');
