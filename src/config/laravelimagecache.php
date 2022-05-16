@@ -1,0 +1,1 @@
+<?php return include __DIR__ . '../../custom/config/cms/settings/imagecache.php';

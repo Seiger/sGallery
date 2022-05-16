@@ -10,22 +10,23 @@ class sGalleryServiceProvider extends ServiceProvider
     public function boot()
     {
         if (IN_MANAGER_MODE) {
-            //Add custom routes for package
+            // Add custom routes for package
             include(__DIR__.'/Http/routes.php');
 
-            //Migration for create tables
+            // Migration for create tables
             $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
-            //Views
+            // Views
             $this->loadViewsFrom(__DIR__ . '/../views', 'sGallery');
 
-            //MultiLang
+            // MultiLang
             $this->loadTranslationsFrom(__DIR__.'/../lang', 'sGallery');
 
-            //For use config
+            // For use config
             $this->publishes([
                 __DIR__ . '/config/sgallery.php' => config_path('cms/settings/sgallery.php', true),
-                __DIR__ . '/config/imagecache.php' => config_path('cms/settings/magecache.php', true)
+                __DIR__ . '/config/imagecache.php' => config_path('cms/settings/imagecache.php', true),
+                __DIR__ . '/config/laravelimagecache.php' => EVO_CORE_PATH  . 'config/imagecache.php'
             ]);
         }
     }
