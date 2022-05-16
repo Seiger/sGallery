@@ -11,9 +11,13 @@
     }
   ],
   "require": {
-    "intervention/image": "^3.0"
+    "intervention/image": "^3.0",
+    "intervention/imagecache": "^2.5"
   },
   "autoload": {
+    "classmap": [
+      "sGallery.php"
+    ],
     "psr-4": {
       "Seiger\\sGallery\\": "src"
     }

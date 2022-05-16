@@ -2,20 +2,15 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Seiger\sGallery\Models\sGallery;
+use Seiger\sGallery\Models\sGalleryModel;
 
 class sGalleryController
 {
-    const UPLOAD = MODX_BASE_PATH . "assets/images/sgallery/";
-    const UPLOADED = MODX_SITE_URL . "assets/images/sgallery/";
-
     public function index()
     {
         $cat = request()->id ?? 0;
-        $imagesDisk = glob(self::UPLOAD . $cat . "/*", GLOB_NOSORT);
-        $imagesDB = sGallery::whereParent($cat)->get();
-        dd($imagesDisk, $imagesDB);
-        return $this->view('index');
+        $galleries = sGalleryModel::whereParent($cat)->get();
+        return $this->view('index', ['galleries' => $galleries]);
     }
 
     public function uploadFile(Request $request)
@@ -36,15 +31,18 @@ class sGalleryController
                 $filename = $file->getClientOriginalName();
 
                 // Upload file
-                $file->move(self::UPLOAD.$request->cat, $filename);
+                $file->move(sGalleryModel::UPLOAD.$request->cat, $filename);
 
-                // File path
-                $filepath = self::UPLOADED.$request->cat.'/'.$filename;
+                // Save in DB
+                $thisFile = sGalleryModel::whereParent($request->cat)->whereFile($filename)->firstOrCreate();
+                $thisFile->file = $filename;
+                $thisFile->parent = $request->cat;
+                $thisFile->update();
 
                 // Response
                 $data['success'] = 1;
                 $data['message'] = 'Uploaded Successfully!';
-                $data['preview'] = $this->view('partials.image', ['filepath' => $filepath])->render();
+                $data['preview'] = $this->view('partials.image', ['gallery' => $thisFile])->render();
             } else {
                 // Response
                 $data['success'] = 2;

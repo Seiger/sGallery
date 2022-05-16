@@ -14,7 +14,15 @@
     </div>
 
     <form id="imgForm" enctype="multipart/form-data" method="post">
-        <ul id="uploadBase"></ul>
+        <ul id="uploadBase">
+            @foreach($galleries as $gallery)
+                @switch($gallery->type)
+                    @case(\Seiger\sGallery\Models\sGalleryModel::TYPE_IMAGE)
+                        @include('sGallery::partials.image')
+                        @break
+                @endswitch
+            @endforeach
+        </ul>
     </form>
 
 </div>
@@ -48,11 +56,14 @@
             console.log(`Starting with ${f.name}`);
             let form = new FormData();
             form.append('file', f);
-            let resp = await fetch('{{route('sGallery.upload', ['cat' => request()->get('id')])}}', {method: 'POST', body:form});
+            let resp = await fetch('{{route('sGallery.upload', ['cat' => request()->get('id')])}}', {
+                method: 'POST',
+                body: form
+            });
             let data = await resp.json();
             console.log(`Done with ${f.name}`);
             var uploadBase = document.getElementById('uploadBase');
-            uploadBase.insertAdjacentHTML('beforeend', '<li>'+data.preview+'</li>');
+            uploadBase.insertAdjacentHTML('beforeend', '<li>' + data.preview + '</li>');
             return data;
         }
     </script>
