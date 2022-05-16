@@ -1,37 +1,37 @@
 {
-  "name": "seiger/sgallery",
-  "license": "GPL-3.0",
-  "type": "EvolutionCMS-Plugin",
-  "description": "Evocms package for work with Gallery for Resource in Evolution CMS",
-  "keywords": ["evocms", "evolution-cms"],
-  "authors": [
-    {
-      "name": "Serhii Korneliuk",
-      "email": "info@seigerit.com"
-    }
-  ],
-  "require": {
-    "intervention/image": "^3.0",
-    "intervention/imagecache": "^2.5"
-  },
-  "autoload": {
-    "classmap": [
-      "src/sGallery.php"
+    "name": "seiger/sgallery",
+    "license": "GPL-3.0",
+    "type": "EvolutionCMS-Plugin",
+    "description": "Evocms package for work with Gallery for Resource in Evolution CMS",
+    "keywords": ["evocms", "evolution-cms"],
+    "authors": [
+        {
+            "name": "Serhii Korneliuk",
+            "email": "info@seigerit.com"
+        }
     ],
-    "psr-4": {
-      "Seiger\\sGallery\\": "src"
+    "require": {
+        "intervention/image": "^3.0",
+        "intervention/imagecache": "^2.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Seiger\\sGallery\\": "src"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Seiger\\sGallery\\sGalleryServiceProvider"
+            ],
+            "aliases": {
+                "sGallery": "Seiger\\sGallery\\sGallery"
+            }
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "php artisan migrate"
+        ]
     }
-  },
-  "extra": {
-    "laravel": {
-      "providers": [
-        "Seiger\\sGallery\\sGalleryServiceProvider"
-      ]
-    }
-  },
-  "scripts": {
-    "post-autoload-dump": [
-      "php artisan migrate"
-    ]
-  }
 }
