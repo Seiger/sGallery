@@ -23,7 +23,6 @@ class sGalleryServiceProvider extends ServiceProvider
             $this->loadTranslationsFrom(__DIR__.'/../lang', 'sGallery');
 
             //For use config
-            //For use config
             $this->publishes([
                 __DIR__ . '/config/sgallery.php' => config_path('cms/settings/sgallery.php', true),
                 __DIR__ . '/config/imagecache.php' => config_path('cms/settings/magecache.php', true)
