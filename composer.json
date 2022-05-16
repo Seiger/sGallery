@@ -11,7 +11,7 @@
         }
     ],
     "require": {
-        "intervention/image": "^3.0",
+        "intervention/image": "^2.7",
         "intervention/imagecache": "^2.5"
     },
     "autoload": {
