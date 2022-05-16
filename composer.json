@@ -16,7 +16,7 @@
   },
   "autoload": {
     "classmap": [
-      "sGallery.php"
+      "src/sGallery.php"
     ],
     "psr-4": {
       "Seiger\\sGallery\\": "src"
