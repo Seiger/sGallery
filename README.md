@@ -9,10 +9,10 @@ Run in you /core/ folder:
 ``php artisan package:installrequire seiger/sgallery "*"``
 
 Create config file in **core/custom/config/cms/settings** with 
-name **sGalleryTemplateConfig.php** the file should return a 
+name **sgallery.php** the file should return a 
 comma-separated list of templates.
 
-``echo '<?php return 1;' > custom/config/cms/settings/sGalleryTemplateConfig.php``
+``php artisan vendor:publish --provider="Seiger\sGallery\sGalleryServiceProvider"``
 
 Run make DB structure with command:
 
