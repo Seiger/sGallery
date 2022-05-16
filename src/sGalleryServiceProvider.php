@@ -21,6 +21,10 @@ class sGalleryServiceProvider extends ServiceProvider
 
             //MultiLang
             $this->loadTranslationsFrom(__DIR__.'/../lang', 'sGallery');
+
+            //For use config
+            $this->publishes([__DIR__ . '/config/sgallery.php' => config_path('sgallery.php', true)]);
+            $this->publishes([__DIR__ . '/config/sgallery.php' => config_path('sgallery.php', true)]);
         }
     }
 
