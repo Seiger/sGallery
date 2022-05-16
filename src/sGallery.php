@@ -1,4 +1,4 @@
-<?php namespace Seiger;
+<?php namespace Seiger\sGallery;
 
 class sGallery
 {
