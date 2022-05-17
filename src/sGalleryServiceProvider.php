@@ -1,13 +1,5 @@
 <?php namespace Seiger\sGallery;
 
-require_once MODX_BASE_PATH . 'core/vendor/intervention/imagecache/src/Intervention/Image/ImageCacheController.php';
-require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/Exception/ImageException.php';
-require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/AbstractDriver.php';
-require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/AbstractDecoder.php';
-require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/AbstractEncoder.php';
-require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/File.php';
-require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/AbstractColor.php';
-
 use EvolutionCMS\ServiceProvider;
 use Event;
 
