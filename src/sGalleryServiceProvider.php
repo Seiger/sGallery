@@ -27,18 +27,6 @@ class sGalleryServiceProvider extends ServiceProvider
                 __DIR__ . '/config/sgallery.php' => config_path('cms/settings/sgallery.php', true),
             ]);
         }
-
-        // imagecache route
-        /*if (is_string(config('imagecache.route'))) {
-
-            $filename_pattern = '[ \w\\.\\/\\-\\@\(\)\=]+';
-
-            // route to access template applied image file
-            $this->app['router']->get(config('imagecache.route').'/{template}/{filename}', [
-                'uses' => 'Intervention\Image\ImageCacheController@getResponse',
-                'as' => 'imagecache'
-            ])->where(['filename' => $filename_pattern]);
-        }*/
     }
 
     /**
