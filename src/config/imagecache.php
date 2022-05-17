@@ -30,9 +30,7 @@ return [
     |
     */
 
-    'paths' => [
-        public_path()
-    ],
+    'paths' => glob(MODX_BASE_PATH . "assets/images/sgallery/*", GLOB_ONLYDIR),
 
     /*
     |--------------------------------------------------------------------------

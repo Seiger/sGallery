@@ -1,13 +1,36 @@
 <?php namespace Seiger\sGallery\Controllers;
 
-use Illuminate\Http\Request;
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/ImageManagerStatic.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/ImageManager.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/Image.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/File.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/Exception/MissingDependencyException.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/Exception/ImageException.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/Exception/NotSupportedException.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/Gd/Driver.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/AbstractDriver.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/Gd/Decoder.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/AbstractDecoder.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/Gd/Encoder.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/AbstractEncoder.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/Exception/NotReadableException.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/imagecache/src/Intervention/Image/ImageCache.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/Gd/Color.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/AbstractColor.php';
+
 use Illuminate\Support\Facades\Validator;
+use Intervention\Image\ImageManagerStatic as Image;
 use Seiger\sGallery\Models\sGalleryModel;
 
 class sGalleryController
 {
     public function index()
     {
+        // pass calls to image cache
+        $img = Image::cache(function($image) {
+            $image->make(MODX_BASE_PATH . 'assets/images/sgallery/1/slang.png');
+        });
+        dd($img);
         $cat = request()->id ?? 0;
         $galleries = sGalleryModel::whereParent($cat)->get();
         return $this->view('index', ['galleries' => $galleries]);

@@ -1,5 +1,13 @@
 <?php namespace Seiger\sGallery;
 
+require_once MODX_BASE_PATH . 'core/vendor/intervention/imagecache/src/Intervention/Image/ImageCacheController.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/Exception/ImageException.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/AbstractDriver.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/AbstractDecoder.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/AbstractEncoder.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/File.php';
+require_once MODX_BASE_PATH . 'core/vendor/intervention/image/src/Intervention/Image/AbstractColor.php';
+
 use EvolutionCMS\ServiceProvider;
 use Event;
 
@@ -28,6 +36,18 @@ class sGalleryServiceProvider extends ServiceProvider
                 __DIR__ . '/config/imagecache.php' => config_path('cms/settings/imagecache.php', true),
                 __DIR__ . '/config/laravelimagecache.php' => EVO_CORE_PATH  . 'config/imagecache.php'
             ]);
+        }
+
+        // imagecache route
+        if (is_string(config('imagecache.route'))) {
+
+            $filename_pattern = '[ \w\\.\\/\\-\\@\(\)\=]+';
+
+            // route to access template applied image file
+            $this->app['router']->get(config('imagecache.route').'/{template}/{filename}', [
+                'uses' => 'Intervention\Image\ImageCacheController@getResponse',
+                'as' => 'imagecache'
+            ])->where(['filename' => $filename_pattern]);
         }
     }
 
