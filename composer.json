@@ -10,10 +10,7 @@
             "email": "info@seigerit.com"
         }
     ],
-    "require": {
-        "intervention/image": "^2.7",
-        "intervention/imagecache": "^2.5"
-    },
+    "require": {},
     "autoload": {
         "psr-4": {
             "Seiger\\sGallery\\": "src"

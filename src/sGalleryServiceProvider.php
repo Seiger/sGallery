@@ -33,13 +33,11 @@ class sGalleryServiceProvider extends ServiceProvider
             // For use config
             $this->publishes([
                 __DIR__ . '/config/sgallery.php' => config_path('cms/settings/sgallery.php', true),
-                __DIR__ . '/config/imagecache.php' => config_path('cms/settings/imagecache.php', true),
-                __DIR__ . '/config/laravelimagecache.php' => EVO_CORE_PATH  . 'config/imagecache.php'
             ]);
         }
 
         // imagecache route
-        if (is_string(config('imagecache.route'))) {
+        /*if (is_string(config('imagecache.route'))) {
 
             $filename_pattern = '[ \w\\.\\/\\-\\@\(\)\=]+';
 
@@ -48,7 +46,7 @@ class sGalleryServiceProvider extends ServiceProvider
                 'uses' => 'Intervention\Image\ImageCacheController@getResponse',
                 'as' => 'imagecache'
             ])->where(['filename' => $filename_pattern]);
-        }
+        }*/
     }
 
     /**
