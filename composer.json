@@ -10,7 +10,10 @@
             "email": "info@seigerit.com"
         }
     ],
-    "require": {},
+    "require": {
+        "rosell-dk/webp-convert": "*",
+        "james-heinrich/phpthumb": "1.*"
+    },
     "autoload": {
         "psr-4": {
             "Seiger\\sGallery\\": "src"

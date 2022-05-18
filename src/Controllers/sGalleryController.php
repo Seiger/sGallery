@@ -1,18 +1,14 @@
 <?php namespace Seiger\sGallery\Controllers;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Intervention\Image\ImageManagerStatic as Image;
 use Seiger\sGallery\Models\sGalleryModel;
+use Seiger\sGallery\sGallery;
 
 class sGalleryController
 {
     public function index()
     {
-        // pass calls to image cache
-        $img = Image::cache(function($image) {
-            $image->make(MODX_BASE_PATH . 'assets/images/sgallery/1/slang.png');
-        });
-        dd($img);
         $cat = request()->id ?? 0;
         $galleries = sGalleryModel::whereParent($cat)->get();
         return $this->view('index', ['galleries' => $galleries]);

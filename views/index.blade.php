@@ -24,7 +24,6 @@
             @endforeach
         </ul>
     </form>
-
 </div>
 
 @push('scripts.bot')
@@ -67,4 +66,83 @@
             return data;
         }
     </script>
+    <style>
+        #uploadBase{margin-top:15px;}
+        #uploadBase .image{position:relative;width:250px;height:180px;margin:0 5px 15px 0;list-style:none;display:inline-block;}
+        #uploadBase .image > .btn-danger{position:absolute;top:5px;right:5px;display:none;}
+        #uploadBase .image:hover > .btn-danger, #uploadBase .image:hover > .btn-primary{display:inline;z-index:100;}
+        #uploadBase .image > .btn-primary{position:absolute;top:5px;left:5px;display:none;}
+        #uploadBase .image > .form-control, #uploadBase .image > div > .form-control{margin:0 0px -17px 0;}
+        #uploadBase .image > i.type {
+            position: absolute;
+            top: auto;
+            bottom: 5px;
+            right: 15px;
+            display: block;
+            margin: 0;
+            color: #ffffff;
+            text-shadow: 0 0 3px rgba(0,0,0,1);
+        }
+        #uploadBase .image > i.play_button {
+            position: absolute;
+            top: calc(50% - 35px);
+            right: calc(50% - 35px);
+            display: block;
+            margin: 0;
+            color: #ffffff;
+            opacity: 0.5;
+            text-shadow: 0 0 5px rgba(0,0,0,1);
+            cursor: pointer;
+            -webkit-transform: rotate(0deg);
+            -ms-transform: rotate(0deg);
+            transform: rotate(0deg);
+            -webkit-transform-origin: center;
+            -ms-transform-origin: center;
+            transform-origin: center;
+            -webkit-transition: all 0.5s;
+            -o-transition: all 0.5s;
+            transition: all 0.5s;
+        }
+        #uploadBase .image > i.play_button.fa-pause-circle-o {
+            opacity: 0.1;
+        }
+        #uploadBase .image:hover > i.play_button.fa-play-circle-o {
+            -webkit-transform: rotate(120deg);
+            -ms-transform: rotate(120deg);
+            transform: rotate(120deg);
+            opacity: 1;
+        }
+        #uploadBase .image:hover > i.play_button.fa-pause-circle-o {
+            opacity: 1;
+        }
+        #uploadBase .image > i.youtube_button.play {
+            background: url('/<?php echo $path; ?>/images/youtube-logo.png') no-repeat;
+            background-size: contain;
+            position: absolute;
+            top: calc(50% - 30px);
+            right: calc(50% - 35px);
+            width: 70px;
+            height: 70px;
+            cursor: pointer;
+            transition: scale 0.5s;
+        }
+        #uploadBase .image:hover > i.youtube_button.play {
+            transform: scale(1.1);
+        }
+        #uploadBase .image > i.youtube_button.fa-pause-circle-o {
+            position: absolute;
+            top: calc(50% - 30px);
+            right: calc(50% - 30px);
+            transition: opacity 0.5s;
+            opacity: 0.2;
+        }
+        #uploadBase .image:hover > i.youtube_button.fa-pause-circle-o {
+            opacity: 1;
+            color: white;
+            cursor: pointer;
+        }
+        iframe.thumbnail {
+            pointer-events: none;
+        }
+    </style>
 @endpush
