@@ -7,16 +7,27 @@ use Seiger\sGallery\sGallery;
 
 class sGalleryController
 {
+    /**
+     * Show tab page with Gallery files
+     *
+     * @return bool
+     */
     public function index()
     {
         $cat = request()->id ?? 0;
-        $galleries = sGalleryModel::whereParent($cat)->get();
+        $galleries = sGalleryModel::whereParent($cat)->orderBy('position')->get();
         return $this->view('index', ['galleries' => $galleries]);
     }
 
+    /**
+     * Upload and save Image file
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function uploadFile(Request $request)
     {
-        $data = array();
+        $data = [];
 
         $validator = Validator::make($request->all(), [
             'cat' => 'required|integer|min:1',
@@ -52,6 +63,31 @@ class sGalleryController
         }
 
         return response()->json($data);
+    }
+
+    /**
+     * Update sorting
+     *
+     * @param Request $request
+     * @return void
+     */
+    public function sortGallery(Request $request): void
+    {
+        $data = array();
+
+        $validator = Validator::make($request->all(), [
+            'cat' => 'required|integer|min:1',
+            'item' => 'required|array'
+        ]);
+
+        if (!$validator->fails()) {
+            $items = implode('", "', $request->item);
+            $galleries = sGalleryModel::whereParent($request->cat)->orderByRaw('FIELD(id, "'.$items.'")')->get();
+            foreach ($galleries as $position => $gallery) {
+                $gallery->position = $position;
+                $gallery->update();
+            }
+        }
     }
 
     /**

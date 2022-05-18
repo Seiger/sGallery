@@ -13,21 +13,36 @@
         </button>
     </div>
 
-    <form id="imgForm" enctype="multipart/form-data" method="post">
-        <ul id="uploadBase">
-            @foreach($galleries as $gallery)
-                @switch($gallery->type)
-                    @case(\Seiger\sGallery\Models\sGalleryModel::TYPE_IMAGE)
-                        @include('sGallery::partials.image')
-                        @break
-                @endswitch
-            @endforeach
-        </ul>
-    </form>
+    <ul id="uploadBase">
+        @foreach($galleries as $gallery)
+            @switch($gallery->type)
+                @case(\Seiger\sGallery\Models\sGalleryModel::TYPE_IMAGE)
+                    @include('sGallery::partials.image')
+                    @break
+            @endswitch
+        @endforeach
+    </ul>
 </div>
 
 @push('scripts.bot')
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script>
+        /* Sorting */
+        var uploadBase = document.getElementById('uploadBase');
+        var sortable = new Sortable.create(uploadBase, {
+            animation: 150,
+            onSort: function (evt) {
+                doResorting(evt);
+            }
+        });
+
+        async function doResorting(e) {
+            let list = new FormData();
+            document.querySelectorAll('#uploadBase > li').forEach(item => list.append('item[]', item.getAttribute('data-sgallery')));
+            await fetch('{{route('sGallery.sort', ['cat' => request()->get('id')])}}', {method: 'POST', body: list});
+        }
+
+        /* Upload Images */
         document.querySelector('#filesToUpload').addEventListener('change', event => {
             doUpload(event);
         });
