@@ -30,7 +30,7 @@ class sGalleryController
 
         $validator = Validator::make($request->all(), [
             'cat' => 'required|integer|min:1',
-            'file' => 'required|mimes:'.evo()->getConfig('upload_images', 'png,jpg,jpeg').'|max:'.evo()->getConfig('upload_maxsize', '2048')
+            'file' => 'required|mimes:'.evo()->getConfig('upload_files', 'png,jpg,jpeg,mp4').'|max:'.evo()->getConfig('upload_maxsize', '2048')
         ]);
 
         if ($validator->fails()) {
@@ -40,14 +40,16 @@ class sGalleryController
             if ($request->file('file')) {
                 $file = $request->file('file');
                 $filename = $file->getClientOriginalName();
+                $filetype = explode('/', $file->getMimeType())[0];
 
                 // Upload file
                 $file->move(sGalleryModel::UPLOAD.$request->cat, $filename);
 
                 // Save in DB
                 $thisFile = sGalleryModel::whereParent($request->cat)->whereFile($filename)->firstOrCreate();
-                $thisFile->file = $filename;
                 $thisFile->parent = $request->cat;
+                $thisFile->file = $filename;
+                $thisFile->type = $filetype;
                 $thisFile->update();
 
                 // Response

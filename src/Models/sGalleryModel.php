@@ -9,6 +9,7 @@ class sGalleryModel extends Eloquent\Model
     const UPLOADED = MODX_SITE_URL . "assets/images/sgallery/";
 
     const TYPE_IMAGE = "image";
+    const TYPE_VIDEO = "video";
 
     /**
      * The table associated with the model.
