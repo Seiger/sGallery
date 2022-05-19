@@ -22,7 +22,7 @@ class sGalleryModel extends Eloquent\Model
      *
      * @return string
      */
-    public function getImageSrcAttribute()
+    public function getFileSrcAttribute()
     {
         if (!empty($this->file) && is_file(self::UPLOAD . $this->parent . '/' . $this->file)) {
             $imageSrc = self::UPLOADED . $this->parent . '/' . $this->file;

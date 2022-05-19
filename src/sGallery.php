@@ -13,7 +13,7 @@ class sGallery
      * @param array $params
      * @return array|string|string[]
      */
-    public static function resize(string $input, array $params = [])
+    public function resize(string $input, array $params = [])
     {
         // Set filepath
         $input = str_replace([MODX_SITE_URL, MODX_BASE_PATH], '', $input);

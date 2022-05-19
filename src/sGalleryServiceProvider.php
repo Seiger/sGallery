@@ -7,6 +7,11 @@ class sGalleryServiceProvider extends ServiceProvider
 {
     protected $namespace = '';
 
+    /**
+     * Bootstrap the application services.
+     *
+     * @return void
+     */
     public function boot()
     {
         if (IN_MANAGER_MODE) {
@@ -27,6 +32,9 @@ class sGalleryServiceProvider extends ServiceProvider
                 __DIR__ . '/config/sgallery.php' => config_path('cms/settings/sgallery.php', true),
             ]);
         }
+
+        $this->app->singleton(sGallery::class);
+        $this->app->alias(sGallery::class, 'sGallery');
     }
 
     /**

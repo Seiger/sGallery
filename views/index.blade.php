@@ -5,7 +5,7 @@
     <div class="btn-group btn-group-sm">
         <input type="file" id="filesToUpload" name="files[]" multiple hidden/>
         <label for="filesToUpload" class="btn btn-secondary" style="margin-bottom:0;">
-            <i class="fas fa-image"></i> <span>@lang('sGallery::manager.image_upload')</span>
+            <i class="fas fa-file-upload"></i> <span>@lang('sGallery::manager.file_upload')</span>
         </label>
 
         <button class="btn btn-secondary">

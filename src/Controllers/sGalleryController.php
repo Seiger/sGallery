@@ -3,7 +3,6 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Seiger\sGallery\Models\sGalleryModel;
-use Seiger\sGallery\sGallery;
 
 class sGalleryController
 {

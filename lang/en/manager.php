@@ -1,6 +1,6 @@
 <?php return [
     'gallery' => 'Gallery',
-    'image_upload' => 'Upload Image',
+    'file_upload' => 'Upload File',
     'add_youtube' => 'Add YouTube',
     'edit_text' => 'Edit text',
     'image_delete' => 'Delete image',

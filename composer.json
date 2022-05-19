@@ -25,7 +25,7 @@
                 "Seiger\\sGallery\\sGalleryServiceProvider"
             ],
             "aliases": {
-                "sGallery": "Seiger\\sGallery\\sGallery"
+                "sGallery": "Seiger\\sGallery\\Facades\\sGallery"
             }
         }
     },

@@ -1,6 +1,6 @@
 <?php return [
     'gallery' => 'Галлерея',
-    'image_upload' => 'Загрузить изображение',
+    'file_upload' => 'Загрузить файл',
     'add_youtube' => 'Добавить YouTube',
     'edit_text' => 'Редактировать текст',
     'image_delete' => 'Удалить изображение',
