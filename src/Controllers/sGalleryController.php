@@ -55,7 +55,7 @@ class sGalleryController
                 // Response
                 $data['success'] = 1;
                 $data['message'] = 'Uploaded Successfully!';
-                $data['preview'] = $this->view('partials.image', ['gallery' => $thisFile])->render();
+                $data['preview'] = $this->view('partials.'.$filetype, ['gallery' => $thisFile])->render();
             } else {
                 // Response
                 $data['success'] = 2;
@@ -63,6 +63,40 @@ class sGalleryController
             }
         }
 
+        return response()->json($data);
+    }
+
+    public function addYoutube(Request $request)
+    {
+        $data = [];
+
+        $validator = Validator::make($request->all(), [
+            'cat' => 'required|integer|min:1',
+            'youtube_link' => 'required|active_url'
+        ]);
+
+        if ($validator->fails()) {
+            $data['success'] = 0;
+            $data['error'] = $validator->errors()->first(); // Error response
+        } else {
+            if (preg_match('/[A-z0-9_-]{11}/', $request->youtube_link, $video)) {
+                // Save in DB
+                $thisFile = sGalleryModel::whereParent($request->cat)->whereFile($video[0])->firstOrCreate();
+                $thisFile->parent = $request->cat;
+                $thisFile->file = $video[0];
+                $thisFile->type = 'youtube';
+                $thisFile->update();
+
+                // Response
+                $data['success'] = 1;
+                $data['message'] = 'Add Successfully!';
+                $data['preview'] = $this->view('partials.youtube', ['gallery' => $thisFile])->render();
+            } else {
+                // Response
+                $data['success'] = 2;
+                $data['message'] = 'Video not added.';
+            }
+        }
         return response()->json($data);
     }
 
@@ -89,6 +123,19 @@ class sGalleryController
                 $gallery->update();
             }
         }
+    }
+
+    /**
+     * Get the error messages for the defined validation rules.
+     *
+     * @return array
+     */
+    public function messages()
+    {
+        return [
+            'title.required' => 'A title is required',
+            'body.required' => 'A message is required',
+        ];
     }
 
     /**

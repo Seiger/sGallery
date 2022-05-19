@@ -7,21 +7,14 @@
             <i class="fas fa-file-upload"></i> <span>@lang('sGallery::manager.file_upload')</span>
         </label>
 
-        <button class="btn btn-secondary">
+        <button id="add_youtube" class="btn btn-secondary">
             <i class="fab fa-youtube"></i> <span>@lang('sGallery::manager.add_youtube')</span>
         </button>
     </div>
 
     <ul id="uploadBase">
         @foreach($galleries as $gallery)
-            @switch($gallery->type)
-                @case(\Seiger\sGallery\Models\sGalleryModel::TYPE_IMAGE)
-                    @include('sGallery::partials.image')
-                    @break
-                @case(\Seiger\sGallery\Models\sGalleryModel::TYPE_VIDEO)
-                    @include('sGallery::partials.video')
-                    @break
-            @endswitch
+            @include('sGallery::partials.'.$gallery->type)
         @endforeach
     </ul>
 </div>
@@ -108,6 +101,44 @@
             }
             return false;
         });
+
+        $(document).on("click", "#add_youtube", function() {
+            var youtube_link = prompt("@lang('sGallery::manager.youtube_link')");
+            $.ajax({
+                url:'{{route('sGallery.addyoutube', ['cat' => request()->get('id')])}}',
+                type:"GET",
+                data:'youtube_link='+youtube_link,
+                cache:false,
+                success:function(data) {
+                    document.getElementById('uploadBase').insertAdjacentHTML('beforeend', '<li>' + data.preview + '</li>');
+                    doResorting();
+                }
+            });
+            return false;
+        });
+
+        var player = [];
+
+        $(document).on("click", "i.youtube_button", function() {
+            var video = $(this).parent().find('iframe').get(0).id;
+
+            if (player[video].getPlayerState() !== 1 ) {
+                $(this).removeClass('play');
+                $(this).addClass('fa fa-pause-circle-o fa-5x');
+                player[video].playVideo();
+            } else {
+                $(this).removeClass('fa fa-pause-circle-o fa-5x');
+                $(this).addClass('play');
+                player[video].pauseVideo();
+            }
+            return false;
+        });
+
+        window.onYouTubeIframeAPIReady = function() {
+            $.each($('iframe.thumbnail'), function(index, element) {
+                player[element.id] = new YT.Player(element.id);
+            });
+        }
     </script>
     <style>
         #uploadBase{margin-top:15px;}
@@ -121,34 +152,12 @@
         #uploadBase .image > i.play_button.fa-pause-circle-o{opacity:0.1;}
         #uploadBase .image:hover > i.play_button.fa-play-circle-o{-webkit-transform:rotate(120deg);-ms-transform:rotate(120deg);transform:rotate(120deg);opacity:1;}
         #uploadBase .image:hover > i.play_button.fa-pause-circle-o{opacity:1;}
-        #uploadBase .image > i.youtube_button.play {
-            background: url('/<?php echo $path; ?>/images/youtube-logo.png') no-repeat;
-            background-size: contain;
-            position: absolute;
-            top: calc(50% - 30px);
-            right: calc(50% - 35px);
-            width: 70px;
-            height: 70px;
-            cursor: pointer;
-            transition: scale 0.5s;
-        }
-        #uploadBase .image:hover > i.youtube_button.play {
-            transform: scale(1.1);
-        }
-        #uploadBase .image > i.youtube_button.fa-pause-circle-o {
-            position: absolute;
-            top: calc(50% - 30px);
-            right: calc(50% - 30px);
-            transition: opacity 0.5s;
-            opacity: 0.2;
-        }
-        #uploadBase .image:hover > i.youtube_button.fa-pause-circle-o {
-            opacity: 1;
-            color: white;
-            cursor: pointer;
-        }
+        #uploadBase .image > i.youtube_button.play{background:url('{{\Seiger\sGallery\Models\sGalleryModel::UPLOADED}}youtube-logo.png') no-repeat;background-size:contain;position:absolute;top:calc(50% - 30px);right:calc(50% - 35px);width:70px;height:70px;cursor:pointer;transition:scale 0.5s;}
+        #uploadBase .image:hover > i.youtube_button.play{transform:scale(1.1);}
+        #uploadBase .image > i.youtube_button.fa-pause-circle-o{position:absolute;top:calc(50% - 30px);right:calc(50% - 30px);transition:opacity 0.5s;opacity:0.2;}
+        #uploadBase .image:hover > i.youtube_button.fa-pause-circle-o{opacity:1;color:white;cursor:pointer;}
         #uploadBase .image img{margin-bottom:34px;}
-        #uploadBase .image video{margin-bottom:-69px;margin-left:-5px;object-fit:cover;}
+        #uploadBase .image video, #uploadBase .image iframe{margin-bottom:-69px;object-fit:cover;}
         iframe.thumbnail{pointer-events:none;}
     </style>
 @endpush

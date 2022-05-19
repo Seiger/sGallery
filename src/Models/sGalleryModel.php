@@ -10,6 +10,7 @@ class sGalleryModel extends Eloquent\Model
 
     const TYPE_IMAGE = "image";
     const TYPE_VIDEO = "video";
+    const TYPE_YOUTUBE = "youtube";
 
     /**
      * The table associated with the model.

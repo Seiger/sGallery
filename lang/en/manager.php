@@ -5,4 +5,5 @@
     'edit_text' => 'Edit text',
     'image_delete' => 'Delete image',
     'file_upload_error' => 'Error',
+    'youtube_link' => 'Link to video',
 ];
