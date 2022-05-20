@@ -16,7 +16,7 @@
 - [x] Sort positions.
 - [x] Text fields for file.
 
-## Install by artisan package installer:
+## Install by artisan package installer
 
 Run in you /core/ folder:
 
@@ -31,3 +31,11 @@ comma-separated list of templates.
 Run make DB structure with command:
 
 ``php artisan migrate``
+
+## Configure
+
+Templates for displaying gallery tabs are configured in the 
+
+``core/custom/config/cms/settings/sGallery.php``
+
+file, where the array contains template IDs for connecting the gallery.
