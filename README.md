@@ -15,6 +15,7 @@
 - [x] Include Youtube.
 - [x] Sort positions.
 - [x] Text fields for file.
+- [x] Resize and WEBP convert image.
 
 ## Install by artisan package installer
 
