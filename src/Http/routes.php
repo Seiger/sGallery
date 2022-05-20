@@ -7,4 +7,7 @@ Route::middleware('mgr')->group(function () {
     Route::post('sgallery/upload', [sGalleryController::class, 'uploadFile'])->name('sGallery.upload');
     Route::get('sgallery/upload', [sGalleryController::class, 'addYoutube'])->name('sGallery.addyoutube');
     Route::post('sgallery/sort', [sGalleryController::class, 'sortGallery'])->name('sGallery.sort');
+    Route::post('sgallery/delete', [sGalleryController::class, 'delete'])->name('sGallery.delete');
+    Route::get('sgallery/translate', [sGalleryController::class, 'getTranslate'])->name('sGallery.gettranslate');
+    Route::post('sgallery/translate', [sGalleryController::class, 'setTranslate'])->name('sGallery.settranslate');
 });

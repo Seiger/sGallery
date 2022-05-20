@@ -139,4 +139,19 @@ class sGallery
 
         return $fNamePref . rawurlencode($fName) . $fNameSuf;
     }
+
+    /**
+     * Content Tabs
+     *
+     * @return array
+     */
+    public function langTabs(): array
+    {
+        $tabs = [];
+        $lang = explode(',', evo()->getConfig('s_lang_config', 'base'));
+        foreach ($lang as $item) {
+            $tabs[$item] = '<span class="badge bg-seigerit">' . $item . '</span>';
+        }
+        return $tabs;
+    }
 }

@@ -17,14 +17,27 @@
             @include('sGallery::partials.'.$gallery->type)
         @endforeach
     </ul>
+
+    <div class="modal fade" id="translate" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">@lang('sGallery::manager.texts_for_file') <span class="filemane"></span></div>
+                <div class="modal-body"></div>
+                <div class="modal-footer">
+                    <span class="btn btn-success" onclick="sendForm('#translate');">@lang('sGallery::manager.save')</span>
+                    <span class="btn btn-default" onclick="$('#translate').hide();">@lang('sGallery::manager.cancel')</span>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @push('scripts.bot')
     <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/css/themes/bootstrap.min.css"/>
     <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/css/alertify.min.css"/>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    <script src="//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/alertify.min.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/alertify.min.js"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
     <script>
         /* Sorting */
         var uploadBase = document.getElementById('uploadBase');
@@ -139,6 +152,74 @@
                 player[element.id] = new YT.Player(element.id);
             });
         }
+
+        /* Delete item */
+        $(document).on("click", "[data-image-remove]", function() {
+            var _this = $(this);
+            alertify.confirm("@lang('sGallery::manager.are_you_sure')", "@lang('sGallery::manager.deleted_irretrievably')",
+                function() {
+                    alertify.success("@lang('sGallery::manager.deleted')");
+                    $.ajax({
+                        url:'{{route('sGallery.delete')}}',
+                        type:"POST",
+                        data:'item='+_this.attr("data-image-remove"),
+                        cache:false,
+                        success:function(data) {
+                            _this.parents(".image").fadeOut(1000, function() {$(this).remove()});
+                        }
+                    });
+                },
+                function() {
+                    alertify.error("@lang('sGallery::manager.cancel')");
+                });
+            return false;
+        });
+
+        $(document).on("click", "[data-image-edit]", function() {
+            var _this = $(this);
+            $.ajax({
+                url:'{{route('sGallery.gettranslate')}}',
+                data:'item='+_this.attr("data-image-edit"),
+                cache:false,
+                success:function(ajax) {
+                    $("#translate .modal-body").html(ajax.tabs);
+                    $("#translate .nav-link:first-child").addClass('active');
+                    $("#translate .tab-pane:first-child").addClass('active').addClass('show');
+                    $('#translate').show();
+                }
+            });
+            return false;
+        });
+
+        $(document).on("click", "#translate [data-bs-target]", function() {
+            var tabButton = $(this);
+
+            $("#translate .nav-link").each(function () {
+                $(this).removeClass('active');
+            });
+            $("#translate .tab-pane").each(function () {
+                $(this).removeClass('active').removeClass('show');
+            });
+
+            tabButton.addClass('active');
+            $(tabButton.attr('data-bs-target')).addClass('active').addClass('show');
+        });
+
+        function sendForm(selector) {
+            $.ajax({
+                url:'{{route('sGallery.settranslate')}}',
+                type:"POST",
+                data:$(document).find(selector).find('input').serialize(),
+                cache:false,
+                success:function(ajax) {
+                    if (ajax.success == 1) {
+                        $(selector).hide();
+                        alertify.success("@lang('sGallery::manager.saved_successfully')");
+                    }
+                }
+            });
+            return false;
+        }
     </script>
     <style>
         #uploadBase{margin-top:15px;}
@@ -152,12 +233,17 @@
         #uploadBase .image > i.play_button.fa-pause-circle-o{opacity:0.1;}
         #uploadBase .image:hover > i.play_button.fa-play-circle-o{-webkit-transform:rotate(120deg);-ms-transform:rotate(120deg);transform:rotate(120deg);opacity:1;}
         #uploadBase .image:hover > i.play_button.fa-pause-circle-o{opacity:1;}
-        #uploadBase .image > i.youtube_button.play{background:url('{{\Seiger\sGallery\Models\sGalleryModel::UPLOADED}}youtube-logo.png') no-repeat;background-size:contain;position:absolute;top:calc(50% - 30px);right:calc(50% - 35px);width:70px;height:70px;cursor:pointer;transition:scale 0.5s;}
+        #uploadBase .image > i.youtube_button.play{background:url('{{\Seiger\sGallery\Models\sGalleryModel::UPLOADED}}youtube-logo.png') no-repeat;background-size:contain;position:absolute;top:calc(50% - 35px);right:calc(50% - 35px);width:70px;height:70px;cursor:pointer;transition:scale 0.5s;}
         #uploadBase .image:hover > i.youtube_button.play{transform:scale(1.1);}
-        #uploadBase .image > i.youtube_button.fa-pause-circle-o{position:absolute;top:calc(50% - 30px);right:calc(50% - 30px);transition:opacity 0.5s;opacity:0.2;}
+        #uploadBase .image > i.youtube_button.fa-pause-circle-o{position:absolute;top:calc(50% - 35px);right:calc(50% - 35px);transition:opacity 0.5s;opacity:0.2;}
         #uploadBase .image:hover > i.youtube_button.fa-pause-circle-o{opacity:1;color:white;cursor:pointer;}
         #uploadBase .image img{margin-bottom:34px;}
         #uploadBase .image video, #uploadBase .image iframe{margin-bottom:-69px;object-fit:cover;}
         iframe.thumbnail{pointer-events:none;}
+        .modal{top:50px;font-weight:bold;}
+        .fade:not(.show){opacity:initial;}
+        .modal-backdrop {background-color:rgba(0, 0, 0, 0.5);}
+        .modal-header{margin-top:1rem;}
+        .badge.bg-seigerit{background-color:#0057b8;color:#ffd700;font-size:120%;}
     </style>
 @endpush

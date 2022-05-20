@@ -2,7 +2,9 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Seiger\sGallery\Models\sGalleryField;
 use Seiger\sGallery\Models\sGalleryModel;
+use sGallery;
 
 class sGalleryController
 {
@@ -66,6 +68,12 @@ class sGalleryController
         return response()->json($data);
     }
 
+    /**
+     * Add YouTube video
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function addYoutube(Request $request)
     {
         $data = [];
@@ -123,6 +131,86 @@ class sGalleryController
                 $gallery->update();
             }
         }
+    }
+
+    /**
+     * Get fields from file
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getTranslate(Request $request)
+    {
+        $data = array();
+
+        $validator = Validator::make($request->all(), [
+            'item' => 'required|integer|min:1'
+        ]);
+
+        if ($validator->fails()) {
+            $data['success'] = 0;
+            $data['error'] = $validator->errors()->first(); // Error response
+        } else {
+            $items = sGalleryField::where('key', $request->item)->get()->mapWithKeys(function ($item, $key) {
+                return [$item->lang => $item];
+            });
+
+            $data['success'] = 1;
+            $data['message'] = 'Get Successfully!';
+            $data['tabs'] = $this->view('partials.tabs', ['items' => $items, 'key' => $request->item])->render();
+        }
+        return response()->json($data);
+    }
+
+    /**
+     * Save fields from file
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function setTranslate(Request $request)
+    {
+        $data = array();
+
+        $validator = Validator::make($request->all(), [
+            'list' => 'required|array'
+        ]);
+
+        if ($validator->fails()) {
+            $data['success'] = 0;
+            $data['error'] = $validator->errors()->first(); // Error response
+        } else {
+            $key = array_key_first($request->list);
+            $items = $request->list[$key];
+
+            foreach ($items as $lang => $item) {
+                $translate = sGalleryField::whereKey($key)->whereLang($lang)->firstOrCreate();
+                $translate->key = $key;
+                $translate->lang = $lang;
+                $translate->alt = ($item['alt'] ?? '');
+                $translate->title = ($item['title'] ?? '');
+                $translate->description = ($item['description'] ?? '');
+                $translate->link_text = ($item['link_text'] ?? '');
+                $translate->link = ($item['link'] ?? '');
+                $translate->save();
+            }
+
+            $data['success'] = 1;
+            $data['message'] = __('sGallery::manager.saved_successfully');
+        }
+        return response()->json($data);
+    }
+
+    /**
+     * Delete item
+     *
+     * @param Request $request
+     * @return void
+     */
+    public function delete(Request $request): void
+    {
+        $gallery = sGalleryModel::find((int)$request->item);
+        $gallery->delete();
     }
 
     /**

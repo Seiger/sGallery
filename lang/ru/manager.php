@@ -6,4 +6,12 @@
     'image_delete' => 'Удалить изображение',
     'file_upload_error' => 'Ошибка',
     'youtube_link' => 'Ссылка на видео',
+    'deleted' => 'Удалено',
+    'are_you_sure' => 'Вы уверены?',
+    'deleted_irretrievably' => 'Если Вы нажмете кнопку удалить, то элемент будет удален безвозвратно.',
+    'cancel' => 'Отмена',
+    'texts_for_file' => 'Тексты для файла',
+    'save' => 'Сохранить',
+    'tab_texts' => 'Содержимое',
+    'saved_successfully' => 'Успешно сохранено',
 ];
