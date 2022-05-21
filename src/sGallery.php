@@ -1,19 +1,45 @@
 <?php namespace Seiger\sGallery;
 
 use phpthumb;
+use Seiger\sGallery\Models\sGalleryModel;
 use WebPConvert\WebPConvert;
 
 class sGallery
 {
     /**
+     * Get all files from current document
      *
+     * @param int|null $documentId
+     * @param string|null $lang
+     * @return object
+     */
+    public function all(int $documentId = null, string $lang = null): object
+    {
+        if (!$documentId) {
+            $documentId = evo()->documentObject['id'] ?? 0;
+        }
+
+        if (!$lang) {
+            $lang = evo()->getConfig('lang', 'base');
+        }
+
+        $galleries = sGalleryModel::lang($lang)
+            ->whereParent($documentId)
+            ->orderBy('position')
+            ->get();
+
+        return $galleries;
+    }
+
+    /**
+     * Resize Image
      * https://docs.evo.im/ua/04_extras/phpthumb/02_opcii.html
      *
      * @param string $input
      * @param array $params
      * @return array|string|string[]
      */
-    public function resize(string $input, array $params = [])
+    public function resize(string $input, array $params = []): string
     {
         // Set filepath
         $input = str_replace([MODX_SITE_URL, MODX_BASE_PATH], '', $input);

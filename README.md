@@ -21,22 +21,48 @@
 
 Run in you /core/ folder:
 
-``php artisan package:installrequire seiger/sgallery "*"``
+```console
+php artisan package:installrequire seiger/sgallery "*"
+```
 
 Create config file in **core/custom/config/cms/settings** with 
 name **sgallery.php** the file should return a 
 comma-separated list of templates.
 
-``php artisan vendor:publish --provider="Seiger\sGallery\sGalleryServiceProvider"``
+```console
+php artisan vendor:publish --provider="Seiger\sGallery\sGalleryServiceProvider"
+```
 
 Run make DB structure with command:
 
-``php artisan migrate``
+```console
+php artisan migrate
+```
 
 ## Configure
 
 Templates for displaying gallery tabs are configured in the 
 
-``core/custom/config/cms/settings/sGallery.php``
+```console
+core/custom/config/cms/settings/sGallery.php
+```
 
 file, where the array contains template IDs for connecting the gallery.
+
+## Usage in blade
+
+Sow all files:
+```php
+@foreach(sGallery::all() as $item)
+    <a class="swiper-slide" @if(trim($item->link))href="{{$item->link}}"@endif>
+        <div class="container">
+            <img loading="lazy" class="intro__img" src="{{$item->file_src}}" alt="{{$item->alt}}" width="1440" height="456">
+            <div class="intro__inner">
+                <div class="h1__title">{{$item->title}}</div>
+                <p class="intro__text">{{$item->description}}</p>
+                @if(trim($item->link_text))<div class="btn background__mod">{{$item->link_text}}</div>@endif
+            </div>
+        </div>
+    </a>
+@endforeach
+```
