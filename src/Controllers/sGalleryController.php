@@ -209,13 +209,14 @@ class sGalleryController
      */
     public function delete(Request $request): void
     {
-        $gallery = sGalleryModel::find((int)$request->item);
-        $gallery->delete();
-
         $fields = sGalleryField::whereKey((int)$request->item)->get();
         foreach ($fields as $field) {
             $field->delete();
         }
+
+        $gallery = sGalleryModel::find((int)$request->item);
+        unlink(sGalleryModel::UPLOAD . $gallery->parent . '/' . $gallery->file);
+        $gallery->delete();
     }
 
     /**
