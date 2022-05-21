@@ -20,6 +20,18 @@ class sGalleryModel extends Eloquent\Model
     protected $table = 's_galleries';
 
     /**
+     * Get the file item fields with lang
+     *
+     * @param $query
+     * @param $locale
+     * @return mixed
+     */
+    public function scopeLang($query, $locale)
+    {
+        return $this->leftJoin('s_gallery_fields', 's_galleries.id', '=', 's_gallery_fields.key')->where('lang', '=', $locale);
+    }
+
+    /**
      * Get the image src link
      *
      * @return string
