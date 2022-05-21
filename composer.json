@@ -11,6 +11,7 @@
         }
     ],
     "require": {
+        "php": ">=7.4",
         "rosell-dk/webp-convert": "*",
         "james-heinrich/phpthumb": "1.*"
     },
