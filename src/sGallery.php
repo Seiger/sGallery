@@ -24,7 +24,7 @@ class sGallery
         $params['f'] = $params['f'] ?? 'webp';
         if ($params['f'] == 'webp') {
             $webp = true;
-            $params['f'] = 'png';
+            $params['f'] = strtolower(substr($input, -3));
         }
 
         // Set resize type
