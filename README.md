@@ -5,8 +5,8 @@
 ![PHP version](https://img.shields.io/packagist/php-v/seiger/sgallery)
 [![License](https://img.shields.io/packagist/l/seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
 [![Issues](https://img.shields.io/github/issues/Seiger/sgallery)](https://github.com/Seiger/sgallery/issues)
-[![Total Downloads](https://img.shields.io/packagist/dt/seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
 [![Stars](https://img.shields.io/packagist/stars/Seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
+[![Total Downloads](https://img.shields.io/packagist/dt/seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
 
 **sGallery** Plugin for attaching Images and Video clips (YouTube) to a resource in the Evolution CMS admin panel.
 
