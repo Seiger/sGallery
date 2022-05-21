@@ -211,6 +211,11 @@ class sGalleryController
     {
         $gallery = sGalleryModel::find((int)$request->item);
         $gallery->delete();
+
+        $fields = sGalleryField::whereKey((int)$request->item)->get();
+        foreach ($fields as $field) {
+            $field->delete();
+        }
     }
 
     /**
