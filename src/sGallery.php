@@ -14,7 +14,7 @@ class sGallery
      * @param string|null $lang
      * @return object
      */
-    public function all(int $documentId = null, string $lang = null): object
+    public function all(string $resourceType = 'resource', int $documentId = null, string $lang = null): object
     {
         if (!$documentId) {
             $documentId = evo()->documentObject['id'] ?? 0;
@@ -26,6 +26,7 @@ class sGallery
 
         $galleries = sGalleryModel::lang($lang)
             ->whereParent($documentId)
+            ->whereResourceType($resourceType)
             ->orderBy('position')
             ->get();
 
