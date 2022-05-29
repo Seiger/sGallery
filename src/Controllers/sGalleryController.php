@@ -2,12 +2,39 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\View\View;
 use Seiger\sGallery\Models\sGalleryField;
 use Seiger\sGallery\Models\sGalleryModel;
 use sGallery;
 
 class sGalleryController
 {
+    protected $viewType;
+    protected $resourceType;
+    protected $idType;
+
+    /**
+     * @param string $viewType tab or section
+     * @param string $resourceType resource
+     * @param string $idType id
+     */
+    public function __construct(string $viewType = 'tab', string $resourceType = 'resource', string $idType = 'id')
+    {
+        if (in_array($viewType, [sGalleryModel::VIEW_TAB, sGalleryModel::VIEW_SECTION])) {
+            $this->viewType = $viewType;
+        } else {
+            $this->viewType = 'tab';
+        }
+
+        if (request()->has('amp;resourceType')) {
+            $this->resourceType = request()->get('amp;resourceType');
+        } else {
+            $this->resourceType = request()->resourceType ?? $resourceType;
+        }
+
+        $this->idType = $idType;
+    }
+
     /**
      * Show tab page with Gallery files
      *
@@ -15,9 +42,9 @@ class sGalleryController
      */
     public function index()
     {
-        $cat = request()->id ?? 0;
-        $galleries = sGalleryModel::whereParent($cat)->orderBy('position')->get();
-        return $this->view('index', ['galleries' => $galleries]);
+        $cat = request()->{$this->idType} ?? 0;
+        $galleries = sGalleryModel::whereParent($cat)->whereResourceType($this->resourceType)->orderBy('position')->get();
+        return $this->view($this->viewType, ['galleries' => $galleries, 'sGalleryController' => $this]);
     }
 
     /**
@@ -45,13 +72,14 @@ class sGalleryController
                 $filetype = explode('/', $file->getMimeType())[0];
 
                 // Upload file
-                $file->move(sGalleryModel::UPLOAD.$request->cat, $filename);
+                $file->move(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat, $filename);
 
                 // Save in DB
-                $thisFile = sGalleryModel::whereParent($request->cat)->whereFile($filename)->firstOrCreate();
+                $thisFile = sGalleryModel::whereParent($request->cat)->whereResourceType($this->resourceType)->whereFile($filename)->firstOrCreate();
                 $thisFile->parent = $request->cat;
                 $thisFile->file = $filename;
                 $thisFile->type = $filetype;
+                $thisFile->resource_type = $this->resourceType;
                 $thisFile->update();
 
                 // Response
@@ -89,10 +117,11 @@ class sGalleryController
         } else {
             if (preg_match('/[A-z0-9_-]{11}/', $request->youtube_link, $video)) {
                 // Save in DB
-                $thisFile = sGalleryModel::whereParent($request->cat)->whereFile($video[0])->firstOrCreate();
+                $thisFile = sGalleryModel::whereParent($request->cat)->whereResourceType($this->resourceType)->whereFile($video[0])->firstOrCreate();
                 $thisFile->parent = $request->cat;
                 $thisFile->file = $video[0];
                 $thisFile->type = 'youtube';
+                $thisFile->resource_type = $this->resourceType;
                 $thisFile->update();
 
                 // Response
@@ -125,7 +154,7 @@ class sGalleryController
 
         if (!$validator->fails()) {
             $items = implode('", "', $request->item);
-            $galleries = sGalleryModel::whereParent($request->cat)->orderByRaw('FIELD(id, "'.$items.'")')->get();
+            $galleries = sGalleryModel::whereParent($request->cat)->whereResourceType($this->resourceType)->orderByRaw('FIELD(id, "'.$items.'")')->get();
             foreach ($galleries as $position => $gallery) {
                 $gallery->position = $position;
                 $gallery->update();
@@ -209,14 +238,36 @@ class sGalleryController
      */
     public function delete(Request $request): void
     {
+        $gallery = sGalleryModel::find((int)$request->item);
+
         $fields = sGalleryField::whereKey((int)$request->item)->get();
         foreach ($fields as $field) {
             $field->delete();
         }
 
-        $gallery = sGalleryModel::find((int)$request->item);
-        unlink(sGalleryModel::UPLOAD . $gallery->parent . '/' . $gallery->file);
+        unlink(sGalleryModel::UPLOAD.$this->resourceType.'/'.$gallery->parent.'/'.$gallery->file);
+
         $gallery->delete();
+    }
+
+    /**
+     * Get the identifier type
+     *
+     * @return string
+     */
+    public function getIdType()
+    {
+        return $this->idType;
+    }
+
+    /**
+     * Get the resource type
+     *
+     * @return string
+     */
+    public function getResourceType()
+    {
+        return $this->resourceType;
     }
 
     /**
@@ -235,11 +286,11 @@ class sGalleryController
     /**
      * Display render
      *
-     * @param $tpl
+     * @param string $tpl
      * @param array $data
      * @return bool
      */
-    public function view($tpl, $data = [])
+    public function view(string $tpl, array $data = [])
     {
         return \View::make('sGallery::'.$tpl, $data);
     }

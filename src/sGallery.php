@@ -76,7 +76,7 @@ class sGallery
         $newFolderAccessMode = empty($new) ? 0777 : octdec($newFolderAccessMode);
 
         $defaultCacheFolder = 'assets/cache/';
-        $cacheFolder = isset($cacheFolder) ? $cacheFolder : $defaultCacheFolder . 'images';
+        $cacheFolder = isset($cacheFolder) ? $cacheFolder : $defaultCacheFolder . 'sgallery';
 
         $path = MODX_BASE_PATH . $cacheFolder;
         if (!file_exists($path) && mkdir($path) && is_dir($path)) {
@@ -99,7 +99,7 @@ class sGallery
         }
 
         $path_parts = pathinfo($input);
-        $pattern = '/assets\/images\/sgallery\/(\d+)/';
+        $pattern = '/assets\/sgallery\/(\w+)\/(\d+)/';
         $tmpImagesFolder = preg_replace($pattern, '', $path_parts['dirname']);
         $tmpImagesFolder = explode('/', $tmpImagesFolder);
 
@@ -131,7 +131,7 @@ class sGallery
         if (!file_exists($check)) {
             $phpThumb = new phpthumb();
             $phpThumb->config_cache_directory = MODX_BASE_PATH . $defaultCacheFolder;
-            $phpThumb->config_temp_directory = $defaultCacheFolder;
+            $phpThumb->config_temp_directory = "/tmp";
             $phpThumb->config_document_root = MODX_BASE_PATH;
             $phpThumb->setSourceFilename(MODX_BASE_PATH . $input);
             foreach ($params as $key => $value) {
@@ -163,7 +163,7 @@ class sGallery
             $fNameSuf = str_replace($params['f'], 'webp', $fNameSuf);
         }
 
-        return $fNamePref . rawurlencode($fName) . $fNameSuf;
+        return MODX_SITE_URL . $fNamePref . rawurlencode($fName) . $fNameSuf;
     }
 
     /**
@@ -176,7 +176,7 @@ class sGallery
         $tabs = [];
         $lang = explode(',', evo()->getConfig('s_lang_config', 'base'));
         foreach ($lang as $item) {
-            $tabs[$item] = '<span class="badge bg-seigerit">' . $item . '</span>';
+            $tabs[$item] = '<span class="badge bg-seigerit-gallery">' . $item . '</span>';
         }
         return $tabs;
     }

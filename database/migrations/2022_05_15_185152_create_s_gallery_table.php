@@ -19,6 +19,7 @@ class CreateSGalleryTable extends Migration
             $table->integer('position')->default(0);
             $table->string('file', 100);
             $table->string('type', 10)->default('image');
+            $table->string('resource', 64)->default('resource');
             $table->timestamps();
         });
 

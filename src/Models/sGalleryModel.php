@@ -5,12 +5,15 @@ use Illuminate\Database\Eloquent;
 
 class sGalleryModel extends Eloquent\Model
 {
-    const UPLOAD = MODX_BASE_PATH . "assets/images/sgallery/";
-    const UPLOADED = MODX_SITE_URL . "assets/images/sgallery/";
+    const UPLOAD = MODX_BASE_PATH . "assets/sgallery/";
+    const UPLOADED = MODX_SITE_URL . "assets/sgallery/";
 
     const TYPE_IMAGE = "image";
     const TYPE_VIDEO = "video";
     const TYPE_YOUTUBE = "youtube";
+
+    const VIEW_TAB = "tab";
+    const VIEW_SECTION = "section";
 
     /**
      * The table associated with the model.
@@ -38,10 +41,10 @@ class sGalleryModel extends Eloquent\Model
      */
     public function getFileSrcAttribute()
     {
-        if (!empty($this->file) && is_file(self::UPLOAD . $this->parent . '/' . $this->file)) {
-            $imageSrc = self::UPLOADED . $this->parent . '/' . $this->file;
+        if (!empty($this->file) && is_file(self::UPLOAD.$this->resource_type.'/'.$this->parent.'/'.$this->file)) {
+            $imageSrc = self::UPLOADED.$this->resource_type.'/'.$this->parent.'/'.$this->file;
         } else {
-            $imageSrc = self::UPLOADED . 'noimage.png';
+            $imageSrc = self::UPLOADED.'noimage.png';
         }
 
         return $imageSrc;

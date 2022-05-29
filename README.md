@@ -18,6 +18,7 @@
 - [x] Sort positions.
 - [x] Text fields for file.
 - [x] Resize and WEBP convert image.
+- [x] Integration the gallery to custom modules.
 
 ## Install by artisan package installer
 
@@ -67,4 +68,12 @@ Sow all files:
         </div>
     </a>
 @endforeach
+```
+
+## Integration into the goods module
+
+Just paste this code in your View backend
+```php
+@php($sGalleryController = new \Seiger\sGallery\Controllers\sGalleryController('section', 'product', 'i'))
+{!! $sGalleryController->index() !!}
 ```
