@@ -74,6 +74,5 @@ Sow all files:
 
 Just paste this code in your View backend
 ```php
-@php($sGalleryController = new \Seiger\sGallery\Controllers\sGalleryController('section', 'product', 'i'))
-{!! $sGalleryController->index() !!}
+{!! sGallery::initialise('section', 'product', 'i') !!}
 ```

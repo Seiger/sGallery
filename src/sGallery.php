@@ -1,6 +1,7 @@
 <?php namespace Seiger\sGallery;
 
 use phpthumb;
+use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
 use WebPConvert\WebPConvert;
 
@@ -137,7 +138,7 @@ class sGallery
             foreach ($params as $key => $value) {
                 $phpThumb->setParameter($key, $value);
             }
-            //dd($phpThumb->thumbnailQuality);
+
             if ($phpThumb->GenerateThumbnail()) {
                 $phpThumb->RenderToFile($outputFilename);
             } else {
@@ -179,5 +180,19 @@ class sGallery
             $tabs[$item] = '<span class="badge bg-seigerit-gallery">' . $item . '</span>';
         }
         return $tabs;
+    }
+
+    /**
+     * Initialise Gallery with parameters
+     *
+     * @param string $viewType tab or section
+     * @param string $resourceType resource
+     * @param string $idType id
+     * @return string
+     */
+    public function initialise(string $viewType = 'tab', string $resourceType = 'resource', string $idType = 'id'): string
+    {
+        $sGalleryController = new sGalleryController($viewType, $resourceType, $idType);
+        return $sGalleryController->index();
     }
 }
