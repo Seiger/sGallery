@@ -70,7 +70,7 @@ Sow all files:
 @endforeach
 ```
 
-## Integration into the goods module
+## Integration into the products module
 
 Just paste this code in your View backend
 ```php
