@@ -69,6 +69,16 @@ Sow all files:
     </a>
 @endforeach
 ```
+or
+```php
+@foreach(sGallery::all('product', $product->id) as $item)
+    <div class="swiper-slide">
+        <a class="js-trigger-fancybox" href="{{$item->file_src}}" data-fancybox="product-gallery">
+            <img loading="lazy" src="{{$item->file_src}}" width="440" height="440" />
+        </a>
+    </div>
+@endforeach
+```
 
 ## Integration into the products module
 
