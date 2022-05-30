@@ -2,6 +2,7 @@
 
 use EvolutionCMS\Facades\UrlProcessor;
 use Illuminate\Database\Eloquent;
+use Illuminate\Support\Facades\DB;
 
 class sGalleryModel extends Eloquent\Model
 {
@@ -31,7 +32,17 @@ class sGalleryModel extends Eloquent\Model
      */
     public function scopeLang($query, $locale)
     {
-        return $this->leftJoin('s_gallery_fields', 's_galleries.id', '=', 's_gallery_fields.key')->where('lang', '=', $locale);
+        return $this->leftJoin('s_gallery_fields', function ($leftJoin) use ($locale) {
+            $leftJoin->on('s_galleries.id', '=', 's_gallery_fields.key')
+                ->where('lang', function ($leftJoin) use ($locale) {
+                    $leftJoin->select('lang')
+                        ->from('s_gallery_fields')
+                        ->whereRaw(DB::getTablePrefix().'s_gallery_fields.key = '.DB::getTablePrefix().'s_galleries.id')
+                        ->whereIn('lang', [$locale, 'base'])
+                        ->orderByRaw('FIELD(lang, "'.$locale.'", "base")')
+                        ->limit(1);
+                });
+        });
     }
 
     /**
