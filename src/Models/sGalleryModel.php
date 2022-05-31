@@ -15,6 +15,7 @@ class sGalleryModel extends Eloquent\Model
 
     const VIEW_TAB = "tab";
     const VIEW_SECTION = "section";
+    const VIEW_SECTION_DOWNLOADS = "sectionDownloads";
 
     /**
      * The table associated with the model.

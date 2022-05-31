@@ -1,5 +1,6 @@
 <?php namespace Seiger\sGallery;
 
+use Illuminate\View\View;
 use phpthumb;
 use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
@@ -7,6 +8,20 @@ use WebPConvert\WebPConvert;
 
 class sGallery
 {
+    /**
+     * Initialise Gallery with parameters
+     *
+     * @param string $viewType tab or section or sectionFiles
+     * @param string $resourceType resource
+     * @param string $idType id
+     * @return View
+     */
+    public function initialise(string $viewType = 'tab', string $resourceType = 'resource', string $idType = 'id'): View
+    {
+        $sGalleryController = new sGalleryController($viewType, $resourceType, $idType);
+        return $sGalleryController->index();
+    }
+
     /**
      * Get all files from current document
      *
@@ -181,19 +196,5 @@ class sGallery
             $tabs[$item] = '<span class="badge bg-seigerit-gallery">' . $item . '</span>';
         }
         return $tabs;
-    }
-
-    /**
-     * Initialise Gallery with parameters
-     *
-     * @param string $viewType tab or section
-     * @param string $resourceType resource
-     * @param string $idType id
-     * @return string
-     */
-    public function initialise(string $viewType = 'tab', string $resourceType = 'resource', string $idType = 'id'): string
-    {
-        $sGalleryController = new sGalleryController($viewType, $resourceType, $idType);
-        return $sGalleryController->index();
     }
 }
