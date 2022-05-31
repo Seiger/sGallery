@@ -26,10 +26,10 @@
     /* Upload Images */
     document.querySelector('#filesToUpload').addEventListener('change', event => {
         window.parent.document.getElementById('mainloader').classList.add('show');
-        doUpload(event);
+        doUploadFile(event);
     });
 
-    async function doUpload(e) {
+    async function doUploadFile(e) {
         e.preventDefault();
 
         const files = e.target.files;
@@ -52,7 +52,7 @@
         console.log(`Starting with ${f.name}`);
         let form = new FormData();
         form.append('file', f);
-        let resp = await fetch('{{route('sGallery.upload', [
+        let resp = await fetch('{{route('sGallery.upload-file', [
                 'cat' => request()->get($sGalleryController->getIdType()),
                 'resourceType' => $sGalleryController->getResourceType()
             ])}}', {
@@ -65,6 +65,54 @@
             alertify.alert('@lang('sGallery::manager.file_upload_error')', data.error);
         } else {
             document.getElementById('uploadBase').insertAdjacentHTML('beforeend', '<li>' + data.preview + '</li>');
+        }
+        window.parent.document.getElementById('mainloader').classList.remove('show');
+        doResorting();
+        return data;
+    }
+
+    /* Upload Downloads */
+    document.querySelector('#filesToUploadDownload').addEventListener('change', event => {
+        window.parent.document.getElementById('mainloader').classList.add('show');
+        doUploadDownload(event);
+    });
+
+    async function doUploadDownload(e) {
+        e.preventDefault();
+
+        const files = e.target.files;
+        let totalFilesToUpload = files.length;
+
+        //nothing was selected
+        if (totalFilesToUpload === 0) {
+            return;
+        }
+
+        let uploads = [];
+        for (let i = 0; i < totalFilesToUpload; i++) {
+            uploads.push(uploadDownload(files[i]));
+        }
+
+        await Promise.all(uploads);
+    }
+
+    async function uploadDownload(f) {
+        console.log(`Starting with ${f.name}`);
+        let form = new FormData();
+        form.append('file', f);
+        let resp = await fetch('{{route('sGallery.upload-download', [
+                'cat' => request()->get($sGalleryController->getIdType()),
+                'resourceType' => $sGalleryController->getResourceType()
+            ])}}', {
+            method: 'POST',
+            body: form
+        });
+        let data = await resp.json();
+        console.log(`Done with ${f.name}`);
+        if (data.success == 0) {
+            alertify.alert('@lang('sGallery::manager.file_upload_error')', data.error);
+        } else {
+            document.querySelector('.files #uploadBase').insertAdjacentHTML('beforeend', '<li>' + data.preview + '</li>');
         }
         window.parent.document.getElementById('mainloader').classList.remove('show');
         doResorting();
@@ -197,7 +245,7 @@
 </script>
 <style>
     #uploadBase{margin-top:15px;}
-    #uploadBase .image{position:relative;width:250px;height:180px;margin:0 5px 5px 0;list-style:none;display:inline-block;}
+    #uploadBase .image{position:relative;width:240px;height:120px;margin:0 5px 5px 0;list-style:none;display:inline-block;}
     #uploadBase .image > .btn-danger{position:absolute;top:5px;right:5px;display:none;}
     #uploadBase .image:hover > .btn-danger, #uploadBase .image:hover > .btn-primary{display:inline;z-index:100;}
     #uploadBase .image > .btn-primary{position:absolute;top:5px;left:5px;display:none;}

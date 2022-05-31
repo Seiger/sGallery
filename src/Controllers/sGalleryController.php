@@ -14,13 +14,17 @@ class sGalleryController
     protected $idType;
 
     /**
-     * @param string $viewType tab or section
+     * @param string $viewType tab or section or sectionFiles
      * @param string $resourceType resource
      * @param string $idType id
      */
     public function __construct(string $viewType = 'tab', string $resourceType = 'resource', string $idType = 'id')
     {
-        if (in_array($viewType, [sGalleryModel::VIEW_TAB, sGalleryModel::VIEW_SECTION])) {
+        if (in_array($viewType, [
+            sGalleryModel::VIEW_TAB,
+            sGalleryModel::VIEW_SECTION,
+            sGalleryModel::VIEW_SECTION_DOWNLOADS
+        ])) {
             $this->viewType = $viewType;
         } else {
             $this->viewType = 'tab';
@@ -38,9 +42,9 @@ class sGalleryController
     /**
      * Show tab page with Gallery files
      *
-     * @return bool
+     * @return View
      */
-    public function index()
+    public function index(): View
     {
         $cat = request()->{$this->idType} ?? 0;
         $galleries = sGalleryModel::whereParent($cat)->whereResourceType($this->resourceType)->orderBy('position')->get();
@@ -59,7 +63,7 @@ class sGalleryController
 
         $validator = Validator::make($request->all(), [
             'cat' => 'required|integer|min:1',
-            'file' => 'required|mimes:'.evo()->getConfig('upload_files', 'png,jpg,jpeg,mp4').'|max:'.evo()->getConfig('upload_maxsize', '2048')
+            'file' => 'required|mimes:'.evo()->getConfig('upload_images', 'png,jpg,jpeg,mp4').','.evo()->getConfig('upload_media', 'mp3,mp4').'|max:'.evo()->getConfig('upload_maxsize', '2048')
         ]);
 
         if ($validator->fails()) {
@@ -81,6 +85,70 @@ class sGalleryController
                 $thisFile->type = $filetype;
                 $thisFile->resource_type = $this->resourceType;
                 $thisFile->update();
+
+                // Create default texts
+                $translate = new sGalleryField();
+                $translate->key = $thisFile->id;
+                $translate->lang = evo()->getConfig('lang', 'base');
+                $translate->save();
+
+                // Response
+                $data['success'] = 1;
+                $data['message'] = 'Uploaded Successfully!';
+                $data['preview'] = $this->view('partials.'.$filetype, ['gallery' => $thisFile])->render();
+            } else {
+                // Response
+                $data['success'] = 2;
+                $data['message'] = 'File not uploaded.';
+            }
+        }
+
+        return response()->json($data);
+    }
+
+    /**
+     * Upload and save Download file
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function uploadDownload(Request $request)
+    {
+        $data = [];
+
+        $validator = Validator::make($request->all(), [
+            'cat' => 'required|integer|min:1',
+            'file' => 'required|mimes:'.evo()->getConfig('upload_files', 'odp,odt,pdf,ppt,pptx,doc,docx').'|max:'.evo()->getConfig('upload_maxsize', '2048')
+        ]);
+
+        if ($validator->fails()) {
+            $data['success'] = 0;
+            $data['error'] = $validator->errors()->first('file'); // Error response
+        } else {
+            if ($request->file('file')) {
+                $file = $request->file('file');
+                $filename = $file->getClientOriginalName();
+                $filetype = explode('/', $file->getMimeType())[0];
+                if (in_array($filetype, ['application'])) {
+                    $filetype = explode('/', $file->getMimeType())[1];
+                }
+
+                // Upload file
+                $file->move(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat, $filename);
+
+                // Save in DB
+                $thisFile = sGalleryModel::whereParent($request->cat)->whereResourceType($this->resourceType)->whereFile($filename)->firstOrCreate();
+                $thisFile->parent = $request->cat;
+                $thisFile->file = $filename;
+                $thisFile->type = $filetype;
+                $thisFile->resource_type = $this->resourceType;
+                $thisFile->update();
+
+                // Create default texts
+                $translate = new sGalleryField();
+                $translate->key = $thisFile->id;
+                $translate->lang = evo()->getConfig('lang', 'base');
+                $translate->save();
 
                 // Response
                 $data['success'] = 1;
@@ -123,6 +191,12 @@ class sGalleryController
                 $thisFile->type = 'youtube';
                 $thisFile->resource_type = $this->resourceType;
                 $thisFile->update();
+
+                // Create default texts
+                $translate = new sGalleryField();
+                $translate->key = $thisFile->id;
+                $translate->lang = evo()->getConfig('lang', 'base');
+                $translate->save();
 
                 // Response
                 $data['success'] = 1;
