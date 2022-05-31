@@ -74,6 +74,9 @@ class sGalleryController
                 $file = $request->file('file');
                 $filename = $file->getClientOriginalName();
                 $filetype = explode('/', $file->getMimeType())[0];
+                if (in_array($filetype, ['application'])) {
+                    $filetype = explode('/', $file->getMimeType())[1];
+                }
 
                 // Upload file
                 $file->move(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat, $filename);

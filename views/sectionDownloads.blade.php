@@ -8,7 +8,7 @@
 
     <ul id="uploadBase">
         @foreach($galleries as $gallery)
-            @include('sGallery::partials.download')
+            @include('sGallery::partials.'.$gallery->type)
         @endforeach
     </ul>
 
@@ -25,3 +25,56 @@
         </div>
     </div>
 </section>
+
+@push('scripts.bot')
+    <script>
+        /* Upload Downloads */
+        document.querySelector('#filesToUploadDownload').addEventListener('change', event => {
+            window.parent.document.getElementById('mainloader').classList.add('show');
+            doUploadDownload(event);
+        });
+
+        async function doUploadDownload(e) {
+            e.preventDefault();
+
+            const files = e.target.files;
+            let totalFilesToUpload = files.length;
+
+            //nothing was selected
+            if (totalFilesToUpload === 0) {
+                return;
+            }
+
+            let uploads = [];
+            for (let i = 0; i < totalFilesToUpload; i++) {
+                uploads.push(uploadDownload(files[i]));
+            }
+
+            await Promise.all(uploads);
+        }
+
+        async function uploadDownload(f) {
+            console.log(`Starting with ${f.name}`);
+            let form = new FormData();
+            form.append('file', f);
+            let resp = await fetch('{{route('sGallery.upload-download', [
+                'cat' => request()->get($sGalleryController->getIdType()),
+                'resourceType' => $sGalleryController->getResourceType()
+            ])}}', {
+                method: 'POST',
+                body: form
+            });
+            let data = await resp.json();
+            console.log(`Done with ${f.name}`);
+            if (data.success == 0) {
+                alertify.alert('@lang('sGallery::manager.file_upload_error')', data.error);
+            } else {
+                document.querySelector('.files #uploadBase').insertAdjacentHTML('beforeend', '<li>' + data.preview + '</li>');
+            }
+            window.parent.document.getElementById('mainloader').classList.remove('show');
+            doResorting();
+            return data;
+        }
+    </script>
+    @include('sGallery::partials.scripts')
+@endpush
