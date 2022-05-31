@@ -13,7 +13,6 @@
     "require": {
         "php": ">=7.4",
         "james-heinrich/phpthumb": "1.*",
-        "ramsey/uuid": "*",
         "rosell-dk/webp-convert": "*"
     },
     "autoload": {
