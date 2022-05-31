@@ -165,6 +165,7 @@
     #uploadBase .image:hover > i.youtube_button.fa-pause-circle-o{opacity:1;color:white;cursor:pointer;}
     #uploadBase .image img{margin-bottom:34px;}
     #uploadBase .image video, #uploadBase .image iframe{margin-bottom:-69px;object-fit:cover;}
+    #uploadBase .image > span.title{position:absolute;top:calc(50%);right:calc(50%);display:block;margin:0;text-shadow:0 0 1px rgba(0,0,0,1);}
     iframe.thumbnail{pointer-events:none;}
     .modal{top:50px;font-weight:bold;}
     .fade:not(.show){opacity:initial;}
