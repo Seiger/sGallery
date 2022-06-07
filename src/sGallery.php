@@ -1,5 +1,6 @@
 <?php namespace Seiger\sGallery;
 
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use phpthumb;
 use Seiger\sGallery\Controllers\sGalleryController;
@@ -8,6 +9,46 @@ use WebPConvert\WebPConvert;
 
 class sGallery
 {
+    /**
+     * Check if the Image file type
+     *
+     * @return string
+     */
+    public function hasImage($type)
+    {
+        return Str::of($type)->exactly(sGalleryModel::TYPE_IMAGE);
+    }
+
+    /**
+     * Check if the Video file type
+     *
+     * @return string
+     */
+    public function hasVideo($type)
+    {
+        return Str::of($type)->exactly(sGalleryModel::TYPE_VIDEO);
+    }
+
+    /**
+     * Check if the YouTube file type
+     *
+     * @return string
+     */
+    public function hasYoutube($type)
+    {
+        return Str::of($type)->exactly(sGalleryModel::TYPE_YOUTUBE);
+    }
+
+    /**
+     * Check if the PDF file type
+     *
+     * @return string
+     */
+    public function hasPdf($type)
+    {
+        return Str::of($type)->exactly(sGalleryModel::TYPE_PDF);
+    }
+
     /**
      * Initialise Gallery with parameters
      *
