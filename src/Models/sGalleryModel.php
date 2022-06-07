@@ -12,6 +12,7 @@ class sGalleryModel extends Eloquent\Model
     const TYPE_IMAGE = "image";
     const TYPE_VIDEO = "video";
     const TYPE_YOUTUBE = "youtube";
+    const TYPE_PDF = "pdf";
 
     const VIEW_TAB = "tab";
     const VIEW_SECTION = "section";
