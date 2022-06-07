@@ -57,16 +57,18 @@ file, where the array contains template IDs for connecting the gallery.
 Sow all files:
 ```php
 @foreach(sGallery::all() as $item)
-    <a class="swiper-slide" @if(trim($item->link))href="{{$item->link}}"@endif>
-        <div class="container">
-            <img loading="lazy" class="intro__img" src="{{$item->file_src}}" alt="{{$item->alt}}" width="1440" height="456">
-            <div class="intro__inner">
-                <div class="h1__title">{{$item->title}}</div>
-                <p class="intro__text">{{$item->description}}</p>
-                @if(trim($item->link_text))<div class="btn background__mod">{{$item->link_text}}</div>@endif
+    @if(sGallery::hasImage($item->type))
+        <a class="swiper-slide" @if(trim($item->link))href="{{$item->link}}"@endif>
+            <div class="container">
+                <img loading="lazy" class="intro__img" src="{{$item->file_src}}" alt="{{$item->alt}}" width="1440" height="456">
+                <div class="intro__inner">
+                    <div class="h1__title">{{$item->title}}</div>
+                    <p class="intro__text">{{$item->description}}</p>
+                    @if(trim($item->link_text))<div class="btn background__mod">{{$item->link_text}}</div>@endif
+                </div>
             </div>
-        </div>
-    </a>
+        </a>
+    @endif
 @endforeach
 ```
 or
