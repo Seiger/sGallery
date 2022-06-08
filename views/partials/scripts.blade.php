@@ -164,7 +164,7 @@
     #uploadBase .image > i.youtube_button.fa-pause-circle-o{position:absolute;top:calc(50% - 35px);right:calc(50% - 35px);transition:opacity 0.5s;opacity:0.2;}
     #uploadBase .image:hover > i.youtube_button.fa-pause-circle-o{opacity:1;color:white;cursor:pointer;}
     #uploadBase .image img{margin-bottom:34px;}
-    #uploadBase .image video, #uploadBase .image iframe{margin-bottom:-69px;object-fit:cover;}
+    #uploadBase .image video, #uploadBase .image iframe{margin-bottom:-40px;object-fit:cover;}
     #uploadBase .image > span.title{position:absolute;top:calc(50%);right:calc(50%);display:block;margin:0;text-shadow:0 0 1px rgba(0,0,0,1);}
     iframe.thumbnail{pointer-events:none;}
     .modal{top:50px;font-weight:bold;}
