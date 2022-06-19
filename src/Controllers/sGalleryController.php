@@ -31,11 +31,11 @@ class sGalleryController
         }
 
         if (request()->has('amp;resourceType')) {
-            $this->resourceType = request()->get('amp;resourceType');
+            $resourceType = request()->get('amp;resourceType');
         } else {
-            $this->resourceType = request()->resourceType ?? $resourceType;
+            $resourceType = request()->resourceType ?? $resourceType;
         }
-
+        $this->resourceType = trim($resourceType, '/');
         $this->idType = $idType;
     }
 
