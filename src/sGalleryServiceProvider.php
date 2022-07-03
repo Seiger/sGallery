@@ -14,6 +14,7 @@ class sGalleryServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        // Only Manager
         if (IN_MANAGER_MODE) {
             // Add custom routes for package
             include(__DIR__.'/Http/routes.php');
