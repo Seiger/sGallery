@@ -29,10 +29,10 @@ class sGalleryServiceProvider extends ServiceProvider
 
             // For use config
             $this->publishes([
-                __DIR__ . '/../config/sGalleryAlias.php' => config_path('app/aliases/sGallery.php', true),
-                __DIR__ . '/../config/sGallerySettings.php' => config_path('cms/settings/sGallery.php', true),
-                __DIR__ . '/../images/noimage.png' => public_path('assets/images/sgallery/noimage.png', true),
-                __DIR__ . '/../images/youtube-logo.png' => public_path('assets/images/sgallery/youtube-logo.png', true),
+                __DIR__ . '/../../config/sGalleryAlias.php' => config_path('app/aliases/sGallery.php', true),
+                __DIR__ . '/../../config/sGallerySettings.php' => config_path('cms/settings/sGallery.php', true),
+                __DIR__ . '/../../images/noimage.png' => public_path('assets/images/sgallery/noimage.png', true),
+                __DIR__ . '/../../images/youtube-logo.png' => public_path('assets/images/sgallery/youtube-logo.png', true),
             ]);
         }
 
