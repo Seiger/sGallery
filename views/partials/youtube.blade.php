@@ -3,8 +3,8 @@
     <button type="button" title="@lang('sGallery::manager.image_delete')" class="btn btn-xs btn-danger" data-image-remove="{{$gallery->id}}"><i class="fas fa-trash-alt"></i></button>
     <iframe
             id="{{$gallery->file}}"
-            width="240"
-            height="120"
+            width="{{sGallery::defaultWidth()}}"
+            height="{{sGallery::defaultHeight()}}"
             class="thumbnail"
             src="https://www.youtube.com/embed/{{$gallery->file}}?controls=0&showinfo=0&rel=0&loop=1&modestbranding=1&enablejsapi=1&fs=0&playlist={{$gallery->file}}"
             allowfullscreen>

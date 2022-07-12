@@ -73,7 +73,7 @@
             if (data.success == 0) {
                 alertify.alert('@lang('sGallery::manager.file_upload_error')', data.error);
             } else {
-                document.getElementById('uploadBase').insertAdjacentHTML('beforeend', '<li>' + data.preview + '</li>');
+                document.getElementById('uploadBase').insertAdjacentHTML('beforeend', data.preview);
             }
             window.parent.document.getElementById('mainloader').classList.remove('show');
             doResorting();
