@@ -49,7 +49,7 @@
             data:'youtube_link='+youtube_link,
             cache:false,
             success:function(data) {
-                document.getElementById('uploadBase').insertAdjacentHTML('beforeend', '<li>' + data.preview + '</li>');
+                document.getElementById('uploadBase').insertAdjacentHTML('beforeend', data.preview);
                 doResorting();
             }
         });
@@ -82,22 +82,30 @@
     /* Delete item */
     $(document).on("click", "[data-image-remove]", function() {
         var _this = $(this);
-        alertify.confirm("@lang('sGallery::manager.are_you_sure')", "@lang('sGallery::manager.deleted_irretrievably')",
-            function() {
-                alertify.success("@lang('sGallery::manager.deleted')");
-                $.ajax({
-                    url:'{{route('sGallery.delete')}}',
-                    type:"POST",
-                    data:'item='+_this.attr("data-image-remove"),
-                    cache:false,
-                    success:function(data) {
-                        _this.parents(".image").fadeOut(1000, function() {$(this).remove()});
-                    }
-                });
-            },
-            function() {
-                alertify.error("@lang('sGallery::manager.cancel')");
-            });
+        alertify
+            .confirm(
+                "@lang('sGallery::manager.are_you_sure')",
+                "@lang('sGallery::manager.deleted_irretrievably')",
+                function() {
+                    alertify.success("@lang('sGallery::manager.deleted')");
+                    $.ajax({
+                        url:'{{route('sGallery.delete')}}',
+                        type:"POST",
+                        data:'item='+_this.attr("data-image-remove"),
+                        cache:false,
+                        success:function(data) {
+                            _this.parents(".image").fadeOut(1000, function() {$(this).remove()});
+                        }
+                    });
+                },
+                function() {
+                    alertify.error("@lang('sGallery::manager.cancel')");
+                })
+            .set('labels', {
+                ok:"@lang('sGallery::manager.delete')",
+                cancel:"@lang('sGallery::manager.cancel')"
+            })
+            .set({transition:'zoom'});
         return false;
     });
 
@@ -172,4 +180,5 @@
     .modal-backdrop {background-color:rgba(0, 0, 0, 0.5);}
     .modal-header{margin-top:1rem;}
     .badge.bg-seigerit-gallery{background-color:#0057b8;color:#ffd700;font-size:120%;}
+    .alertify .ajs-footer .ajs-buttons .ajs-button.ajs-ok {color:#fff;background-color:#d9534f;border-color:#d9534f;}
 </style>
