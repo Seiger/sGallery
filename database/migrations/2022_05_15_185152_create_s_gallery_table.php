@@ -29,7 +29,7 @@ class CreateSGalleryTable extends Migration
             $table->string('lang', 4)->default('base');
             $table->string('alt', 100)->default('');
             $table->string('title', 100)->default('');
-            $table->string('description', 100)->default('');
+            $table->string('description', 1024)->default('');
             $table->string('link_text', 100)->default('');
             $table->string('link', 100)->default('');
             $table->timestamps();
