@@ -9,6 +9,7 @@
     'deleted' => 'Deleted',
     'are_you_sure' => 'Are you impressed?',
     'deleted_irretrievably' => 'If you click the delete button, the item will be permanently deleted.',
+    'delete' => 'Delete',
     'cancel' => 'Cancel',
     'texts_for_file' => 'Texts for file',
     'save' => 'Save',
