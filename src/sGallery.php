@@ -9,6 +9,9 @@ use WebPConvert\WebPConvert;
 
 class sGallery
 {
+    const DEFAULT_WIDTH = 240;
+    const DEFAULT_HEIGHT = 120;
+
     /**
      * Check if the Image file type
      *
@@ -204,20 +207,15 @@ class sGallery
 
             if (isset($webp) && class_exists('\WebPConvert\WebPConvert')) {
                 if (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'image/webp') !== false && pathinfo($outputFilename, PATHINFO_EXTENSION) != 'gif') {
-                    $outputFilename = str_replace('.'.$params['f'], '', $outputFilename);
-                    $fNameSuf = str_replace('.'.$params['f'], '', $fNameSuf);
-                    if (file_exists($outputFilename . '.webp')) {
-                        $fNameSuf .= '.webp';
-                    } else {
-                        WebPConvert::convert($outputFilename.'.'.$params['f'], $outputFilename . '.webp', ['quality' => 100]);
-                        $fNameSuf .= '.webp';
+                    if (!file_exists($check)) {
+                        WebPConvert::convert($outputFilename, $check, ['quality' => 100]);
                     }
-                    unlink($outputFilename.'.'.$params['f']);
+                    $fNameSuf = str_replace($params['f'], 'webp', $fNameSuf);
                 }
             }
         }
 
-        if (isset($webp)) {
+        if (isset($webp) && file_exists($check)) {
             $fNameSuf = str_replace($params['f'], 'webp', $fNameSuf);
         }
 
@@ -237,5 +235,25 @@ class sGallery
             $tabs[$item] = '<span class="badge bg-seigerit-gallery">' . $item . '</span>';
         }
         return $tabs;
+    }
+
+    /**
+     * Default image width
+     *
+     * @return int
+     */
+    public function defaultWidth(): int
+    {
+        return self::DEFAULT_WIDTH;
+    }
+
+    /**
+     * Default image height
+     *
+     * @return int
+     */
+    public function defaultHeight(): int
+    {
+        return self::DEFAULT_HEIGHT;
     }
 }

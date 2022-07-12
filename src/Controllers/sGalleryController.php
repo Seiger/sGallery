@@ -290,7 +290,7 @@ class sGalleryController
             $items = $request->list[$key];
 
             foreach ($items as $lang => $item) {
-                $translate = sGalleryField::whereKey($key)->whereLang($lang)->firstOrCreate();
+                $translate = sGalleryField::where('key', $key)->where('lang', $lang)->firstOrCreate();
                 $translate->key = $key;
                 $translate->lang = $lang;
                 $translate->alt = ($item['alt'] ?? '');
