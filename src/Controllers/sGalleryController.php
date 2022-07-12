@@ -308,7 +308,7 @@ class sGalleryController
     }
 
     /**
-     * Delete item
+     * Delete item and fields
      *
      * @param Request $request
      * @return void
@@ -316,15 +316,11 @@ class sGalleryController
     public function delete(Request $request): void
     {
         $gallery = sGalleryModel::find((int)$request->item);
-
-        $fields = sGalleryField::whereKey((int)$request->item)->get();
-        foreach ($fields as $field) {
-            $field->delete();
+        if ($gallery) {
+            sGalleryField::where('key', $gallery->id)->delete();
+            unlink(sGalleryModel::UPLOAD . $this->resourceType . '/' . $gallery->parent . '/' . $gallery->file);
+            $gallery->delete();
         }
-
-        unlink(sGalleryModel::UPLOAD.$this->resourceType.'/'.$gallery->parent.'/'.$gallery->file);
-
-        $gallery->delete();
     }
 
     /**
