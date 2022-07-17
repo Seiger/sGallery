@@ -54,7 +54,7 @@ file, where the array contains template IDs for connecting the gallery.
 
 ## Usage in blade
 
-Sow all files:
+Sow all files with Image filter:
 ```php
 @foreach(sGallery::all() as $item)
     @if(sGallery::hasImage($item->type))
@@ -68,6 +68,19 @@ Sow all files:
                 </div>
             </div>
         </a>
+    @endif
+@endforeach
+```
+or YouTube filter
+```php
+@foreach(sGallery::all() as $item)
+    @if(sGallery::hasYoutube($item->type))
+        <div class="item">
+            <div class="video">
+                <iframe width="560" height="315" src="https://www.youtube.com/embed/{{$item->file}}" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
+            <p>{{$item->title}}</p>
+        </div>
     @endif
 @endforeach
 ```
