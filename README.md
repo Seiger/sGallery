@@ -28,7 +28,7 @@ Run in you /core/ folder:
 php artisan package:installrequire seiger/sgallery "*"
 ```
 
-Create config file in **core/custom/config/cms/settings** with 
+Generate the config file in **core/custom/config/cms/settings** with 
 name **sgallery.php** the file should return a 
 comma-separated list of templates.
 
@@ -60,7 +60,7 @@ Sow all files with Image filter:
     @if(sGallery::hasImage($item->type))
         <a class="swiper-slide" @if(trim($item->link))href="{{$item->link}}"@endif>
             <div class="container">
-                <img loading="lazy" class="intro__img" src="{{$item->file_src}}" alt="{{$item->alt}}" width="1440" height="456">
+                <img loading="lazy" class="intro__img" src="{{$item->src}}" alt="{{$item->alt}}" width="1440" height="456">
                 <div class="intro__inner">
                     <div class="h1__title">{{$item->title}}</div>
                     <p class="intro__text">{{$item->description}}</p>
@@ -88,8 +88,8 @@ or
 ```php
 @foreach(sGallery::all('product', $product->id) as $item)
     <div class="swiper-slide">
-        <a class="js-trigger-fancybox" href="{{$item->file_src}}" data-fancybox="product-gallery">
-            <img loading="lazy" src="{{$item->file_src}}" width="440" height="440" />
+        <a class="js-trigger-fancybox" href="{{$item->src}}" data-fancybox="product-gallery">
+            <img loading="lazy" src="{{$item->src}}" width="440" height="440" />
         </a>
     </div>
 @endforeach
