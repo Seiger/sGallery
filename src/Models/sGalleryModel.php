@@ -1,10 +1,9 @@
 <?php namespace Seiger\sGallery\Models;
 
-use EvolutionCMS\Facades\UrlProcessor;
-use Illuminate\Database\Eloquent;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
-class sGalleryModel extends Eloquent\Model
+class sGalleryModel extends Model
 {
     const UPLOAD = MODX_BASE_PATH . "assets/sgallery/";
     const UPLOADED = MODX_SITE_URL . "assets/sgallery/";
@@ -24,6 +23,13 @@ class sGalleryModel extends Eloquent\Model
      * @var string
      */
     protected $table = 's_galleries';
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = ['src'];
 
     /**
      * Get the file item fields with lang
@@ -50,16 +56,27 @@ class sGalleryModel extends Eloquent\Model
     /**
      * Get the image src link
      *
+     * @deprecated
      * @return string
      */
     public function getFileSrcAttribute()
     {
+        return $this->getSrcAttribute();
+    }
+
+    /**
+     * Create a src link to an image.
+     *
+     * @return string src
+     */
+    protected function getSrcAttribute()
+    {
         if (!empty($this->file) && is_file(self::UPLOAD.$this->resource_type.'/'.$this->parent.'/'.$this->file)) {
-            $imageSrc = self::UPLOADED.$this->resource_type.'/'.$this->parent.'/'.$this->file;
+            $src = self::UPLOADED.$this->resource_type.'/'.$this->parent.'/'.$this->file;
         } else {
-            $imageSrc = self::UPLOADED.'noimage.png';
+            $src = self::UPLOADED.'noimage.png';
         }
 
-        return $imageSrc;
+        return $src;
     }
 }
