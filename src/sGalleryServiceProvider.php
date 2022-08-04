@@ -5,8 +5,6 @@ use Event;
 
 class sGalleryServiceProvider extends ServiceProvider
 {
-    protected $namespace = '';
-
     /**
      * Bootstrap the application services.
      *
