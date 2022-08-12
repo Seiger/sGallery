@@ -22,7 +22,13 @@
 
 ## Install by artisan package installer
 
-Run in you /core/ folder:
+Go to You /core/ folder:
+
+```console
+cd core
+```
+
+Run php artisan command
 
 ```console
 php artisan package:installrequire seiger/sgallery "*"
