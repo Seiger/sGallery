@@ -9,5 +9,5 @@ community_bridge: # Replace with a single Community Bridge project-name e.g., cl
 liberapay: seigerkornelyuk
 issuehunt: seiger
 otechie: # Replace with a single Otechie username
-lfx_crowdfunding: 2518c0ee-423d-45a2-852e-f6539ed58058
+lfx_crowdfunding: https://crowdfunding.lfx.linuxfoundation.org/projects/2518c0ee-423d-45a2-852e-f6539ed58058
 custom: # Replace with up to 4 custom sponsorship URLs e.g., ['link1', 'link2']
