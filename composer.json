@@ -3,7 +3,7 @@
     "license": "GPL-3.0",
     "type": "EvolutionCMS-Plugin",
     "description": "Evocms package for work with Gallery for Resource in Evolution CMS",
-    "keywords": ["evocms", "evolution-cms"],
+    "keywords": ["evocms", "evolution-cms", "gallery"],
     "authors": [
         {
             "name": "Serhii Korneliuk",
@@ -11,7 +11,7 @@
         }
     ],
     "require": {
-        "php": ">=8.1",
+        "php": ">=7.4",
         "james-heinrich/phpthumb": "1.*",
         "rosell-dk/webp-convert": "*"
     },
