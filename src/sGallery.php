@@ -149,7 +149,7 @@ class sGallery
         }
 
         if (empty($input) || !file_exists(MODX_BASE_PATH . $input)) {
-            $input = isset($noImage) ? $noImage : __DIR__ . '../images/noimage.png';
+            $input = isset($noImage) ? $noImage : str_replace(MODX_BASE_PATH, '', __DIR__) . '/../images/noimage.png';
         }
 
         if (!file_exists(MODX_BASE_PATH . $cacheFolder . '/.htaccess') &&
