@@ -42,7 +42,7 @@ php artisan migrate
 Templates for displaying gallery tabs are configured in the
 
 ```console
-core/custom/config/seiger/settings/sGallery.php
+../core/custom/config/seiger/settings/sGallery.php
 ```
 
 file, where the array contains template IDs for connecting the gallery.
