@@ -26,15 +26,19 @@ class sGalleryServiceProvider extends ServiceProvider
             // MultiLang
             $this->loadTranslationsFrom(__DIR__.'/../lang', 'sGallery');
 
-            // For use config
+            // Files
             $this->publishes([
                 dirname(__DIR__) . '/config/sGalleryAlias.php' => config_path('app/aliases/sGallery.php', true),
-                dirname(__DIR__) . '/config/sGallerySettings.php' => config_path('cms/settings/sGallery.php', true),
+                dirname(__DIR__) . '/config/sGallerySettings.php' => config_path('seiger/settings/sGallery.php', true),
                 dirname(__DIR__) . '/images/noimage.png' => public_path('assets/images/sgallery/noimage.png'),
                 dirname(__DIR__) . '/images/youtube-logo.png' => public_path('assets/images/sgallery/youtube-logo.png'),
             ]);
         }
 
+        // Check sMultisite
+        $this->mergeConfigFrom(dirname(__DIR__) . '/config/sGalleryCheck.php', 'cms.settings');
+
+        // Class alias
         $this->app->singleton(sGallery::class);
         $this->app->alias(sGallery::class, 'sGallery');
     }

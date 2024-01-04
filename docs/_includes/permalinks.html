@@ -1,0 +1,19 @@
+{% if site.add_permalinks %}
+<script>
+var headers = ["h1", "h2", "h3", "h4"]
+
+// Lighter to darker as links get smaller (harder to see)
+var colors = ["#bae6fd", "#38bdf8", "#0284c7", "#075985"]
+
+$.each(headers, function(i, header){
+    var color = colors[i];
+    $(header).each(function () {
+        text = $(this).text();
+        if (text != "") {
+          var href=$(this).attr("id");
+          $(this).prepend('<a class="headerlink" style="color:' + color + '" href="#' + href + '" title="Permanent link"># </a>')
+        }
+    });
+})
+</script>
+{% endif %}

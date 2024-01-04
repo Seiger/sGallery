@@ -222,8 +222,6 @@ class sGalleryController
      */
     public function sortGallery(Request $request): void
     {
-        $data = array();
-
         $validator = Validator::make($request->all(), [
             'cat' => 'required|integer|min:1',
             'item' => 'required|array'

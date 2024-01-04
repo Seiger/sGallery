@@ -1,4 +1,4 @@
-# sGallery for Evolution CMS 3
+# sGallery for Evolution CMS
 ![sGallery](https://user-images.githubusercontent.com/12029039/169609394-08ea36d6-2393-4261-aff2-348f73a6103c.png)
 [![Latest Stable Version](https://img.shields.io/packagist/v/seiger/sgallery?label=version)](https://packagist.org/packages/seiger/sgallery)
 [![CMS Evolution](https://img.shields.io/badge/CMS-Evolution-brightgreen.svg)](https://github.com/evolution-cms/evolution)
@@ -20,6 +20,16 @@
 - [x] Resize and WEBP convert image.
 - [x] Integration the gallery to custom modules.
 
+## Minimum requirements
+
+- Evolution CMS 3.2.0
+- PHP 8.1.0
+- Composer 2.2.0
+- PostgreSQL 10.23.0
+- MySQL 8.0.3
+- MariaDB 10.5.2
+- SQLite 3.25.0
+
 ## Install by artisan package installer
 
 Go to You /core/ folder:
@@ -34,7 +44,7 @@ Run php artisan command
 php artisan package:installrequire seiger/sgallery "*"
 ```
 
-Generate the config file in **core/custom/config/cms/settings** with 
+Generate the config file in **../core/custom/config/seiger/settings** with 
 name **sgallery.php** the file should return a 
 comma-separated list of templates.
 
@@ -53,7 +63,7 @@ php artisan migrate
 Templates for displaying gallery tabs are configured in the 
 
 ```console
-core/custom/config/cms/settings/sGallery.php
+core/custom/config/seiger/settings/sGallery.php
 ```
 
 file, where the array contains template IDs for connecting the gallery.
@@ -107,3 +117,5 @@ Just paste this code in your View backend
 ```php
 {!! sGallery::initialise('section', 'product', 'i') !!}
 ```
+
+[See full documentation here](https://seiger.github.io/sGallery/)
