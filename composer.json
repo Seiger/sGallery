@@ -11,7 +11,7 @@
         }
     ],
     "require": {
-        "php": "^8",
+        "php": "^8.1",
         "james-heinrich/phpthumb": "1.*",
         "rosell-dk/webp-convert": "*"
     },

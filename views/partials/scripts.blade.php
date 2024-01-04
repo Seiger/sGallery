@@ -5,8 +5,8 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
     /* Sorting */
-    var uploadBase = document.getElementById('uploadBase');
-    var sortable = new Sortable.create(uploadBase, {
+    let uploadBase = document.getElementById('uploadBase');
+    let sortable = new Sortable.create(uploadBase, {
         animation: 150,
         onSort: function (evt) {
             doResorting(evt);
@@ -24,7 +24,7 @@
     }
 
     $(document).on("click", "i.play_button", function() {
-        var video = $(this).parent().find('video').get(0);
+        let video = $(this).parent().find('video').get(0);
 
         if (video.paused) {
             $(this).removeClass('fa-play-circle-o');
@@ -39,7 +39,7 @@
     });
 
     $(document).on("click", "#add_youtube", function() {
-        var youtube_link = prompt("@lang('sGallery::manager.youtube_link')");
+        let youtube_link = prompt("@lang('sGallery::manager.youtube_link')");
         $.ajax({
             url:'{{route('sGallery.addyoutube', [
                 'cat' => request()->get($sGalleryController->getIdType()),
@@ -56,10 +56,10 @@
         return false;
     });
 
-    var player = [];
+    let player = [];
 
     $(document).on("click", "i.youtube_button", function() {
-        var video = $(this).parent().find('iframe').get(0).id;
+        let video = $(this).parent().find('iframe').get(0).id;
 
         if (player[video].getPlayerState() !== 1 ) {
             $(this).removeClass('play');
@@ -81,7 +81,7 @@
 
     /* Delete item */
     $(document).on("click", "[data-image-remove]", function() {
-        var _this = $(this);
+        let _this = $(this);
         alertify
             .confirm(
                 "@lang('sGallery::manager.are_you_sure')",
@@ -110,12 +110,14 @@
     });
 
     $(document).on("click", "[data-image-edit]", function() {
-        var _this = $(this);
+        let _this = $(this);
         $.ajax({
             url:'{{route('sGallery.gettranslate')}}',
             data:'item='+_this.attr("data-image-edit"),
+            dataType:"json",
             cache:false,
             success:function(ajax) {
+                console.log(ajax);
                 $("#translate .modal-body").html(ajax.tabs);
                 $("#translate .nav-link:first-child").addClass('active');
                 $("#translate .tab-pane:first-child").addClass('active').addClass('show');
@@ -126,7 +128,7 @@
     });
 
     $(document).on("click", "#translate [data-bs-target]", function() {
-        var tabButton = $(this);
+        let tabButton = $(this);
 
         $("#translate .nav-link").each(function () {
             $(this).removeClass('active');
@@ -144,6 +146,7 @@
             url:'{{route('sGallery.settranslate')}}',
             type:"POST",
             data:$(document).find(selector).find('input').serialize(),
+            dataType:"json",
             cache:false,
             success:function(ajax) {
                 if (ajax.success == 1) {
