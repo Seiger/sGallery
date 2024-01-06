@@ -89,13 +89,11 @@ class sGallery
             $lang = evo()->getConfig('lang', 'base');
         }
 
-        $galleries = sGalleryModel::lang($lang)
+        return sGalleryModel::lang($lang)
             ->whereParent($documentId)
             ->whereResourceType($resourceType)
             ->orderBy('position')
             ->get();
-
-        return $galleries;
     }
 
     /**
@@ -110,7 +108,19 @@ class sGallery
      */
     public function first(string $resourceType = 'resource', int $documentId = null, string $lang = null): object
     {
-        return $this->all($resourceType, $documentId, $lang)->first();
+        if (!$documentId) {
+            $documentId = evo()->documentObject['id'] ?? 0;
+        }
+
+        if (!$lang) {
+            $lang = evo()->getConfig('lang', 'base');
+        }
+
+        return sGalleryModel::lang($lang)
+            ->whereParent($documentId)
+            ->whereResourceType($resourceType)
+            ->orderBy('position')
+            ->firstOrNew();
     }
 
     /**
