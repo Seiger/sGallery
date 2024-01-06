@@ -50,3 +50,12 @@ permalink: /use-in-blade/
     </div>
 @endforeach
 ```
+
+## Sow first product file
+
+You can use it for an example cover.
+
+```php
+@php($item = sGallery::first('product', $product->id))
+<img loading="lazy" src="{% raw %}{{$item->src}}{% endraw %}" alt="{% raw %}{{$item->alt}}{% endraw %}" width="440" height="440" />
+```

@@ -13,9 +13,10 @@ class sGallery
     const DEFAULT_HEIGHT = 120;
 
     /**
-     * Check if the Image file type
+     * Determines if the given type is an image.
      *
-     * @return string
+     * @param string $type The type to check
+     * @return bool Returns true if the type is an image, false otherwise
      */
     public function hasImage($type)
     {
@@ -23,9 +24,10 @@ class sGallery
     }
 
     /**
-     * Check if the Video file type
+     * Check if the given type has video
      *
-     * @return string
+     * @param string $type The type to be checked
+     * @return bool Returns true if the type has video, otherwise false
      */
     public function hasVideo($type)
     {
@@ -33,9 +35,10 @@ class sGallery
     }
 
     /**
-     * Check if the YouTube file type
+     * Determines if the given type is a YouTube type
      *
-     * @return string
+     * @param string $type The type to check
+     * @return bool True if the type is a YouTube type, otherwise false
      */
     public function hasYoutube($type)
     {
@@ -43,9 +46,11 @@ class sGallery
     }
 
     /**
-     * Check if the PDF file type
+     * Checks if the given type is PDF.
      *
-     * @return string
+     * @param string $type The type to be checked.
+     *
+     * @return bool Returns true if the given type is PDF, false otherwise.
      */
     public function hasPdf($type)
     {
@@ -53,12 +58,12 @@ class sGallery
     }
 
     /**
-     * Initialise Gallery with parameters
+     * Initialize the Gallery with the specified parameters
      *
-     * @param string $viewType tab or section or sectionFiles
-     * @param string $resourceType resource
-     * @param string $idType id
-     * @return View
+     * @param string $viewType The type of view (default is 'tab')
+     * @param string $resourceType The type of resource (default is 'resource')
+     * @param string $idType The type of id (default is 'id')
+     * @return View The initialized view
      */
     public function initialise(string $viewType = 'tab', string $resourceType = 'resource', string $idType = 'id'): View
     {
@@ -67,11 +72,12 @@ class sGallery
     }
 
     /**
-     * Get all files from current document
+     * Retrieve all galleries for a given resource type, document ID, and language.
      *
-     * @param int|null $documentId
-     * @param string|null $lang
-     * @return object
+     * @param string $resourceType The type of resource (default: 'resource')
+     * @param int|null $documentId The document ID (default: null)
+     * @param string|null $lang The language (default: null)
+     * @return object The galleries matching the given resource type, document ID, and language.
      */
     public function all(string $resourceType = 'resource', int $documentId = null, string $lang = null): object
     {
@@ -93,12 +99,27 @@ class sGallery
     }
 
     /**
-     * Resize Image
+     * Retrieves the first item from the collection.
+     *
+     * This method returns the first item from the collection of resources based on the given parameters.
+     *
+     * @param string $resourceType (Optional) The type of resource to retrieve. Default is 'resource'.
+     * @param int|null $documentId (Optional) The ID of the document to retrieve. Default is null.
+     * @param string|null $lang (Optional) The language of the resource to retrieve. Default is null.
+     * @return object The first item from the collection.
+     */
+    public function first(string $resourceType = 'resource', int $documentId = null, string $lang = null): object
+    {
+        return $this->all($resourceType, $documentId, $lang)->first();
+    }
+
+    /**
+     * Resize an image
      * https://docs.evo.im/ua/04_extras/phpthumb/02_opcii.html
      *
-     * @param string $input
-     * @param array $params
-     * @return array|string|string[]
+     * @param string $input The path of the input image file
+     * @param array $params An array of parameters for resizing the image (optional)
+     * @return string The URL of the resized image
      */
     public function resize(string $input, array $params = []): string
     {
@@ -223,9 +244,11 @@ class sGallery
     }
 
     /**
-     * Content Tabs
+     * Generate language tabs
      *
-     * @return array
+     * This method generates an array of language tabs based on the 's_lang_config' configuration value
+     *
+     * @return array The language tabs array
      */
     public function langTabs(): array
     {
@@ -238,9 +261,11 @@ class sGallery
     }
 
     /**
-     * Default image width
+     * Gets the default image width.
      *
-     * @return int
+     * This method returns the default width value defined as a constant in the class.
+     *
+     * @return int The default width value.
      */
     public function defaultWidth(): int
     {
@@ -248,9 +273,11 @@ class sGallery
     }
 
     /**
-     * Default image height
+     * Gets the default image height.
      *
-     * @return int
+     * This method returns the default height value defined as a constant in the class.
+     *
+     * @return int The default height value.
      */
     public function defaultHeight(): int
     {
