@@ -54,20 +54,12 @@ class sGalleryModel extends Model
     }
 
     /**
-     * Get the image src link
+     * Retrieves the source attribute for an image.
      *
-     * @deprecated
-     * @return string
-     */
-    public function getFileSrcAttribute()
-    {
-        return $this->getSrcAttribute();
-    }
-
-    /**
-     * Create a src link to an image.
+     * If the file property is not empty and a valid file exists at the specified path, the source attribute will be set to
+     * the path to the file. Otherwise, the source attribute will be set to the path to the default image (noimage.png).
      *
-     * @return string src
+     * @return string The source attribute value for the image.
      */
     protected function getSrcAttribute()
     {
