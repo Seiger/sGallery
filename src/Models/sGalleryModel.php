@@ -3,6 +3,12 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Class sGalleryModel
+ *
+ * This class represents a gallery model for managing gallery data in the application.
+ * It extends the base Model class.
+ */
 class sGalleryModel extends Model
 {
     const UPLOAD = MODX_BASE_PATH . "assets/sgallery/";
