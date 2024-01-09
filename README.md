@@ -8,17 +8,27 @@
 [![Stars](https://img.shields.io/packagist/stars/Seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
 [![Total Downloads](https://img.shields.io/packagist/dt/seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
 
-**sGallery** Plugin for attaching Images and Video clips (YouTube) to a resource in the Evolution CMS admin panel.
+**sGallery** emerges as a versatile and indispensable plugin tailor-made for Evolution CMS,
+revolutionizing the way you manage media assets within your website. Specifically
+designed for the Evolution CMS admin panel, this dynamic plugin introduces a host
+of powerful features to elevate your content presentation.
+
+**sGallery** stands as a testament to Evolution CMS's commitment to robust and user-friendly
+content management. Whether you are a content creator or an administrator, this plugin
+empowers you to curate a visually stunning and engaging website with unparalleled ease.
+Elevate your media management experience with **sGallery** today.
 
 ## Features
 
-- [x] Upload Images.
-- [x] Upload Videos.
-- [x] Include Youtube.
-- [x] Sort positions.
-- [x] Text fields for file.
-- [x] Resize and WEBP convert image.
-- [x] Integration the gallery to custom modules.
+- [x] Image and Video Attachment.
+- [x] Effortless Media Upload.
+- [x] YouTube Integration.
+- [x] Sortable Positions.
+- [x] Text Fields for File Management.
+- [x] Image Resize and WEBP Conversion.
+- [x] Integration with Custom Modules.
+- [x] Integration with Custom Modules.
+- [x] **[sLang](https://github.com/Seiger/sLang)** Integration.
 
 ## Minimum requirements
 
