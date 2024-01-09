@@ -7,6 +7,12 @@ use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
 use WebPConvert\WebPConvert;
 
+/**
+ * Class sGallery
+ *
+ * This class provides methods to work with galleries, including checking if a type is an image or video,
+ * initializing a gallery, retrieving galleries, resizing images, and more.
+ */
 class sGallery
 {
     const DEFAULT_WIDTH = 240;

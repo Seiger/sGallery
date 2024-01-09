@@ -2,6 +2,11 @@
 
 use Illuminate\Support\Facades\Facade;
 
+/**
+ * Class sGallery
+ *
+ * This class extends the Facade class and represents the sGallery component.
+ */
 class sGallery extends Facade
 {
     /**
