@@ -243,7 +243,7 @@ class sGallery
             }
 
             if (isset($webp) && class_exists('\WebPConvert\WebPConvert')) {
-                if (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'image/webp') !== false && pathinfo($outputFilename, PATHINFO_EXTENSION) != 'gif') {
+                if (isset($_SERVER['HTTP_ACCEPT']) && (strpos($_SERVER['HTTP_ACCEPT'], 'image/webp') || $_SERVER['HTTP_ACCEPT'] == "*/*") !== false && pathinfo($outputFilename, PATHINFO_EXTENSION) != 'gif') {
                     if (!file_exists($check)) {
                         WebPConvert::convert($outputFilename, $check, ['quality' => 100]);
                     }
