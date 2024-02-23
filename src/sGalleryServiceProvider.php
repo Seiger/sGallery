@@ -30,8 +30,8 @@ class sGalleryServiceProvider extends ServiceProvider
             $this->publishes([
                 dirname(__DIR__) . '/config/sGalleryAlias.php' => config_path('app/aliases/sGallery.php', true),
                 dirname(__DIR__) . '/config/sGallerySettings.php' => config_path('seiger/settings/sGallery.php', true),
-                dirname(__DIR__) . '/images/noimage.png' => public_path('assets/images/noimage.png'),
-                dirname(__DIR__) . '/images/youtube-logo.png' => public_path('assets/images/youtube-logo.png'),
+                dirname(__DIR__) . '/images/noimage.png' => public_path('assets/site/noimage.png'),
+                dirname(__DIR__) . '/images/youtube-logo.png' => public_path('assets/site/youtube-logo.png'),
             ]);
         }
 
