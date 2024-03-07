@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rules\File;
 use Illuminate\View\View;
 use Seiger\sGallery\Models\sGalleryField;
 use Seiger\sGallery\Models\sGalleryModel;
@@ -62,13 +63,24 @@ class sGalleryController
         $data = [];
 
         $validator = Validator::make($request->all(), [
-            'cat' => 'required|integer|min:1',
-            'file' => 'required|mimes:'.evo()->getConfig('upload_images', 'png,jpg,jpeg,mp4').','.evo()->getConfig('upload_media', 'mp3,mp4').'|max:'.evo()->getConfig('upload_maxsize', '2048')
+            'cat' => [
+                'required',
+                'integer',
+                'min:1'
+            ],
+            'file' => [
+                'required',
+                File::types(explode(',', evo()->getConfig('upload_images', 'png,jpg,jpeg,mp4') . ',' . evo()->getConfig('upload_media', 'mp3,mp4')))
+                    ->max($this->maxsize()),
+            ]
         ]);
 
         if ($validator->fails()) {
             $data['success'] = 0;
             $data['error'] = $validator->errors()->first('file'); // Error response
+            if ($_FILES['file']['error'] == 1) { // The uploaded file exceeds the upload_max_filesize directive
+                $data['error'] = __('validation.max.file', ['attribute' => 'file', 'max' => $this->maxsize()]);
+            }
         } else {
             if ($request->file('file')) {
                 $file = $request->file('file');
@@ -121,7 +133,7 @@ class sGalleryController
 
         $validator = Validator::make($request->all(), [
             'cat' => 'required|integer|min:1',
-            'file' => 'required|mimes:'.evo()->getConfig('upload_files', 'odp,odt,pdf,ppt,pptx,doc,docx').'|max:'.evo()->getConfig('upload_maxsize', '2048')
+            'file' => 'required|mimes:'.evo()->getConfig('upload_files', 'odp,odt,pdf,ppt,pptx,doc,docx').'|max:'.$this->maxsize()
         ]);
 
         if ($validator->fails()) {
@@ -364,5 +376,24 @@ class sGalleryController
     public function view(string $tpl, array $data = [])
     {
         return \View::make('sGallery::'.$tpl, $data);
+    }
+
+    /**
+     * Get the maximum allowed file size for uploads
+     *
+     * This method calculates the maximum file size allowed for uploads based on two factors:
+     * 1. The value of the 'upload_max_filesize' PHP configuration directive, converted from Megabytes to kilobytes.
+     * 2. The value of the 'upload_maxsize' configuration option in the application's configuration, converted from bytes to kilobytes.
+     *
+     * If the calculated maximum file size based on these factors is less than the value of 'upload_maxsize',
+     * then it returns the calculated value, otherwise it returns the value of 'upload_maxsize'.
+     *
+     * @return int The maximum allowed file size for uploads in kilobytes
+     */
+    protected function maxsize()
+    {
+        $upload_max_filesize = intval(ini_get('upload_max_filesize')) * 1024;
+        $upload_maxsize = evo()->getConfig('upload_maxsize', (intval('2M') * 1024 * 1024)) / 1024;
+        return $upload_max_filesize < $upload_maxsize ? $upload_max_filesize : $upload_maxsize;
     }
 }
