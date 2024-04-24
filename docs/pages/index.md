@@ -36,8 +36,8 @@ Elevate your media management experience with **sGallery** today.
 - [x] Text Fields for File Management.
 - [x] Image Resize and WEBP Conversion.
 - [x] Integration with Custom Modules.
-- [x] Integration with Custom Modules.
 - [x] **[sLang](https://github.com/Seiger/sLang)** Integration.
+- [x] More than one tab.
 
 ## Minimum requirements
 
