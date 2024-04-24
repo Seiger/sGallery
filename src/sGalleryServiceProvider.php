@@ -35,7 +35,7 @@ class sGalleryServiceProvider extends ServiceProvider
             ]);
         }
 
-        // Check sMultisite
+        // Check sGallery
         $this->mergeConfigFrom(dirname(__DIR__) . '/config/sGalleryCheck.php', 'cms.settings');
 
         // Class alias

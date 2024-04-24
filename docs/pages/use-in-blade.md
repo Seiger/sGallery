@@ -59,3 +59,17 @@ You can use it for an example cover.
 @php($item = sGallery::first('product', $product->id))
 <img loading="lazy" src="{% raw %}{{$item->src}}{% endraw %}" alt="{% raw %}{{$item->alt}}{% endraw %}" width="440" height="440" />
 ```
+
+## Gallery items if blocks are used
+
+In the event that you need more than one gallery per page, you will [use blocks]({{site.baseurl}}/configuration/#more-than-one-tab).
+
+In this case, you must use the `block()` method to output units from the selected gallery block:
+
+```php
+@foreach(sGallery::block('cinema') as $item)
+    @if(sGallery::hasYoutube($item->type))
+        <lite-youtube videoid="{% raw %}{{$item->file}}{% endraw %}"></lite-youtube>
+    @endif
+@endforeach
+```

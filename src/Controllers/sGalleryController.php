@@ -2,7 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rules\File;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Seiger\sGallery\Models\sGalleryField;
 use Seiger\sGallery\Models\sGalleryModel;
@@ -13,14 +13,17 @@ class sGalleryController
     protected $viewType;
     protected $resourceType;
     protected $idType;
+    protected $blockName;
 
     /**
      * @param string $viewType tab or section or sectionFiles
      * @param string $resourceType resource
      * @param string $idType id
+     * @param string $blockName block name
      */
-    public function __construct(string $viewType = 'tab', string $resourceType = 'resource', string $idType = 'id')
+    public function __construct(string $viewType = 'tab', string $resourceType = 'resource', string $idType = 'id', string $blockName = '1')
     {
+        // Tab type
         if (in_array($viewType, [
             sGalleryModel::VIEW_TAB,
             sGalleryModel::VIEW_SECTION,
@@ -31,24 +34,39 @@ class sGalleryController
             $this->viewType = 'tab';
         }
 
+        // Block name
+        if (request()->has('amp;block')) {
+            $blockName = request()->get('amp;block');
+        } else {
+            $blockName = request()->block ?? $blockName;
+        }
+        $this->blockName = trim($blockName);
+
+        // ID type
+        $this->idType = $idType;
+
+        // Resource type
         if (request()->has('amp;resourceType')) {
             $resourceType = request()->get('amp;resourceType');
         } else {
             $resourceType = request()->resourceType ?? $resourceType;
         }
         $this->resourceType = trim($resourceType, '/');
-        $this->idType = $idType;
     }
 
     /**
      * Show tab page with Gallery files
      *
-     * @return View
+     * @return \Symfony\Component\HttpFoundation\Response The response
      */
     public function index(): View
     {
         $cat = request()->{$this->idType} ?? 0;
-        $galleries = sGalleryModel::whereParent($cat)->whereResourceType($this->resourceType)->orderBy('position')->get();
+        $galleries = sGalleryModel::whereParent($cat)
+            ->whereBlock($this->blockName)
+            ->whereResourceType($this->resourceType)
+            ->orderBy('position')
+            ->get();
         return $this->view($this->viewType, ['galleries' => $galleries, 'sGalleryController' => $this]);
     }
 
@@ -94,8 +112,13 @@ class sGalleryController
                 $file->move(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat, $filename);
 
                 // Save in DB
-                $thisFile = sGalleryModel::whereParent($request->cat)->whereResourceType($this->resourceType)->whereFile($filename)->firstOrCreate();
+                $thisFile = sGalleryModel::whereParent($request->cat)
+                    ->whereBlock($this->blockName)
+                    ->whereResourceType($this->resourceType)
+                    ->whereFile($filename)
+                    ->firstOrCreate();
                 $thisFile->parent = $request->cat;
+                $thisFile->block = $this->blockName;
                 $thisFile->file = $filename;
                 $thisFile->type = $filetype;
                 $thisFile->resource_type = $this->resourceType;
@@ -110,7 +133,7 @@ class sGalleryController
                 // Response
                 $data['success'] = 1;
                 $data['message'] = 'Uploaded Successfully!';
-                $data['preview'] = $this->view('partials.'.$filetype, ['gallery' => $thisFile])->render();
+                $data['preview'] = $this->view('partials.'.$filetype, ['gallery' => $thisFile, 'sGalleryController' => $this])->render();
             } else {
                 // Response
                 $data['success'] = 2;
@@ -124,8 +147,9 @@ class sGalleryController
     /**
      * Upload and save Download file
      *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @param Request $request The HTTP request object
+     *
+     * @return \Illuminate\Http\JsonResponse The JSON response containing success status, error message (if any) and uploaded file details
      */
     public function uploadDownload(Request $request)
     {
@@ -152,8 +176,13 @@ class sGalleryController
                 $file->move(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat, $filename);
 
                 // Save in DB
-                $thisFile = sGalleryModel::whereParent($request->cat)->whereResourceType($this->resourceType)->whereFile($filename)->firstOrCreate();
+                $thisFile = sGalleryModel::whereParent($request->cat)
+                    ->whereBlock($this->blockName)
+                    ->whereResourceType($this->resourceType)
+                    ->whereFile($filename)
+                    ->firstOrCreate();
                 $thisFile->parent = $request->cat;
+                $thisFile->block = $this->blockName;
                 $thisFile->file = $filename;
                 $thisFile->type = $filetype;
                 $thisFile->resource_type = $this->resourceType;
@@ -168,7 +197,7 @@ class sGalleryController
                 // Response
                 $data['success'] = 1;
                 $data['message'] = 'Uploaded Successfully!';
-                $data['preview'] = $this->view('partials.'.$filetype, ['gallery' => $thisFile])->render();
+                $data['preview'] = $this->view('partials.'.$filetype, ['gallery' => $thisFile, 'sGalleryController' => $this])->render();
             } else {
                 // Response
                 $data['success'] = 2;
@@ -180,7 +209,7 @@ class sGalleryController
     }
 
     /**
-     * Add YouTube video
+     * Add a YouTube video
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -191,18 +220,25 @@ class sGalleryController
 
         $validator = Validator::make($request->all(), [
             'cat' => 'required|integer|min:1',
-            'youtube_link' => 'required|active_url'
+            'youtubeLink' => 'required|active_url'
         ]);
 
         if ($validator->fails()) {
             $data['success'] = 0;
             $data['error'] = $validator->errors()->first(); // Error response
         } else {
-            if (preg_match('/[A-z0-9_-]{11}/', $request->youtube_link, $video)) {
+            $r = '/(?im)\b(?:https?:\/\/)?(?:w{3}\.)?youtu(?:be)?\.(?:com|be)\/(?:(?:\??v=?i?=?\/?)|watch\?vi?=|watch\?.*?&v=|embed\/|)([A-Z0-9_-]{11})\S*(?=\s|$)/';
+            preg_match_all($r, $request->input('youtubeLink'), $matches, PREG_SET_ORDER, 0);
+            if (isset($matches[0][1])) {
                 // Save in DB
-                $thisFile = sGalleryModel::whereParent($request->cat)->whereResourceType($this->resourceType)->whereFile($video[0])->firstOrCreate();
+                $thisFile = sGalleryModel::whereParent($request->cat)
+                    ->whereBlock($this->blockName)
+                    ->whereResourceType($this->resourceType)
+                    ->whereFile($matches[0][1])
+                    ->firstOrCreate();
                 $thisFile->parent = $request->cat;
-                $thisFile->file = $video[0];
+                $thisFile->block = $this->blockName;
+                $thisFile->file = $matches[0][1];
                 $thisFile->type = 'youtube';
                 $thisFile->resource_type = $this->resourceType;
                 $thisFile->update();
@@ -216,7 +252,7 @@ class sGalleryController
                 // Response
                 $data['success'] = 1;
                 $data['message'] = 'Add Successfully!';
-                $data['preview'] = $this->view('partials.youtube', ['gallery' => $thisFile])->render();
+                $data['preview'] = $this->view('partials.youtube', ['gallery' => $thisFile, 'sGalleryController' => $this])->render();
             } else {
                 // Response
                 $data['success'] = 2;
@@ -227,9 +263,9 @@ class sGalleryController
     }
 
     /**
-     * Update sorting
+     * Sort the galleries based on the request data
      *
-     * @param Request $request
+     * @param Request $request The current HTTP request
      * @return void
      */
     public function sortGallery(Request $request): void
@@ -241,7 +277,11 @@ class sGalleryController
 
         if (!$validator->fails()) {
             $items = implode('", "', $request->item);
-            $galleries = sGalleryModel::whereParent($request->cat)->whereResourceType($this->resourceType)->orderByRaw('FIELD(id, "'.$items.'")')->get();
+            $galleries = sGalleryModel::whereParent($request->cat)
+                ->whereBlock($this->blockName)
+                ->whereResourceType($this->resourceType)
+                ->orderByRaw('FIELD(id, "'.$items.'")')
+                ->get();
             foreach ($galleries as $position => $gallery) {
                 $gallery->position = $position;
                 $gallery->update();
@@ -351,6 +391,29 @@ class sGalleryController
     public function getResourceType()
     {
         return $this->resourceType;
+    }
+
+    /**
+     * Get the block name
+     *
+     * @return string
+     */
+    public function getBlockName()
+    {
+        return $this->blockName;
+    }
+
+    /**
+     * Get the block name id
+     *
+     * @return string
+     */
+    public function getBlockNameId($blockName = '')
+    {
+        if (!trim($blockName)) {
+            $blockName = $this->blockName;
+        }
+        return Str::of($blockName)->slug()->camel()->ucfirst();
     }
 
     /**

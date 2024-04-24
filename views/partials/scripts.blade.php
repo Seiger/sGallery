@@ -5,22 +5,23 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
     /* Sorting */
-    let uploadBase = document.getElementById('uploadBase');
-    let sortable = new Sortable.create(uploadBase, {
+    let uploadBase{{$blockId}} = document.getElementById('uploadBase{{$blockId}}');
+    let sortable{{$blockId}} = new Sortable.create(uploadBase{{$blockId}}, {
         animation: 150,
         onSort: function (evt) {
-            doResorting(evt);
+            doResorting{{$blockId}}(evt);
         }
     });
 
     /* Save new positions */
-    async function doResorting(e) {
+    async function doResorting{{$blockId}}(e) {
         let list = new FormData();
-        document.querySelectorAll('#uploadBase > li').forEach(item => list.append('item[]', item.getAttribute('data-sgallery')));
-        await fetch('{{route('sGallery.sort', [
+        document.querySelectorAll('#uploadBase{{$blockId}} > li').forEach(item => list.append('item[]', item.getAttribute('data-sgallery')));
+        await fetch('{!!route('sGallery.sort', [
             'cat' => request()->get($sGalleryController->getIdType()),
-            'resourceType' => $sGalleryController->getResourceType()
-            ])}}', {method: 'POST', body: list});
+            'resourceType' => $sGalleryController->getResourceType(),
+            'block' => $sGalleryController->getBlockName()
+        ])!!}', {method: 'POST', body: list});
     }
 
     $(document).on("click", "i.play_button", function() {
@@ -38,44 +39,49 @@
         return false;
     });
 
-    $(document).on("click", "#add_youtube", function() {
-        let youtube_link = prompt("@lang('sGallery::manager.youtube_link')");
+    $(document).on("click", "#addYoutube{{$blockId}}", function() {
+        let youtubeLink = prompt("@lang('sGallery::manager.youtube_link')");
         $.ajax({
-            url:'{{route('sGallery.addyoutube', [
+            url:'{!!route('sGallery.addyoutube', [
                 'cat' => request()->get($sGalleryController->getIdType()),
-                'resourceType' => $sGalleryController->getResourceType()
-                ])}}',
-            type:"GET",
-            data:'youtube_link='+youtube_link,
+                'resourceType' => $sGalleryController->getResourceType(),
+                'block' => $sGalleryController->getBlockName()
+                ])!!}',
+            type:"POST",
+            data:'youtubeLink='+youtubeLink,
             cache:false,
             success:function(data) {
-                document.getElementById('uploadBase').insertAdjacentHTML('beforeend', data.preview);
-                doResorting();
+                if (data.success == 0) {
+                    alertify.alert('@lang('sGallery::manager.file_upload_error')', data.error);
+                } else {
+                    document.getElementById('uploadBase{{$blockId}}').insertAdjacentHTML('beforeend', data.preview);
+                    doResorting{{$blockId}}();
+                }
             }
         });
         return false;
     });
 
-    let player = [];
+    let player{{$blockId}} = [];
 
     $(document).on("click", "i.youtube_button", function() {
         let video = $(this).parent().find('iframe').get(0).id;
 
-        if (player[video].getPlayerState() !== 1 ) {
+        if (player{{$blockId}}[video].getPlayerState() !== 1 ) {
             $(this).removeClass('play');
             $(this).addClass('fa fa-pause-circle-o fa-5x');
-            player[video].playVideo();
+            player{{$blockId}}[video].playVideo();
         } else {
             $(this).removeClass('fa fa-pause-circle-o fa-5x');
             $(this).addClass('play');
-            player[video].pauseVideo();
+            player{{$blockId}}[video].pauseVideo();
         }
         return false;
     });
 
     window.onYouTubeIframeAPIReady = function() {
         $.each($('iframe.thumbnail'), function(index, element) {
-            player[element.id] = new YT.Player(element.id);
+            player{{$blockId}}[element.id] = new YT.Player(element.id);
         });
     }
 
@@ -109,31 +115,31 @@
         return false;
     });
 
-    $(document).on("click", "[data-image-edit]", function() {
+    $(document).on("click", "[data-image-edit-{{$blockId}}]", function() {
         let _this = $(this);
         $.ajax({
             url:'{{route('sGallery.gettranslate')}}',
-            data:'item='+_this.attr("data-image-edit"),
+            data:'item='+_this.attr("data-image-edit-{{$blockId}}"),
             dataType:"json",
             cache:false,
             success:function(ajax) {
                 console.log(ajax);
-                $("#translate .modal-body").html(ajax.tabs);
-                $("#translate .nav-link:first-child").addClass('active');
-                $("#translate .tab-pane:first-child").addClass('active').addClass('show');
-                $('#translate').show();
+                $("#translate{{$blockId}} .modal-body").html(ajax.tabs);
+                $("#translate{{$blockId}} .nav-link:first-child").addClass('active');
+                $("#translate{{$blockId}} .tab-pane:first-child").addClass('active').addClass('show');
+                $('#translate{{$blockId}}').show();
             }
         });
         return false;
     });
 
-    $(document).on("click", "#translate [data-bs-target]", function() {
+    $(document).on("click", "#translate{{$blockId}} [data-bs-target]", function() {
         let tabButton = $(this);
 
-        $("#translate .nav-link").each(function () {
+        $("#translate{{$blockId}} .nav-link").each(function () {
             $(this).removeClass('active');
         });
-        $("#translate .tab-pane").each(function () {
+        $("#translate{{$blockId}} .tab-pane").each(function () {
             $(this).removeClass('active').removeClass('show');
         });
 
@@ -141,7 +147,7 @@
         $(tabButton.attr('data-bs-target')).addClass('active').addClass('show');
     });
 
-    function sendForm(selector) {
+    function sendForm{{$blockId}}(selector) {
         $.ajax({
             url:'{{route('sGallery.settranslate')}}',
             type:"POST",
@@ -159,29 +165,29 @@
     }
 </script>
 <style>
-    #uploadBase{margin-top:15px;}
-    #uploadBase .image{position:relative;width:240px;height:120px;margin:0 5px 5px 0;list-style:none;display:inline-block;}
-    #uploadBase .image > .btn-danger{position:absolute;top:5px;right:5px;display:none;}
-    #uploadBase .image:hover > .btn-danger, #uploadBase .image:hover > .btn-primary{display:inline;z-index:100;}
-    #uploadBase .image > .btn-primary{position:absolute;top:5px;left:5px;display:none;}
-    #uploadBase .image > .form-control, #uploadBase .image > div > .form-control{margin:0 0px -17px 0;}
-    #uploadBase .image > i.type{position:absolute;top:auto;bottom:5px;right:10px;display:block;margin:0;color:#ffffff;text-shadow:0 0 3px rgba(0,0,0,1);}
-    #uploadBase .image > i.play_button{position:absolute;top:calc(50% - 35px);right:calc(50% - 35px);display:block;margin:0;color:#ffffff;opacity:0.5;text-shadow:0 0 5px rgba(0,0,0,1);cursor:pointer;-webkit-transform:rotate(0deg);-ms-transform:rotate(0deg);transform:rotate(0deg);-webkit-transform-origin:center;-ms-transform-origin:center;transform-origin:center;-webkit-transition:all 0.5s;-o-transition:all 0.5s;transition:all 0.5s;}
-    #uploadBase .image > i.play_button.fa-pause-circle-o{opacity:0.1;}
-    #uploadBase .image:hover > i.play_button.fa-play-circle-o{-webkit-transform:rotate(120deg);-ms-transform:rotate(120deg);transform:rotate(120deg);opacity:1;}
-    #uploadBase .image:hover > i.play_button.fa-pause-circle-o{opacity:1;}
-    #uploadBase .image > i.youtube_button.play{background:url('{{\Seiger\sGallery\Models\sGalleryModel::UPLOADED}}youtube-logo.png') no-repeat;background-size:contain;position:absolute;top:calc(50% - 35px);right:calc(50% - 35px);width:70px;height:70px;cursor:pointer;transition:scale 0.5s;}
-    #uploadBase .image:hover > i.youtube_button.play{transform:scale(1.1);}
-    #uploadBase .image > i.youtube_button.fa-pause-circle-o{position:absolute;top:calc(50% - 35px);right:calc(50% - 35px);transition:opacity 0.5s;opacity:0.2;}
-    #uploadBase .image:hover > i.youtube_button.fa-pause-circle-o{opacity:1;color:white;cursor:pointer;}
-    #uploadBase .image img{margin-bottom:34px;}
-    #uploadBase .image video, #uploadBase .image iframe{margin-bottom:-40px;object-fit:cover;}
-    #uploadBase .image > span.title{position:absolute;top:calc(50%);right:calc(50%);display:block;margin:0;text-shadow:0 0 1px rgba(0,0,0,1);}
+    #uploadBase{{$blockId}} {margin-top:15px;}
+    #uploadBase{{$blockId}} .image{position:relative;width:240px;height:120px;margin:0 5px 5px 0;list-style:none;display:inline-block;}
+    #uploadBase{{$blockId}} .image > .btn-danger{position:absolute;top:5px;right:5px;display:none;}
+    #uploadBase{{$blockId}} .image:hover > .btn-danger, #uploadBase{{$blockId}} .image:hover > .btn-primary{display:inline;z-index:100;}
+    #uploadBase{{$blockId}} .image > .btn-primary{position:absolute;top:5px;left:5px;display:none;}
+    #uploadBase{{$blockId}} .image > .form-control, #uploadBase{{$blockId}} .image > div > .form-control{margin:0 0px -17px 0;}
+    #uploadBase{{$blockId}} .image > i.type{position:absolute;top:auto;bottom:5px;right:10px;display:block;margin:0;color:#ffffff;text-shadow:0 0 3px rgba(0,0,0,1);}
+    #uploadBase{{$blockId}} .image > i.play_button{position:absolute;top:calc(50% - 35px);right:calc(50% - 35px);display:block;margin:0;color:#ffffff;opacity:0.5;text-shadow:0 0 5px rgba(0,0,0,1);cursor:pointer;-webkit-transform:rotate(0deg);-ms-transform:rotate(0deg);transform:rotate(0deg);-webkit-transform-origin:center;-ms-transform-origin:center;transform-origin:center;-webkit-transition:all 0.5s;-o-transition:all 0.5s;transition:all 0.5s;}
+    #uploadBase{{$blockId}} .image > i.play_button.fa-pause-circle-o{opacity:0.1;}
+    #uploadBase{{$blockId}} .image:hover > i.play_button.fa-play-circle-o{-webkit-transform:rotate(120deg);-ms-transform:rotate(120deg);transform:rotate(120deg);opacity:1;}
+    #uploadBase{{$blockId}} .image:hover > i.play_button.fa-pause-circle-o{opacity:1;}
+    #uploadBase{{$blockId}} .image > i.youtube_button.play{background:url('{{\Seiger\sGallery\Models\sGalleryModel::UPLOADED}}youtube-logo.png') no-repeat;background-size:contain;position:absolute;top:calc(50% - 35px);right:calc(50% - 35px);width:70px;height:70px;cursor:pointer;transition:scale 0.5s;}
+    #uploadBase{{$blockId}} .image:hover > i.youtube_button.play{transform:scale(1.1);}
+    #uploadBase{{$blockId}} .image > i.youtube_button.fa-pause-circle-o{position:absolute;top:calc(50% - 35px);right:calc(50% - 35px);transition:opacity 0.5s;opacity:0.2;}
+    #uploadBase{{$blockId}} .image:hover > i.youtube_button.fa-pause-circle-o{opacity:1;color:white;cursor:pointer;}
+    #uploadBase{{$blockId}} .image img{margin-bottom:34px;}
+    #uploadBase{{$blockId}} .image video, #uploadBase{{$blockId}} .image iframe{margin-bottom:-40px;object-fit:cover;}
+    #uploadBase{{$blockId}} .image > span.title{position:absolute;top:calc(50%);right:calc(50%);display:block;margin:0;text-shadow:0 0 1px rgba(0,0,0,1);}
     iframe.thumbnail{pointer-events:none;}
     .modal{top:50px;font-weight:bold;}
     .fade:not(.show){opacity:initial;}
     .modal-backdrop {background-color:rgba(0, 0, 0, 0.5);}
     .modal-header{margin-top:1rem;}
-    .badge.bg-seigerit-gallery{background-color:#0057b8;color:#ffd700;font-size:120%;}
+    .badge.bg-seigerit-gallery{background-color:#0057b8 !important;color:#ffd700;font-size:85%;}
     .alertify .ajs-footer .ajs-buttons .ajs-button.ajs-ok {color:#fff;background-color:#d9534f;border-color:#d9534f;}
 </style>

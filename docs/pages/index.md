@@ -25,7 +25,7 @@ content management. Whether you are a content creator or an administrator, this 
 empowers you to curate a visually stunning and engaging website with unparalleled ease.
 Elevate your media management experience with **sGallery** today.
 
-[Getting Started]({{ site.baseurl }}/getting-started/){: .btn .btn-sky}
+[Getting Started]({{site.baseurl}}/getting-started/){: .btn .btn-sky}
 
 ## Features
 
@@ -51,4 +51,4 @@ Elevate your media management experience with **sGallery** today.
 
 ## Support
 
-If you need help, please don't hesitate to [open an issue]({{ site.support }}).
+If you need help, please don't hesitate to [open an issue]({{site.support}}).

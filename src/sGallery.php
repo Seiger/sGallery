@@ -69,20 +69,25 @@ class sGallery
      * @param string $viewType The type of view (default is 'tab')
      * @param string $resourceType The type of resource (default is 'resource')
      * @param string $idType The type of id (default is 'id')
+     * @param string $blockName The type of block name (default is '1')
      * @return View The initialized view
      */
-    public function initialise(string $viewType = 'tab', string $resourceType = 'resource', string $idType = 'id'): View
+    public function initialise(string $viewType = 'tab', string $resourceType = 'resource', string $idType = 'id', string $blockName = '1'): View
     {
-        $sGalleryController = new sGalleryController($viewType, $resourceType, $idType);
+        $sGalleryController = new sGalleryController($viewType, $resourceType, $idType, $blockName);
         return $sGalleryController->index();
     }
 
     /**
-     * Retrieve all galleries for a given resource type, document ID, and language.
+     * Retrieves all galleries of a given type and language for a given document.
      *
-     * @param string $resourceType The type of resource (default: 'resource')
-     * @param int|null $documentId The document ID (default: null)
-     * @param string|null $lang The language (default: null)
+     * This method retrieves all resources of a specified type and language for a given document.
+     * If no document ID is provided, it retrieves resources for the current document.
+     * If no language is provided, it retrieves resources for the default language defined in the config.
+     *
+     * @param string $resourceType The type of resources to retrieve (default: 'resource').
+     * @param int|null $documentId The ID of the document to retrieve resources for (default: current document ID).
+     * @param string|null $lang The language of the resources to retrieve (default: value from Evo configuration).
      * @return object The galleries matching the given resource type, document ID, and language.
      */
     public function all(string $resourceType = 'resource', int $documentId = null, string $lang = null): object
@@ -97,6 +102,38 @@ class sGallery
 
         return sGalleryModel::lang($lang)
             ->whereParent($documentId)
+            ->whereResourceType($resourceType)
+            ->orderBy('position')
+            ->get();
+    }
+
+    /**
+     * Retrieve all galleries with block name for a given resource type, document ID, and language.
+     *
+     * This method retrieves a list of blocks resource based on the provided parameters.
+     * If the document ID is not provided, it will default to the ID of the current document object.
+     * If the language is not provided, it will default to the value obtained from the Evo configuration.
+     * The method returns a collection of blocked resources sorted by position.
+     *
+     * @param string $blockName The name of the block (default: '1').
+     * @param string $resourceType The type of resource (default: 'resource').
+     * @param int|null $documentId The ID of the document to block gallery (default: current document ID).
+     * @param string|null $lang The language to use (default: value from Evo configuration).
+     * @return object The galleries matching the given resource type, block name, document ID, and language.
+     */
+    public function block(string $blockName = '1', string $resourceType = 'resource', int $documentId = null, string $lang = null): object
+    {
+        if (!$documentId) {
+            $documentId = evo()->documentObject['id'] ?? 0;
+        }
+
+        if (!$lang) {
+            $lang = evo()->getConfig('lang', 'base');
+        }
+
+        return sGalleryModel::lang($lang)
+            ->whereParent($documentId)
+            ->whereBlock($blockName)
             ->whereResourceType($resourceType)
             ->orderBy('position')
             ->get();

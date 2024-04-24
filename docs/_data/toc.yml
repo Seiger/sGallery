@@ -3,5 +3,7 @@
   links:
     - title: "Getting Started"
       url: "getting-started"
+    - title: "Configuration"
+      url: "configuration"
     - title: "Use in Blade"
       url: "use-in-blade"
