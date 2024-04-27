@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rules\File;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Seiger\sGallery\Models\sGalleryField;
@@ -368,7 +369,10 @@ class sGalleryController
         $gallery = sGalleryModel::find((int)$request->item);
         if ($gallery) {
             sGalleryField::where('key', $gallery->id)->delete();
-            unlink(sGalleryModel::UPLOAD . $this->resourceType . '/' . $gallery->parent . '/' . $gallery->file);
+            $file = sGalleryModel::UPLOAD . $this->resourceType . '/' . $gallery->parent . '/' . $gallery->file;
+            if (file_exists($file)) {
+                unlink($file);
+            }
             $gallery->delete();
         }
     }
