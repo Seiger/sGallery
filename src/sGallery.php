@@ -185,7 +185,8 @@ class sGallery
         $params['f'] = $params['f'] ?? 'webp';
         if ($params['f'] == 'webp') {
             $webp = true;
-            $params['f'] = strtolower(substr($input, -3));
+            $dotArr = explode('.', $input);
+            $params['f'] = strtolower(end($dotArr));
         }
 
         // Set resize type

@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Facade;
  * Class sGallery
  *
  * This class extends the Facade class and represents the sGallery component.
+ * @mixin \Seiger\sGallery\sGallery
  */
 class sGallery extends Facade
 {

@@ -1,6 +1,6 @@
 <section>
     <div class="btn-group btn-group-sm">
-        <input type="file" id="filesToUpload" name="files[]" multiple hidden/>
+        <input type="file" id="filesToUpload{{$sGalleryController->getBlockNameId()}}" name="files[]" multiple hidden/>
         <label for="filesToUpload{{$sGalleryController->getBlockNameId()}}" class="btn btn-secondary" style="margin-bottom:0;">
             <i class="fas fa-file-upload"></i> <span>@lang('sGallery::manager.file_upload')</span>
         </label>
@@ -10,7 +10,7 @@
         </button>
     </div>
 
-    <ul id="uploadBase">
+    <ul id="uploadBase{{$sGalleryController->getBlockNameId()}}">
         @foreach($galleries as $gallery)
             @include('sGallery::partials.'.$gallery->type)
         @endforeach
