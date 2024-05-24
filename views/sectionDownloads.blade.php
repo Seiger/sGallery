@@ -65,12 +65,19 @@
                 method: 'POST',
                 body: form
             });
-            let data = await resp.json();
-            console.log(`Done with ${f.name}`);
-            if (data.success == 0) {
-                alertify.alert('@lang('sGallery::manager.file_upload_error')', data.error);
+            if (resp.ok == false) {
+                if (resp.status == 413) {
+                    alertify.alert('@lang('sGallery::manager.file_upload_error')', '@lang('sGallery::manager.error_code_413')');
+                }
+                console.log(resp);
             } else {
-                document.querySelector('.files #uploadBase{{$sGalleryController->getBlockNameId()}}').insertAdjacentHTML('beforeend', data.preview);
+                let data = await resp.json();
+                console.log(`Done with ${f.name}`);
+                if (data.success == 0) {
+                    alertify.alert('@lang('sGallery::manager.file_upload_error')', data.error);
+                } else {
+                    document.getElementById('uploadBase{{$sGalleryController->getBlockNameId()}}').insertAdjacentHTML('beforeend', data.preview);
+                }
             }
             window.parent.document.getElementById('mainloader').classList.remove('show');
             doResorting{{$sGalleryController->getBlockNameId()}}();
