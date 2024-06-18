@@ -140,16 +140,17 @@ class sGallery
     }
 
     /**
-     * Retrieves the first item from the collection.
+     * Gets the first object from the sGalleryModel.
      *
-     * This method returns the first item from the collection of resources based on the given parameters.
+     * This method retrieves the first object from the sGalleryModel based on the provided arguments.
      *
      * @param string $resourceType (Optional) The type of resource to retrieve. Default is 'resource'.
      * @param int|null $documentId (Optional) The ID of the document to retrieve. Default is null.
      * @param string|null $lang (Optional) The language of the resource to retrieve. Default is null.
-     * @return object The first item from the collection.
+     * @param string|null $block (Optional) The block name if you need block filter.
+     * @return object The first object from the sGalleryModel.
      */
-    public function first(string $resourceType = 'resource', int $documentId = null, string $lang = null): object
+    public function first(string $resourceType = 'resource', int $documentId = null, string $lang = null, string $block = null): object
     {
         if (!$documentId) {
             $documentId = evo()->documentObject['id'] ?? 0;
@@ -159,11 +160,13 @@ class sGallery
             $lang = evo()->getConfig('lang', 'base');
         }
 
-        return sGalleryModel::lang($lang)
-            ->whereParent($documentId)
-            ->whereResourceType($resourceType)
-            ->orderBy('position')
-            ->firstOrNew();
+        $query = sGalleryModel::lang($lang)->whereParent($documentId)->whereResourceType($resourceType);
+
+        if ($block && trim($block)) {
+            $query->whereBlock($block);
+        }
+
+        return $query->orderBy('position')->firstOrNew();
     }
 
     /**

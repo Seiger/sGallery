@@ -60,6 +60,22 @@ You can use it for an example cover.
 <img loading="lazy" src="{% raw %}{{$item->src}}{% endraw %}" alt="{% raw %}{{$item->alt}}{% endraw %}" width="440" height="440" />
 ```
 
+## Sow product cover
+
+Call the code from the previous example with a full list of arguments.
+
+```php
+/**
+* @param string $resourceType (Optional) The type of resource to retrieve. Default is 'resource'.
+* @param int|null $documentId (Optional) The ID of the document to retrieve. Default is null.
+* @param string|null $lang (Optional) The language of the resource to retrieve. Default is null.
+* @param string|null $block (Optional) The block name if you need block filter.
+* @return object The first object from the sGalleryModel.
+*/
+@php($item = sGallery::first('product', $product->id, 'en', 'photo'))
+<img loading="lazy" src="{% raw %}{{$item->src}}{% endraw %}" alt="{% raw %}{{$item->alt}}{% endraw %}" width="440" height="440" />
+```
+
 ## Gallery items if blocks are used
 
 In the event that you need more than one gallery per page, you will [use blocks]({{site.baseurl}}/configuration/#more-than-one-tab).

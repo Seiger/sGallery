@@ -51,6 +51,10 @@ file, where the array contains template IDs for connecting the gallery.
 <?php return [1, 3, 5];
 ```
 
+More examples in **Configuration** page
+
+[Configuration]({{site.baseurl}}/configuration/){: .btn .btn-sky}
+
 ## Usage in blade
 
 Sow all files with Image filter:
@@ -101,13 +105,18 @@ or
 
 More examples in **Use in Blade** page
 
-[Use in Blade]({{ site.baseurl }}/use-in-blade/){: .btn .btn-sky}
+[Use in Blade]({{site.baseurl}}/use-in-blade/){: .btn .btn-sky}
 
 ## Integration into the products module
 
 Just paste this code in your View backend
 ```php
-{!! sGallery::initialise('section', 'product', 'i') !!}
+{!!sGallery::initialise('section', 'product', 'i')!!}
+```
+
+Or if you want to use additional blocks
+```php
+{!!sGallery::initialise('section', 'ship', 'i', 'photo')!!}
 ```
 
 ## Extra

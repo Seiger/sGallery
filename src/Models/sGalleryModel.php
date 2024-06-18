@@ -1,5 +1,6 @@
 <?php namespace Seiger\sGallery\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -35,7 +36,7 @@ class sGalleryModel extends Model
      *
      * @var array
      */
-    protected $appends = ['src'];
+    //protected $appends = ['src'];
 
     /**
      * Get the file item fields with lang
@@ -46,7 +47,7 @@ class sGalleryModel extends Model
      */
     public function scopeLang($query, $locale)
     {
-        return $this->leftJoin('s_gallery_fields', function ($leftJoin) use ($locale) {
+        return $this->select('*')->leftJoin('s_gallery_fields', function ($leftJoin) use ($locale) {
             $leftJoin->on('s_galleries.id', '=', 's_gallery_fields.key')
                 ->where('lang', function ($leftJoin) use ($locale) {
                     $leftJoin->select('lang')
@@ -56,7 +57,7 @@ class sGalleryModel extends Model
                         ->orderByRaw('FIELD(lang, "'.$locale.'", "base")')
                         ->limit(1);
                 });
-        });
+        })->addSelect(DB::Raw('(CASE WHEN `type` = \'image\' THEN CONCAT("/assets/sgallery/", resource_type, "/", parent, "/", file) ELSE "" END) as src'));
     }
 
     /**
