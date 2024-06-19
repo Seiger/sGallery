@@ -89,3 +89,29 @@ In this case, you must use the `block()` method to output units from the selecte
     @endif
 @endforeach
 ```
+
+An example of forming an image slider for a product with a full set of call parameters.
+
+```php
+/**
+* @param string $blockName The name of the block (default: '1').
+* @param string $resourceType The type of resource (default: 'resource').
+* @param int|null $documentId The ID of the document to block gallery (default: current document ID).
+* @param string|null $lang The language to use (default: value from Evo configuration).
+* @return object The galleries matching the given resource type, block name, document ID, and language.
+ */
+@foreach(sGallery::block('photo', 'product', $product->id, 'en') as $item)
+    @if(sGallery::hasImage($item->type))
+        <a class="swiper-slide" @if(trim($item->link))href="{% raw %}{{$item->link}}{% endraw %}"@endif>
+            <div class="container">
+                <img loading="lazy" class="intro__img" src="{% raw %}{{$item->src}}{% endraw %}" alt="{% raw %}{{$item->alt}}{% endraw %}" width="1440" height="456">
+                <div class="intro__inner">
+                    <div class="h1__title">{% raw %}{{$item->title}}{% endraw %}</div>
+                    <p class="intro__text">{% raw %}{{$item->description}}{% endraw %}</p>
+                    @if(trim($item->link_text))<div class="btn background__mod">{% raw %}{{$item->link_text}}{% endraw %}</div>@endif
+                </div>
+            </div>
+        </a>
+    @endif
+@endforeach
+```
