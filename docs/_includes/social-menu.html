@@ -1,7 +1,7 @@
 <nav aria-label="Social menu" class="hidden xl:flex w-50 h-10">
     <div class="flex space-x-3 items-center w-full z-10 bg-white text-sky-500">
         {% if site.repo %}
-        <a href="{{ site.repo }}" class="hover:text-sky-700 transition-colors">
+        <a href="{{site.repo}}" class="hover:text-sky-700 transition-colors">
             <span class=sr-only>Github</span>
             <svg role=img class=icon viewBox="0 0 24 24" style='width: 20px; height: 20px; ' fill=currentColor>
                 <g buffered-rendering=static>
@@ -11,7 +11,7 @@
         </a>
         {% endif %}
         {% if site.twitter %}
-        <a href="https://twitter.com/{{ site.twitter }}" class="hover:text-sky-700 transition-colors">
+        <a href="https://twitter.com/{{site.twitter}}" class="hover:text-sky-700 transition-colors">
             <span class=sr-only>Twitter</span>
             <svg role=img class="" viewBox="0 0 24 24" style="pointer-events: none; width: 20px; height: 20px;" fill=currentColor>
                 <g buffered-rendering=static>
@@ -21,7 +21,7 @@
         </a>
         {% endif %}
         {% if site.support %}
-        <a href="{{ site.support }}" class="hover:text-sky-700 transition-colors">
+        <a href="{{site.support}}" class="hover:text-sky-700 transition-colors">
             <span class=sr-only>Support forum</span>
             <svg role=img class=icon viewBox="0 0 24 24" style='width: 20px; height: 20px' fill=currentColor>
                 <g buffered-rendering=static>
@@ -31,7 +31,7 @@
         </a>
         {% endif %}
         {% if site.ko_fi %}
-        <a href="{{ site.support }}" class="hover:text-sky-700 transition-colors">
+        <a href="https://ko-fi.com/{{site.ko_fi}}" class="hover:text-sky-700 transition-colors">
             <span class=sr-only>By Coffee</span>
             <svg role=img class=icon viewBox="0 0 24 24" style='width: 20px; height: 20px' fill=currentColor>
                 <g buffered-rendering=static>
