@@ -284,7 +284,7 @@ class sGallery
             }
 
             if (isset($webp) && class_exists('\WebPConvert\WebPConvert')) {
-                if (isset($_SERVER['HTTP_ACCEPT']) && (strpos($_SERVER['HTTP_ACCEPT'], 'image/webp') || $_SERVER['HTTP_ACCEPT'] == "*/*") !== false && pathinfo($outputFilename, PATHINFO_EXTENSION) != 'gif') {
+                if (is_cli() || (isset($_SERVER['HTTP_ACCEPT']) && (strpos($_SERVER['HTTP_ACCEPT'], 'image/webp') || $_SERVER['HTTP_ACCEPT'] == "*/*") !== false) && pathinfo($outputFilename, PATHINFO_EXTENSION) != 'gif') {
                     if (!file_exists($check)) {
                         WebPConvert::convert($outputFilename, $check, ['quality' => 100]);
                     }
@@ -298,6 +298,21 @@ class sGallery
         }
 
         return MODX_SITE_URL . $fNamePref . rawurlencode($fName) . $fNameSuf;
+    }
+
+    /**
+     * Crop an image
+     * https://spatie.be/docs/image/v3/image-manipulations/resizing-images#content-crop
+     *
+     * @param string $input The path of the input image file
+     * @param int $width An integer of parameter for width the image
+     * @param int $height An integer of parameter for height the image
+     * @param string $position An string of parameters for crop from center/top/bottom/left/right (optional)
+     * @return string The URL of the resized image
+     */
+    public function crop(string $input, int $width, int $height, string $position = 'C'): string
+    {
+        return $this->resize($input, ['w' => $width, 'h' => $height, 'zc' => $position]);
     }
 
     /**

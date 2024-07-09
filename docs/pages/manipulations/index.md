@@ -1,0 +1,12 @@
+---
+layout: page
+title: Image manipulations
+description: Image manipulation doesn't have to be hard. This sGallery package makes it super easy to apply common manipulations to images like resizing, cropping and adding effects.
+permalink: /manipulations/
+---
+
+## Links
+
+### Resizing images
+
+- [Crop]({{site.baseurl}}/manipulations/crop/)
