@@ -112,6 +112,14 @@ class sGalleryController
                 // Upload file
                 $file->move(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat, $filename);
 
+                $newFolderAccessMode = evo()->getConfig('new_folder_permissions', '');
+                $newFolderAccessMode = empty($newFolderAccessMode) ? 0777 : octdec($newFolderAccessMode);
+                chmod(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat, $newFolderAccessMode);
+
+                $newFileAccessMode = evo()->getConfig('new_file_permissions', '');
+                $newFileAccessMode = empty($newFileAccessMode) ? 0666 : octdec($newFileAccessMode);
+                chmod(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat.'/'.$filename, $newFileAccessMode);
+
                 // Save in DB
                 $thisFile = sGalleryModel::whereParent($request->cat)
                     ->whereBlock($this->blockName)
@@ -175,6 +183,14 @@ class sGalleryController
 
                 // Upload file
                 $file->move(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat, $filename);
+
+                $newFolderAccessMode = evo()->getConfig('new_folder_permissions', '');
+                $newFolderAccessMode = empty($newFolderAccessMode) ? 0777 : octdec($newFolderAccessMode);
+                chmod(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat, $newFolderAccessMode);
+
+                $newFileAccessMode = evo()->getConfig('new_file_permissions', '');
+                $newFileAccessMode = empty($newFileAccessMode) ? 0666 : octdec($newFileAccessMode);
+                chmod(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat.'/'.$filename, $newFileAccessMode);
 
                 // Save in DB
                 $thisFile = sGalleryModel::whereParent($request->cat)
