@@ -3,6 +3,7 @@
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use phpthumb;
+use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
 use WebPConvert\WebPConvert;
@@ -15,83 +16,180 @@ use WebPConvert\WebPConvert;
  */
 class sGallery
 {
-    const DEFAULT_WIDTH = 240;
-    const DEFAULT_HEIGHT = 120;
+    public const DEFAULT_WIDTH = 240;
+    public const DEFAULT_HEIGHT = 120;
+    protected sGalleryBuilder $builder;
 
-    /**
-     * Determines if the given type is an image.
-     *
-     * @param string $type The type to check
-     * @return bool Returns true if the type is an image, false otherwise
-     */
-    public function hasImage($type)
+    public function __construct()
     {
-        return Str::of($type)->exactly(sGalleryModel::TYPE_IMAGE);
+        $this->builder = new sGalleryBuilder();
     }
 
     /**
-     * Check if the given type has video
-     *
-     * @param string $type The type to be checked
-     * @return bool Returns true if the type has video, otherwise false
-     */
-    public function hasVideo($type)
-    {
-        return Str::of($type)->exactly(sGalleryModel::TYPE_VIDEO);
-    }
-
-    /**
-     * Determines if the given type is a YouTube type
-     *
-     * @param string $type The type to check
-     * @return bool True if the type is a YouTube type, otherwise false
-     */
-    public function hasYoutube($type)
-    {
-        return Str::of($type)->exactly(sGalleryModel::TYPE_YOUTUBE);
-    }
-
-    /**
-     * Checks if the given type is PDF.
-     *
-     * @param string $type The type to be checked.
-     *
-     * @return bool Returns true if the given type is PDF, false otherwise.
-     */
-    public function hasPdf($type)
-    {
-        return Str::of($type)->exactly(sGalleryModel::TYPE_PDF);
-    }
-
-    /**
-     * Initialize the Gallery with the specified parameters
+     * Initialize the Gallery with the specified parameters.
      *
      * @param string $viewType The type of view (default is 'tab')
      * @param string $resourceType The type of resource (default is 'resource')
      * @param string $idType The type of id (default is 'id')
      * @param string $blockName The type of block name (default is '1')
-     * @return View The initialized view
+     * @return View|string The initialized view or error string
+     * @deprecated Use the new Builder pattern with initialiseView() instead.
      */
-    public function initialise(string $viewType = 'tab', string $resourceType = 'resource', string $idType = 'id', string $blockName = '1'): View
+    public function initialise(string $viewType = 'tab', string $resourceType = 'resource', string $idType = 'id', string $blockName = '1')
     {
-        $sGalleryController = new sGalleryController($viewType, $resourceType, $idType, $blockName);
-        return $sGalleryController->index();
+        trigger_error('Method initialise() is deprecated. Use the new Builder pattern with initialiseView() instead.', E_USER_DEPRECATED);
+
+        try {
+            $sGalleryController = new sGalleryController($viewType, $resourceType, $idType, $blockName);
+            return $sGalleryController->index(); // Assuming this returns a View object
+        } catch (\Exception $e) {
+            // Handle any exceptions and return an error message as a string
+            return "Error initializing gallery: " . $e->getMessage();
+        }
     }
 
     /**
-     * Retrieves all galleries of a given type and language for a given document.
+     * Set the view type.
      *
-     * This method retrieves all resources of a specified type and language for a given document.
-     * If no document ID is provided, it retrieves resources for the current document.
-     * If no language is provided, it retrieves resources for the default language defined in the config.
+     * @param string $viewType
+     * @return self
+     */
+    public function viewType(string $viewType): self
+    {
+        $this->builder->viewType($viewType);
+        return $this;
+    }
+
+    /**
+     * Set the resource type.
      *
-     * @param string $resourceType The type of resources to retrieve (default: 'resource').
-     * @param int|null $documentId The ID of the document to retrieve resources for (default: current document ID).
-     * @param string|null $lang The language of the resources to retrieve (default: value from Evo configuration).
+     * @param string $resourceType
+     * @return self
+     */
+    public function resourceType(string $resourceType): self
+    {
+        $this->builder->resourceType($resourceType);
+        return $this;
+    }
+
+    /**
+     * Set the ID type.
+     *
+     * @param string $idType
+     * @return self
+     */
+    public function idType(string $idType): self
+    {
+        $this->builder->idType($idType);
+        return $this;
+    }
+
+    /**
+     * Set the block name.
+     *
+     * @param string $blockName
+     * @return self
+     */
+    public function blockName(string $blockName): self
+    {
+        $this->builder->blockName($blockName);
+        return $this;
+    }
+
+    /**
+     * Initialize the view with the current settings.
+     *
+     * @return View
+     */
+    public function initialiseView(): View
+    {
+        return $this->builder->initialise();
+    }
+
+    /**
+     * Retrieves all galleries of a given type and language for a given document using the new Builder pattern.
+     *
+     * @param string|null $resourceType The type of resources to retrieve.
+     * @param int|null $documentId The ID of the document to retrieve resources for.
+     * @param string|null $lang The language of the resources to retrieve.
      * @return object The galleries matching the given resource type, document ID, and language.
+     */
+    public function allGalleries(string $resourceType = 'resource', int $documentId = null, string $lang = null): object
+    {
+        return $this->resourceType($resourceType)
+            ->idType($documentId)
+            ->initialiseView();
+    }
+
+    /**
+     * Retrieve all galleries with block name for a given resource type, document ID, and language using the new Builder pattern.
+     *
+     * @param string $blockName The name of the block.
+     * @param string|null $resourceType The type of resource.
+     * @param int|null $documentId The ID of the document to block gallery.
+     * @param string|null $lang The language to use.
+     * @return object The galleries matching the given resource type, block name, document ID, and language.
+     */
+    public function blockGalleries(string $blockName = '1', string $resourceType = 'resource', int $documentId = null, string $lang = null): object
+    {
+        return $this->blockName($blockName)
+            ->resourceType($resourceType)
+            ->idType($documentId)
+            ->initialiseView();
+    }
+
+    /**
+     * Gets the first gallery object using the new Builder pattern.
+     *
+     * @param string $resourceType The type of resource.
+     * @param int|null $documentId The ID of the document.
+     * @param string|null $lang The language of the resource.
+     * @param string|null $block The block name if you need block filter.
+     * @return object The first object from the sGalleryModel.
+     */
+    public function firstGallery(string $resourceType = 'resource', int $documentId = null, string $lang = null, string $block = null): object
+    {
+        return $this->resourceType($resourceType)
+            ->idType($documentId)
+            ->blockName($block)
+            ->initialiseView();
+    }
+
+    /**
+     * Resize an image using the new Builder pattern.
+     *
+     * @param string $input The path of the input image file.
+     * @param array $params An array of parameters for resizing the image.
+     * @return string The URL of the resized image.
+     */
+    public function resizeImage(string $input, array $params = []): string
+    {
+        return $this->builder->resize($input);
+    }
+
+    /**
+     * Crop an image using the new Builder pattern.
+     *
+     * @param string $input The path of the input image file.
+     * @param int $width An integer of parameter for width the image.
+     * @param int $height An integer of parameter for height the image.
+     * @param string $position A string of parameters for crop from center/top/bottom/left/right.
+     * @return string The URL of the cropped image.
+     */
+    public function cropImage(string $input, int $width, int $height, string $position = 'C'): string
+    {
+        return $this->resizeImage($input, ['w' => $width, 'h' => $height, 'zc' => $position]);
+    }
+
+    // Deprecated methods
+
+    /**
+     * @deprecated Use allGalleries() method instead with the new Builder pattern.
      */
     public function all(string $resourceType = 'resource', int $documentId = null, string $lang = null): object
     {
+        trigger_error('Method all() is deprecated. Use allGalleries() with the new Builder pattern instead.', E_USER_DEPRECATED);
+
         if (!$documentId) {
             $documentId = evo()->documentObject['id'] ?? 0;
         }
@@ -108,21 +206,12 @@ class sGallery
     }
 
     /**
-     * Retrieve all galleries with block name for a given resource type, document ID, and language.
-     *
-     * This method retrieves a list of blocks resource based on the provided parameters.
-     * If the document ID is not provided, it will default to the ID of the current document object.
-     * If the language is not provided, it will default to the value obtained from the Evo configuration.
-     * The method returns a collection of blocked resources sorted by position.
-     *
-     * @param string $blockName The name of the block (default: '1').
-     * @param string $resourceType The type of resource (default: 'resource').
-     * @param int|null $documentId The ID of the document to block gallery (default: current document ID).
-     * @param string|null $lang The language to use (default: value from Evo configuration).
-     * @return object The galleries matching the given resource type, block name, document ID, and language.
+     * @deprecated Use blockGalleries() method instead with the new Builder pattern.
      */
     public function block(string $blockName = '1', string $resourceType = 'resource', int $documentId = null, string $lang = null): object
     {
+        trigger_error('Method block() is deprecated. Use blockGalleries() with the new Builder pattern instead.', E_USER_DEPRECATED);
+
         if (!$documentId) {
             $documentId = evo()->documentObject['id'] ?? 0;
         }
@@ -140,18 +229,12 @@ class sGallery
     }
 
     /**
-     * Gets the first object from the sGalleryModel.
-     *
-     * This method retrieves the first object from the sGalleryModel based on the provided arguments.
-     *
-     * @param string $resourceType (Optional) The type of resource to retrieve. Default is 'resource'.
-     * @param int|null $documentId (Optional) The ID of the document to retrieve. Default is null.
-     * @param string|null $lang (Optional) The language of the resource to retrieve. Default is null.
-     * @param string|null $block (Optional) The block name if you need block filter.
-     * @return object The first object from the sGalleryModel.
+     * @deprecated Use firstGallery() method instead with the new Builder pattern.
      */
     public function first(string $resourceType = 'resource', int $documentId = null, string $lang = null, string $block = null): object
     {
+        trigger_error('Method first() is deprecated. Use firstGallery() with the new Builder pattern instead.', E_USER_DEPRECATED);
+
         if (!$documentId) {
             $documentId = evo()->documentObject['id'] ?? 0;
         }
@@ -170,33 +253,27 @@ class sGallery
     }
 
     /**
-     * Resize an image
-     * https://docs.evo.im/ua/04_extras/phpthumb/02_opcii.html
-     *
-     * @param string $input The path of the input image file
-     * @param array $params An array of parameters for resizing the image (optional)
-     * @return string The URL of the resized image
+     * @deprecated Use resizeImage() method instead with the new Builder pattern.
      */
     public function resize(string $input, array $params = []): string
     {
-        // Set filepath
+        trigger_error('Method resize() is deprecated. Use resizeImage() with the new Builder pattern instead.', E_USER_DEPRECATED);
+
+        // Original resize implementation remains here for backward compatibility
         $input = str_replace([MODX_SITE_URL, MODX_BASE_PATH], '', $input);
         $input = str_replace(['//', '///'], '', $input);
         $input = trim($input, '/');
-
-        // Set output format
         $params['f'] = $params['f'] ?? 'webp';
+
         if ($params['f'] == 'webp') {
             $webp = true;
             $dotArr = explode('.', $input);
             $params['f'] = strtolower(end($dotArr));
         }
 
-        // Set resize type
         $params['zc'] = $params['zc'] ?? 'C';
-
-        // Set output Quality
         $quality = 100;
+
         if ($params['f'] == 'png') {
             if (isset($params['q']) && $params['q'] > 9) {
                 $params['q'] = round((100 - $params['q']) / 10);
@@ -215,7 +292,7 @@ class sGallery
         $newFolderAccessMode = empty($new) ? 0777 : octdec($newFolderAccessMode);
 
         $defaultCacheFolder = 'assets/cache/';
-        $cacheFolder = isset($cacheFolder) ? $cacheFolder : $defaultCacheFolder . 'sgallery';
+        $cacheFolder = $defaultCacheFolder . 'sgallery';
 
         $path = MODX_BASE_PATH . $cacheFolder;
         if (!file_exists($path) && mkdir($path) && is_dir($path)) {
@@ -301,26 +378,64 @@ class sGallery
     }
 
     /**
-     * Crop an image
-     * https://spatie.be/docs/image/v3/image-manipulations/resizing-images#content-crop
-     *
-     * @param string $input The path of the input image file
-     * @param int $width An integer of parameter for width the image
-     * @param int $height An integer of parameter for height the image
-     * @param string $position An string of parameters for crop from center/top/bottom/left/right (optional)
-     * @return string The URL of the resized image
+     * @deprecated Use cropImage() method instead with the new Builder pattern.
      */
     public function crop(string $input, int $width, int $height, string $position = 'C'): string
     {
+        trigger_error('Method crop() is deprecated. Use cropImage() with the new Builder pattern instead.', E_USER_DEPRECATED);
         return $this->resize($input, ['w' => $width, 'h' => $height, 'zc' => $position]);
     }
 
     /**
-     * Generate language tabs
+     * Determines if the given type is an image.
      *
-     * This method generates an array of language tabs based on the 's_lang_config' configuration value
+     * @param string $type The type to check.
+     * @return bool Returns true if the type is an image, false otherwise.
+     */
+    public function hasImage(string $type): bool
+    {
+        return Str::of($type)->exactly(sGalleryModel::TYPE_IMAGE);
+    }
+
+    /**
+     * Check if the given type has video.
      *
-     * @return array The language tabs array
+     * @param string $type The type to be checked.
+     * @return bool Returns true if the type has video, otherwise false.
+     */
+    public function hasVideo(string $type): bool
+    {
+        return Str::of($type)->exactly(sGalleryModel::TYPE_VIDEO);
+    }
+
+    /**
+     * Determines if the given type is a YouTube type.
+     *
+     * @param string $type The type to check.
+     * @return bool True if the type is a YouTube type, otherwise false.
+     */
+    public function hasYoutube(string $type): bool
+    {
+        return Str::of($type)->exactly(sGalleryModel::TYPE_YOUTUBE);
+    }
+
+    /**
+     * Checks if the given type is PDF.
+     *
+     * @param string $type The type to be checked.
+     * @return bool Returns true if the given type is PDF, false otherwise.
+     */
+    public function hasPdf(string $type): bool
+    {
+        return Str::of($type)->exactly(sGalleryModel::TYPE_PDF);
+    }
+
+    /**
+     * Generate language tabs.
+     *
+     * This method generates an array of language tabs based on the 's_lang_config' configuration value.
+     *
+     * @return array The language tabs array.
      */
     public function langTabs(): array
     {

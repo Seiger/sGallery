@@ -1,6 +1,8 @@
 <?php namespace Seiger\sGallery\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\File;
 use Illuminate\Support\Str;
@@ -8,6 +10,7 @@ use Illuminate\View\View;
 use Seiger\sGallery\Models\sGalleryField;
 use Seiger\sGallery\Models\sGalleryModel;
 use sGallery;
+use function Laravel\Prompts\info;
 
 class sGalleryController
 {
@@ -285,14 +288,16 @@ class sGalleryController
      * @param Request $request The current HTTP request
      * @return void
      */
-    public function sortGallery(Request $request): void
+    public function resortGallery(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'cat' => 'required|integer|min:1',
             'item' => 'required|array'
         ]);
 
-        if (!$validator->fails()) {
+        if ($validator->fails()) {
+            Log::error('sGallery->resortGallery(): ' . $validator->errors()->first());
+        } else {
             $items = implode('", "', $request->item);
             $galleries = sGalleryModel::whereParent($request->cat)
                 ->whereBlock($this->blockName)
@@ -380,7 +385,7 @@ class sGalleryController
      * @param Request $request
      * @return void
      */
-    public function delete(Request $request): void
+    public function delete(Request $request)
     {
         $gallery = sGalleryModel::find((int)$request->item);
         if ($gallery) {
@@ -390,7 +395,14 @@ class sGalleryController
                 unlink($file);
             }
             $gallery->delete();
+            $data['success'] = 1;
+            $data['message'] = __('sGallery::manager.deleted_successfully');
+        } else {
+            $data['success'] = 0;
+            $data['message'] = 'Item not found';
         }
+
+        return response()->json($data);
     }
 
     /**
