@@ -8,12 +8,26 @@ use Illuminate\Support\Facades\DB;
  * Class sGalleryModel
  *
  * This class represents a gallery model for managing gallery data in the application.
- * It extends the base Model class.
+ *
+ * @property int $id
+ * @property string $resource_type
+ * @property string $parent
+ * @property string $file
+ * @property string $type
+ *
+ * @property-read string $path
+ * @property-read string $src
+ *
+ * @method static Builder|sGalleryModel lang(string $locale)
+ * @method static Builder|sGalleryModel newModelQuery()
+ * @method static Builder|sGalleryModel newQuery()
+ * @method static Builder|sGalleryModel query()
  */
 class sGalleryModel extends Model
 {
     const UPLOAD = MODX_BASE_PATH . "assets/sgallery/";
     const UPLOADED = MODX_SITE_URL . "assets/sgallery/";
+    const NOIMAGE = MODX_SITE_URL . "assets/site/noimage.png";
 
     const TYPE_IMAGE = "image";
     const TYPE_VIDEO = "video";
@@ -32,11 +46,13 @@ class sGalleryModel extends Model
     protected $table = 's_galleries';
 
     /**
-     * The accessors to append to the model's array form.
+     * The attributes that should be appended to the model's array form.
      *
      * @var array
      */
-    //protected $appends = ['src'];
+    protected $appends = ['src', 'path'];
+
+    private $cachedFilePath;
 
     /**
      * Get the file item fields with lang
@@ -68,14 +84,51 @@ class sGalleryModel extends Model
      *
      * @return string The source attribute value for the image.
      */
-    protected function getSrcAttribute()
+    protected function getSrcAttribute(): string
     {
-        if (!empty($this->file) && is_file(self::UPLOAD.$this->resource_type.'/'.$this->parent.'/'.$this->file)) {
-            $src = self::UPLOADED.$this->resource_type.'/'.$this->parent.'/'.$this->file;
-        } else {
-            $src = self::UPLOADED.'noimage.png';
+        switch ($this->type) {
+            case self::TYPE_IMAGE:
+                $src = !empty($this->file) && is_file(self::UPLOAD.$this->resource_type.'/'.$this->parent.'/'.$this->file)
+                    ? self::UPLOADED.$this->resource_type.'/'.$this->parent.'/'.$this->file
+                    : self::NOIMAGE;
+                break;
+
+            case self::TYPE_VIDEO:
+                $src = self::UPLOADED.'video_placeholder.png';
+                break;
+
+            case self::TYPE_PDF:
+                $src = self::UPLOADED.'pdf_icon.png';
+                break;
+
+            default:
+                $src = self::NOIMAGE;
+                break;
         }
 
         return $src;
+    }
+
+    /**
+     * Get the full path to the file on the server.
+     *
+     * This method constructs the full file path on the server for the gallery item.
+     * If the file exists, it returns the full path; otherwise, it returns the path to a default "noimage.png" file.
+     *
+     * @return string The full path to the file on the server.
+     */
+    public function getPathAttribute(): string
+    {
+        if ($this->cachedFilePath) {
+            return $this->cachedFilePath;
+        }
+
+        if (!empty($this->file) && is_file(self::UPLOAD.$this->resource_type.'/'.$this->parent.'/'.$this->file)) {
+            $this->cachedFilePath = self::UPLOAD.$this->resource_type.'/'.$this->parent.'/'.$this->file;
+        } else {
+            $this->cachedFilePath = self::UPLOAD.'noimage.png';
+        }
+
+        return $this->cachedFilePath;
     }
 }

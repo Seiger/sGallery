@@ -2,7 +2,6 @@
 
 use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
-use Illuminate\Support\Facades\View;
 
 /**
  * Class sGalleryBuilder
@@ -11,13 +10,12 @@ use Illuminate\Support\Facades\View;
  */
 class sGalleryBuilder
 {
-    protected string $viewType = sGalleryModel::VIEW_TAB;
+    protected string $viewType = sGalleryModel::VIEW_SECTION;
     protected string $itemType = 'resource';
-    protected string $idType = 'id';
+    protected string $idType = 'i';
     protected string $blockName = '1';
-    protected int|null $documentId = null;
-    protected string|null $lang = null;
-    protected array $resizeParams = [];
+    protected ?string $file = null;
+    protected ?array $params = [];
 
     /**
      * Set the view type.
@@ -38,7 +36,7 @@ class sGalleryBuilder
     }
 
     /**
-     * Set the resource type.
+     * Set the item type.
      *
      * @param string $itemType
      * @return self
@@ -74,27 +72,32 @@ class sGalleryBuilder
     }
 
     /**
-     * Set the language.
+     * Set resize parameters.
      *
-     * @param string $lang
+     * @param int $width
+     * @param int $height
      * @return self
      */
-    public function language(string $lang): self
+    public function resize(int $width, int $height): self
     {
-        $this->lang = $lang;
+        $this->params['w'] = $width;
+        $this->params['h'] = $height;
         return $this;
     }
 
     /**
-     * Set parameters for resizing images.
+     * Get the URL of the file.
      *
-     * @param array $params
-     * @return self
+     * @param string $filePath
+     * @return string
      */
-    public function resizeParams(array $params): self
+    protected function getFileUrl(string $filePath): string
     {
-        $this->resizeParams = $params;
-        return $this;
+        if (file_exists($filePath)) {
+            return str_replace(MODX_BASE_PATH, MODX_SITE_URL, $filePath);
+        }
+
+        return sGalleryModel::NOIMAGE;
     }
 
     /**
@@ -108,18 +111,59 @@ class sGalleryBuilder
     }
 
     /**
-     * Render the view as a string when the object is treated like a string.
+     * Get the URL of the file.
+     *
+     * @return string
+     */
+    public function getFile(): string
+    {
+        if ($this->file !== null) {
+            return $this->getFileUrl($this->file);
+        }
+
+        return sGalleryModel::NOIMAGE;
+    }
+
+    /**
+     * Set the file path.
+     *
+     * @param string $input
+     * @return self
+     */
+    public function file(string $input): self
+    {
+        $this->file = $input;
+        return $this;
+    }
+
+    /**
+     * Get the URL of the file.
+     *
+     * @return string
+     */
+    public function getView(): string
+    {
+        $sGalleryController = new sGalleryController($this->viewType, $this->itemType, $this->idType, $this->blockName);
+        $view = $sGalleryController->index();
+
+        return $view instanceof View ? $view->render() : (string)$view;
+    }
+
+    /**
+     * Render the view or return the file path as a string when the object is treated like a string.
      *
      * @return string
      */
     public function __toString(): string
     {
         try {
-            $sGalleryController = new sGalleryController($this->viewType, $this->itemType, $this->idType, $this->blockName);
-            return $sGalleryController->index(); // Assuming this returns a View object
+            if ($this->file !== null) {
+                return $this->getFile();
+            }
+
+            return $this->getView();
         } catch (\Exception $e) {
-            // Handle any exceptions and return an error message as a string
-            return "Error initializing gallery: " . $e->getMessage();
+            return "Error sGallery: " . $e->getMessage();
         }
     }
 }

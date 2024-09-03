@@ -107,17 +107,59 @@ More examples in **Use in Blade** page
 
 [Use in Blade]({{site.baseurl}}/use-in-blade/){: .btn .btn-sky}
 
-## Integration into the products module
+## Integration into the Custom Module (e.g., in sCommerce)
 
-Just paste this code in your View backend
+Integrate the sGallery package seamlessly into your project by following the examples below.
+These snippets demonstrate both basic and advanced usage, allowing you to customize the gallery
+according to your specific needs.
+
+### Basic Usage
+
+To display a simple gallery for products, insert the following code into your module's view:
+
 ```php
-{!!sGallery::initialise('section', 'product', 'i')!!}
+{!!sGallery::initialiseView()->itemType('product')!!}
 ```
 
-Or if you want to use additional blocks
+**Explanation of Methods:**
+
+- initialiseView() - Initiates the gallery builder and prepares it for configuration.
+  This method sets up the default settings required to render the gallery.
+- itemType('product') - Specifies the type of items to display in the gallery.
+  In this case, it sets the gallery to showcase products. You can replace 'product' with any
+  other item type relevant to your application.
+
+### Advanced Usage with Additional Configuration
+
+For more customized galleries, you can chain additional methods to tailor the display according to your requirements:
+
 ```php
-{!!sGallery::initialise('section', 'ship', 'i', 'photo')!!}
+{!!sGallery::initialiseView()->viewType('section')->itemType('product')->idType('i')->blockName('photo')!!}
 ```
+
+**Explanation of Methods:**
+
+- initialiseView() - Starts the gallery configuration process, setting up necessary defaults and preparing
+  for further customization.
+- viewType('section') - Defines the layout or style of the gallery display. The 'section' view type organizes
+  the gallery items into distinct sections. Other possible values might include '**tab**', or '**sectionDownloads**'.
+- itemType('product') - Determines the category or type of items the gallery will present. Here, it specifies
+  that products will be displayed. Modify this parameter to display different item categories as needed.
+- idType('i') - Sets the identifier type for retrieving and managing gallery items. The identifier '**i**' or '**id**'
+  may correspond to a specific scheme or format on your system. Adjust this option according to the identifier
+  conventions used in your application. Remember that the '**id**' parameter is reserved for modules in Evolution CMS.
+- blockName('photo') - Assigns a specific block or group name to the gallery items. Using '**photo**' groups items
+  under this block, allowing for organized and targeted display. You can change this to other block names like
+  '**gallery**', '**portfolio**', or any custom groupings you utilize.
+
+### Notes
+
+- All methods are chainable, allowing for clean and readable configuration.
+- Ensure that the parameters passed to each method align with the definitions and expectations within
+  your application's context.
+- You can omit methods that utilize default settings if no customization is needed for those aspects.
+- Explore and utilize other available methods and parameters provided by sGallery to further enhance
+  and control your gallery's behavior and appearance.
 
 ## Extra
 

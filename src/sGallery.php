@@ -30,21 +30,20 @@ class sGallery
      *
      * @return sGalleryBuilder
      */
-    public function initialiseView()
+    public function initialiseView(): sGalleryBuilder
     {
         return $this->builder->initialise();
     }
 
     /**
-     * Resize an image using the new Builder pattern.
+     * Return the URL of the file using the Builder pattern.
      *
-     * @param string $input The path of the input image file.
-     * @param array $params An array of parameters for resizing the image.
-     * @return string The URL of the resized image.
+     * @param string $input The path of the input file.
+     * @return string The URL of the manipulated file.
      */
-    public function resizeImage(string $input, array $params = []): string
+    public function file(string $input): sGalleryBuilder
     {
-        return $this->builder->resize($input);
+        return $this->builder->file($input);
     }
 
     /**
@@ -59,7 +58,7 @@ class sGallery
      */
     public function initialise(string $viewType = '', string $resourceType = 'resource', string $idType = 'id', string $blockName = '1')
     {
-        trigger_error('Method initialise() is deprecated. Use the new Builder pattern with initialiseView() instead.', E_USER_DEPRECATED);
+        trigger_error('Method initialise() is deprecated. Use the sGallery::initialiseView() instead.', E_USER_DEPRECATED);
 
         $viewTypeDef = sGalleryModel::VIEW_TAB;
         if (in_array($viewType, [
@@ -150,7 +149,7 @@ class sGallery
      */
     public function all(string $resourceType = 'resource', int $documentId = null, string $lang = null): object
     {
-        trigger_error('Method all() is deprecated. Use allGalleries() with the new Builder pattern instead.', E_USER_DEPRECATED);
+        trigger_error('Method all() is deprecated. Use sGallery::allGalleries() with the new Builder pattern instead.', E_USER_DEPRECATED);
 
         if (!$documentId) {
             $documentId = evo()->documentObject['id'] ?? 0;
@@ -172,7 +171,7 @@ class sGallery
      */
     public function block(string $blockName = '1', string $resourceType = 'resource', int $documentId = null, string $lang = null): object
     {
-        trigger_error('Method block() is deprecated. Use blockGalleries() with the new Builder pattern instead.', E_USER_DEPRECATED);
+        trigger_error('Method block() is deprecated. Use sGallery::blockGalleries() with the new Builder pattern instead.', E_USER_DEPRECATED);
 
         if (!$documentId) {
             $documentId = evo()->documentObject['id'] ?? 0;
@@ -195,7 +194,7 @@ class sGallery
      */
     public function first(string $resourceType = 'resource', int $documentId = null, string $lang = null, string $block = null): object
     {
-        trigger_error('Method first() is deprecated. Use firstGallery() with the new Builder pattern instead.', E_USER_DEPRECATED);
+        trigger_error('Method first() is deprecated. Use sGallery::firstGallery() with the new Builder pattern instead.', E_USER_DEPRECATED);
 
         if (!$documentId) {
             $documentId = evo()->documentObject['id'] ?? 0;
@@ -219,7 +218,7 @@ class sGallery
      */
     public function resize(string $input, array $params = []): string
     {
-        trigger_error('Method resize() is deprecated. Use resizeImage() with the new Builder pattern instead.', E_USER_DEPRECATED);
+        trigger_error('Method resize() is deprecated. Use sGallery::file()->resize() with the new Builder pattern instead.', E_USER_DEPRECATED);
 
         // Original resize implementation remains here for backward compatibility
         $input = str_replace([MODX_SITE_URL, MODX_BASE_PATH], '', $input);
@@ -344,7 +343,7 @@ class sGallery
      */
     public function crop(string $input, int $width, int $height, string $position = 'C'): string
     {
-        trigger_error('Method crop() is deprecated. Use cropImage() with the new Builder pattern instead.', E_USER_DEPRECATED);
+        trigger_error('Method crop() is deprecated. Use sGallery::cropImage() with the new Builder pattern instead.', E_USER_DEPRECATED);
         return $this->resize($input, ['w' => $width, 'h' => $height, 'zc' => $position]);
     }
 
@@ -422,7 +421,7 @@ class sGallery
     }
 
     /**
-     * Set the resource type.
+     * Set the item type.
      *
      * @param string $itemType
      * @return self

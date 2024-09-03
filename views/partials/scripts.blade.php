@@ -19,14 +19,15 @@
     #uploadBase{{$blockId}} .image img{margin-bottom:34px;}
     #uploadBase{{$blockId}} .image video, #uploadBase{{$blockId}} .image iframe{margin-bottom:-40px;object-fit:cover;}
     #uploadBase{{$blockId}} .image > span.title{position:absolute;top:calc(50%);right:calc(50%);display:block;margin:0;text-shadow:0 0 1px rgba(0,0,0,1);}
-    iframe.thumbnail{pointer-events:none;}
     .badge.bg-seigerit-gallery{background-color:#0057b8 !important;color:#ffd700;font-size:85%;}
+    .alertify .ajs-header{user-select:none;}
     .alertify .ajs-footer .ajs-buttons .ajs-button.ajs-ok{color:#fff;background-color:#d9534f;border-color:#d9534f;}
     .alertify .ajs-footer .ajs-buttons .ajs-button.ajs-ok-green{color:#fff;background-color:#28a745;border-color:#28a745;}
+    .alertify.sgallery-modal .ajs-body .ajs-content{padding:10px 0 0;}
     .ajs-content .form-group{margin-bottom:1rem;}
-    .ajs-content .form-control{width:100%;padding:0.375rem 0.75rem;font-size:1rem;line-height:1.5;color:#495057;background-color:#fff;background-clip:padding-box;border:1px solid #ced4da;border-radius:0.25rem;transition:border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;}
+    .ajs-content .form-control{width:100%;padding:0.375rem 0.75rem;font-size:1rem;line-height:1.5;color:#495057;background-color:#f8f9fa;background-clip:padding-box;border:1px solid #ced4da;border-radius:0.25rem;transition:border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;resize:none;}
     .ajs-content .input-group-text{background-color:#e9ecef;border:1px solid #ced4da;border-radius:0.25rem 0 0 0.25rem;padding:0.375rem 0.75rem;}
-    .ajs-content .tab-pane{padding:1rem;border:1px solid #dee2e6;border-radius:0.25rem;background-color:#f8f9fa;}
+    .ajs-content .tab-pane{border-radius:0.25rem;}
     .ajs-content .nav-tabs{border-bottom:1px solid #dee2e6;}
     .ajs-content .nav-item{margin-bottom:-1px;}
     .ajs-content .nav-link{border:1px solid transparent;border-top-left-radius:0.25rem;border-top-right-radius:0.25rem;color:#6c757d;background-color:#f8f9fa;transition:background-color 0.3s ease, color 0.3s ease;}
@@ -181,19 +182,22 @@
                         sendForm{{$blockId}}("#fileLangTabs");
                         console.log("Confirmed editing for ID:", itemId);
                         document.querySelector('.ajs-ok').classList.remove('ajs-ok-green');
+                        document.querySelector('.alertify').classList.remove('sgallery-modal');
                     },
                     function() { // This function is called when the "Cancel" button is clicked
                         console.log("Editing cancelled for ID:", itemId);
                         document.querySelector('.ajs-ok').classList.remove('ajs-ok-green');
+                        document.querySelector('.alertify').classList.remove('sgallery-modal');
                     }
                 ).set({
                     labels: {ok:"@lang('sGallery::manager.save')", cancel:"@lang('sGallery::manager.cancel')"},
-                    transition: 'zoom', // Optional: you can set the transition type
-                    movable: false, // Optional: disable modal dragging
-                    closableByDimmer: false, // Optional: disable closing by clicking outside
-                    pinnable: false // Optional: disable pinning the modal
+                    transition: 'zoom',
+                    movable: false,
+                    closableByDimmer: false,
+                    pinnable: false
                 });
                 document.querySelector('.ajs-ok').classList.add('ajs-ok-green');
+                document.querySelector('.alertify ').classList.add('sgallery-modal');
             })
             .catch(error => console.error('Error:', error));
     }
@@ -234,10 +238,13 @@
             function() {
                 alertify.error("@lang('sGallery::manager.cancel')");
             }
-        ).set('labels', {
-            ok:"@lang('sGallery::manager.delete')",
-            cancel:"@lang('sGallery::manager.cancel')"
-        }).set({transition:'zoom'});
+        ).set({
+            labels: {ok:"@lang('sGallery::manager.delete')", cancel:"@lang('sGallery::manager.cancel')"},
+            transition: 'zoom',
+            movable: false,
+            closableByDimmer: false,
+            pinnable: false
+        });
         e.preventDefault();
     }
 
