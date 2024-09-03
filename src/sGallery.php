@@ -26,6 +26,28 @@ class sGallery
     }
 
     /**
+     * Initialize the view builder.
+     *
+     * @return sGalleryBuilder
+     */
+    public function initialiseView()
+    {
+        return $this->builder->initialise();
+    }
+
+    /**
+     * Resize an image using the new Builder pattern.
+     *
+     * @param string $input The path of the input image file.
+     * @param array $params An array of parameters for resizing the image.
+     * @return string The URL of the resized image.
+     */
+    public function resizeImage(string $input, array $params = []): string
+    {
+        return $this->builder->resize($input);
+    }
+
+    /**
      * Initialize the Gallery with the specified parameters.
      *
      * @param string $viewType The type of view (default is 'tab')
@@ -35,9 +57,19 @@ class sGallery
      * @return View|string The initialized view or error string
      * @deprecated Use the new Builder pattern with initialiseView() instead.
      */
-    public function initialise(string $viewType = 'tab', string $resourceType = 'resource', string $idType = 'id', string $blockName = '1')
+    public function initialise(string $viewType = '', string $resourceType = 'resource', string $idType = 'id', string $blockName = '1')
     {
         trigger_error('Method initialise() is deprecated. Use the new Builder pattern with initialiseView() instead.', E_USER_DEPRECATED);
+
+        $viewTypeDef = sGalleryModel::VIEW_TAB;
+        if (in_array($viewType, [
+            sGalleryModel::VIEW_TAB,
+            sGalleryModel::VIEW_SECTION,
+            sGalleryModel::VIEW_SECTION_DOWNLOADS
+        ])) {
+            $viewTypeDef = $viewType;
+        }
+        $viewType = $viewTypeDef;
 
         try {
             $sGalleryController = new sGalleryController($viewType, $resourceType, $idType, $blockName);
@@ -46,64 +78,6 @@ class sGallery
             // Handle any exceptions and return an error message as a string
             return "Error initializing gallery: " . $e->getMessage();
         }
-    }
-
-    /**
-     * Set the view type.
-     *
-     * @param string $viewType
-     * @return self
-     */
-    public function viewType(string $viewType): self
-    {
-        $this->builder->viewType($viewType);
-        return $this;
-    }
-
-    /**
-     * Set the resource type.
-     *
-     * @param string $resourceType
-     * @return self
-     */
-    public function resourceType(string $resourceType): self
-    {
-        $this->builder->resourceType($resourceType);
-        return $this;
-    }
-
-    /**
-     * Set the ID type.
-     *
-     * @param string $idType
-     * @return self
-     */
-    public function idType(string $idType): self
-    {
-        $this->builder->idType($idType);
-        return $this;
-    }
-
-    /**
-     * Set the block name.
-     *
-     * @param string $blockName
-     * @return self
-     */
-    public function blockName(string $blockName): self
-    {
-        $this->builder->blockName($blockName);
-        return $this;
-    }
-
-    /**
-     * Initialize the view with the current settings.
-     *
-     * @return View
-     */
-    public function initialiseView(): View
-    {
-        return $this->builder->initialise();
     }
 
     /**
@@ -153,18 +127,6 @@ class sGallery
             ->idType($documentId)
             ->blockName($block)
             ->initialiseView();
-    }
-
-    /**
-     * Resize an image using the new Builder pattern.
-     *
-     * @param string $input The path of the input image file.
-     * @param array $params An array of parameters for resizing the image.
-     * @return string The URL of the resized image.
-     */
-    public function resizeImage(string $input, array $params = []): string
-    {
-        return $this->builder->resize($input);
     }
 
     /**
@@ -445,6 +407,54 @@ class sGallery
             $tabs[$item] = '<span class="badge bg-seigerit-gallery">' . $item . '</span>';
         }
         return $tabs;
+    }
+
+    /**
+     * Set the view type.
+     *
+     * @param string $viewType
+     * @return self
+     */
+    public function viewType(string $viewType): self
+    {
+        $this->builder->viewType($viewType);
+        return $this;
+    }
+
+    /**
+     * Set the resource type.
+     *
+     * @param string $itemType
+     * @return self
+     */
+    public function itemType(string $itemType): self
+    {
+        $this->builder->itemType($itemType);
+        return $this;
+    }
+
+    /**
+     * Set the ID type.
+     *
+     * @param string $idType
+     * @return self
+     */
+    public function idType(string $idType): self
+    {
+        $this->builder->idType($idType);
+        return $this;
+    }
+
+    /**
+     * Set the block name.
+     *
+     * @param string $blockName
+     * @return self
+     */
+    public function blockName(string $blockName): self
+    {
+        $this->builder->blockName($blockName);
+        return $this;
     }
 
     /**

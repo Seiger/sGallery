@@ -288,7 +288,7 @@ class sGalleryController
      * @param Request $request The current HTTP request
      * @return void
      */
-    public function resortGallery(Request $request)
+    public function resortGallery(Request $request): void
     {
         $validator = Validator::make($request->all(), [
             'cat' => 'required|integer|min:1',

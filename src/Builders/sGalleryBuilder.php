@@ -1,5 +1,6 @@
 <?php namespace Seiger\sGallery\Builders;
 
+use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
 use Illuminate\Support\Facades\View;
 
@@ -10,11 +11,12 @@ use Illuminate\Support\Facades\View;
  */
 class sGalleryBuilder
 {
-    protected string $viewType = 'default';
-    protected string $resourceType = 'resource';
+    protected string $viewType = sGalleryModel::VIEW_TAB;
+    protected string $itemType = 'resource';
+    protected string $idType = 'id';
+    protected string $blockName = '1';
     protected int|null $documentId = null;
     protected string|null $lang = null;
-    protected string|null $blockName = null;
     protected array $resizeParams = [];
 
     /**
@@ -25,31 +27,37 @@ class sGalleryBuilder
      */
     public function viewType(string $viewType): self
     {
-        $this->viewType = $viewType;
+        if (in_array($viewType, [
+            sGalleryModel::VIEW_TAB,
+            sGalleryModel::VIEW_SECTION,
+            sGalleryModel::VIEW_SECTION_DOWNLOADS
+        ])) {
+            $this->viewType = $viewType;
+        }
         return $this;
     }
 
     /**
      * Set the resource type.
      *
-     * @param string $resourceType
+     * @param string $itemType
      * @return self
      */
-    public function resourceType(string $resourceType): self
+    public function itemType(string $itemType): self
     {
-        $this->resourceType = $resourceType;
+        $this->itemType = $itemType;
         return $this;
     }
 
     /**
-     * Set the document ID.
+     * Set the document ID type.
      *
-     * @param int $documentId
+     * @param string $idType
      * @return self
      */
-    public function idType(int $documentId): self
+    public function idType(string $idType): self
     {
-        $this->documentId = $documentId;
+        $this->idType = $idType;
         return $this;
     }
 
@@ -92,56 +100,26 @@ class sGalleryBuilder
     /**
      * Initialize and retrieve the gallery view.
      *
-     * @return object|View
+     * @return self
      */
-    public function initialise()
+    public function initialise(): self
     {
-        // Determine document ID if not set
-        if (is_null($this->documentId)) {
-            $this->documentId = evo()->documentObject['id'] ?? 0;
-        }
-
-        // Determine language if not set
-        if (is_null($this->lang)) {
-            $this->lang = evo()->getConfig('lang', 'base');
-        }
-
-        // Build query to the sGalleryModel
-        $query = sGalleryModel::lang($this->lang)
-            ->whereParent($this->documentId)
-            ->whereResourceType($this->resourceType);
-
-        if (!is_null($this->blockName) && trim($this->blockName) !== '') {
-            $query->whereBlock($this->blockName);
-        }
-
-        // Get the result
-        $galleries = $query->orderBy('position')->get();
-
-        // You may want to return a View or another object
-        // For example:
-        // return View::make('sgallery::view.' . $this->viewType, ['galleries' => $galleries]);
-
-        // For example purposes, return the collection
-        return $galleries;
+        return $this;
     }
 
     /**
-     * Perform image resizing based on the set parameters.
+     * Render the view as a string when the object is treated like a string.
      *
-     * @param string $input
      * @return string
      */
-    public function resize(string $input): string
+    public function __toString(): string
     {
-        // Use methods from the sGallery class or other logic to resize
-        // For example, using the resizeImage method from sGallery
-
-        // If you need to use an instance of sGallery, you may need to inject it or use a static method
-        // For simplicity, let's assume we're calling a static method
-
-        return \Seiger\sGallery\sGallery::initialise()->resizeImage($input, $this->resizeParams);
+        try {
+            $sGalleryController = new sGalleryController($this->viewType, $this->itemType, $this->idType, $this->blockName);
+            return $sGalleryController->index(); // Assuming this returns a View object
+        } catch (\Exception $e) {
+            // Handle any exceptions and return an error message as a string
+            return "Error initializing gallery: " . $e->getMessage();
+        }
     }
-
-    // Additional methods can be added as needed
 }
