@@ -240,7 +240,6 @@ class sGalleryBuilder
     {
         $sGalleryController = new sGalleryController($this->viewType, $this->itemType, $this->idType, $this->blockName);
         $view = $sGalleryController->index();
-
         return $view instanceof View ? $view->render() : (string)$view;
     }
 
@@ -252,7 +251,9 @@ class sGalleryBuilder
     public function __toString(): string
     {
         try {
-            return $this->file !== null ? $this->getFile() : $this->getView();
+            $result = $this->file !== null ? $this->getFile() : $this->getView();
+            $this->resetBuilder();
+            return $result;
         } catch (\Exception $e) {
             return "Error sGallery: " . $e->getMessage();
         }
@@ -275,5 +276,16 @@ class sGalleryBuilder
         }
 
         return 'jpg';
+    }
+
+    /**
+     * Reset builder state for next usage.
+     *
+     * @return void
+     */
+    protected function resetBuilder(): void
+    {
+        $this->file = null;
+        $this->params = [];
     }
 }

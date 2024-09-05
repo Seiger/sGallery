@@ -39,7 +39,7 @@
 <script>
     // Initialize sorting for the gallery images
     const uploadBase{{$blockId}} = document.getElementById('uploadBase{{$blockId}}');
-    const sortableInstance = new Sortable(uploadBase{{$blockId}}, {
+    const sortableInstance{{$blockId}} = new Sortable(uploadBase{{$blockId}}, {
         animation: 150, // Animation speed
         onSort: function (e) {
             doResorting{{$blockId}}(); // Call sorting function after reorder
