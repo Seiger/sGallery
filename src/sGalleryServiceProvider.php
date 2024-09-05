@@ -12,35 +12,30 @@ class sGalleryServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        // Only Manager
+        // Only load these resources in Manager mode
         if (IN_MANAGER_MODE) {
             // Add custom routes for package
             include(__DIR__.'/Http/routes.php');
 
-            // Migration for create tables
+            // Load migrations, views, translations only if necessary
             $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
-
-            // Views
             $this->loadViewsFrom(__DIR__ . '/../views', 'sGallery');
-
-            // MultiLang
             $this->loadTranslationsFrom(__DIR__.'/../lang', 'sGallery');
 
-            // Files
-            $this->publishes([
-                dirname(__DIR__) . '/config/sGalleryAlias.php' => config_path('app/aliases/sGallery.php', true),
-                dirname(__DIR__) . '/config/sGallerySettings.php' => config_path('seiger/settings/sGallery.php', true),
-                dirname(__DIR__) . '/images/noimage.png' => public_path('assets/site/noimage.png'),
-                dirname(__DIR__) . '/images/youtube-logo.png' => public_path('assets/site/youtube-logo.png'),
-            ]);
+            // Publish configuration and assets
+            $this->publishResources();
         }
 
-        // Check sGallery
+        // Merge configuration for sGallery
         $this->mergeConfigFrom(dirname(__DIR__) . '/config/sGalleryCheck.php', 'cms.settings');
 
-        // Class alias
-        $this->app->singleton(sGallery::class);
-        $this->app->alias(sGallery::class, 'sGallery');
+        // Register sGallery as a singleton using the key 'sGallery'
+        $this->app->singleton('sGallery', function ($app) {
+            return new \Seiger\sGallery\sGallery();
+        });
+
+        // Create class alias for the facade
+        class_alias(\Seiger\sGallery\Facades\sGallery::class, 'sGallery');
     }
 
     /**
@@ -54,5 +49,19 @@ class sGalleryServiceProvider extends ServiceProvider
         $this->loadPluginsFrom(
             dirname(__DIR__) . '/plugins/'
         );
+    }
+
+    /**
+     * Publish the necessary resources for the package.
+     *
+     * @return void
+     */
+    protected function publishResources()
+    {
+        $this->publishes([
+            dirname(__DIR__) . '/config/sGallerySettings.php' => config_path('seiger/settings/sGallery.php', true),
+            dirname(__DIR__) . '/images/noimage.png' => public_path('assets/site/noimage.png'),
+            dirname(__DIR__) . '/images/youtube-logo.png' => public_path('assets/site/youtube-logo.png'),
+        ]);
     }
 }
