@@ -25,15 +25,30 @@ Elevate your media management experience with **sGallery** today.
 - [x] YouTube Integration.
 - [x] Sortable Positions.
 - [x] Text Fields for File Management.
-- [x] Image Resize and WEBP Conversion.
+- [x] Image Resize and AVIF or WEBP Conversion.
 - [x] Integration with Custom Modules.
 - [x] **[sLang](https://github.com/Seiger/sLang)** Integration.
 - [x] More than one tab.
 
+## Supported formats
+
+The following image formats are tested and supported by the package. If your GD/Imagick installation supports
+a format that is not listed you are probably fine to use it but your mileage may vary.
+
+| Format | GD | Imagick |
+|--------|----| --- |
+| jpeg   | ✅  | ✅ |
+| png    | ✅  | ✅ |
+| gif    | ✅  | ✅ |
+| webp   | ✅  | ✅ |
+| avif   | ✅  | ✅ |
+| heic   | ❌  | ✅ |
+| tiff   | ❌  | ✅ |
+
 ## Minimum requirements
 
 - Evolution CMS 3.2.0
-- PHP 8.1.0
+- PHP 8.2.0
 - Composer 2.2.0
 - PostgreSQL 10.23.0
 - MySQL 8.0.3
@@ -54,8 +69,8 @@ Run php artisan command
 php artisan package:installrequire seiger/sgallery "*"
 ```
 
-Generate the config file in **../core/custom/config/seiger/settings** with 
-name **sgallery.php** the file should return a 
+Generate the config file in **../core/custom/config/seiger/settings** with
+name **sgallery.php** the file should return a
 comma-separated list of templates.
 
 ```console
@@ -70,7 +85,7 @@ php artisan migrate
 
 ## Configure
 
-Templates for displaying gallery tabs are configured in the 
+Templates for displaying gallery tabs are configured in the
 
 ```console
 core/custom/config/seiger/settings/sGallery.php
@@ -125,7 +140,7 @@ or
 
 Just paste this code in your View backend
 ```php
-{!! sGallery::initialise('section', 'product', 'i') !!}
+{!!sGallery::initialiseView()->viewType('section')->itemType('product')->idType('i')!!}
 ```
 
 [See full documentation here](https://seiger.github.io/sGallery/)

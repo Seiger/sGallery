@@ -2,7 +2,7 @@
     "name": "seiger/sgallery",
     "license": "GPL-3.0",
     "type": "EvolutionCMS-Plugin",
-    "description": "Evocms package for work with Gallery for Resource in Evolution CMS",
+    "description": "Evocms package for work with Gallery for Resource in Evolution CMS and manipulate images with an expressive API",
     "keywords": ["evocms", "evolution-cms", "gallery"],
     "authors": [
         {
@@ -11,9 +11,8 @@
         }
     ],
     "require": {
-        "php": "^8.1",
-        "james-heinrich/phpthumb": "1.*",
-        "rosell-dk/webp-convert": "*"
+        "php": "^8.2",
+        "spatie/image": "3.*"
     },
     "autoload": {
         "psr-4": {

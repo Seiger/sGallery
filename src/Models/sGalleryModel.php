@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
  * This class represents a gallery model for managing gallery data in the application.
  *
  * @property int $id
- * @property string $resource_type
+ * @property string $item_type
  * @property string $parent
  * @property string $file
  * @property string $type
@@ -28,6 +28,7 @@ class sGalleryModel extends Model
     const UPLOAD = MODX_BASE_PATH . "assets/sgallery/";
     const UPLOADED = MODX_SITE_URL . "assets/sgallery/";
     const NOIMAGE = MODX_SITE_URL . "assets/site/noimage.png";
+    const CACHE_DIR = "assets/cache/";
 
     const TYPE_IMAGE = "image";
     const TYPE_VIDEO = "video";
@@ -73,7 +74,7 @@ class sGalleryModel extends Model
                         ->orderByRaw('FIELD(lang, "'.$locale.'", "base")')
                         ->limit(1);
                 });
-        })->addSelect(DB::Raw('(CASE WHEN `type` = \'image\' THEN CONCAT("/assets/sgallery/", resource_type, "/", parent, "/", file) ELSE "" END) as src'));
+        })->addSelect(DB::Raw('(CASE WHEN `type` = \'image\' THEN CONCAT("/assets/sgallery/", item_type, "/", parent, "/", file) ELSE "" END) as src'));
     }
 
     /**
@@ -88,8 +89,8 @@ class sGalleryModel extends Model
     {
         switch ($this->type) {
             case self::TYPE_IMAGE:
-                $src = !empty($this->file) && is_file(self::UPLOAD.$this->resource_type.'/'.$this->parent.'/'.$this->file)
-                    ? self::UPLOADED.$this->resource_type.'/'.$this->parent.'/'.$this->file
+                $src = !empty($this->file) && is_file(self::UPLOAD.$this->item_type.'/'.$this->parent.'/'.$this->file)
+                    ? self::UPLOADED.$this->item_type.'/'.$this->parent.'/'.$this->file
                     : self::NOIMAGE;
                 break;
 
@@ -123,8 +124,8 @@ class sGalleryModel extends Model
             return $this->cachedFilePath;
         }
 
-        if (!empty($this->file) && is_file(self::UPLOAD.$this->resource_type.'/'.$this->parent.'/'.$this->file)) {
-            $this->cachedFilePath = self::UPLOAD.$this->resource_type.'/'.$this->parent.'/'.$this->file;
+        if (!empty($this->file) && is_file(self::UPLOAD.$this->item_type.'/'.$this->parent.'/'.$this->file)) {
+            $this->cachedFilePath = self::UPLOAD.$this->item_type.'/'.$this->parent.'/'.$this->file;
         } else {
             $this->cachedFilePath = self::UPLOAD.'noimage.png';
         }

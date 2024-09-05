@@ -15,28 +15,28 @@ use function Laravel\Prompts\info;
 class sGalleryController
 {
     protected $viewType;
-    protected $resourceType;
+    protected $itemType;
     protected $idType;
     protected $blockName;
 
     /**
      * @param string $viewType tab or section or sectionFiles
-     * @param string $resourceType resource
+     * @param string $itemType resource
      * @param string $idType id
      * @param string $blockName block name
      */
-    public function __construct(string $viewType = 'tab', string $resourceType = 'resource', string $idType = 'id', string $blockName = '1')
+    public function __construct(string $viewType = sGalleryModel::VIEW_SECTION, string $itemType = 'resource', string $idType = 'id', string $blockName = '1')
     {
-        // Tab type
+        // Wiev type
+        $viewTypeDef = sGalleryModel::VIEW_TAB;
         if (in_array($viewType, [
             sGalleryModel::VIEW_TAB,
             sGalleryModel::VIEW_SECTION,
             sGalleryModel::VIEW_SECTION_DOWNLOADS
         ])) {
-            $this->viewType = $viewType;
-        } else {
-            $this->viewType = 'tab';
+            $viewTypeDef = $viewType;
         }
+        $this->viewType = $viewTypeDef;
 
         // Block name
         if (request()->has('amp;block')) {
@@ -50,12 +50,12 @@ class sGalleryController
         $this->idType = $idType;
 
         // Resource type
-        if (request()->has('amp;resourceType')) {
-            $resourceType = request()->get('amp;resourceType');
+        if (request()->has('amp;itemType')) {
+            $itemType = request()->get('amp;itemType');
         } else {
-            $resourceType = request()->resourceType ?? $resourceType;
+            $itemType = request()->itemType ?? $itemType;
         }
-        $this->resourceType = trim($resourceType, '/');
+        $this->itemType = trim($itemType, '/');
     }
 
     /**
@@ -68,7 +68,7 @@ class sGalleryController
         $cat = request()->{$this->idType} ?? 0;
         $galleries = sGalleryModel::whereParent($cat)
             ->whereBlock($this->blockName)
-            ->whereResourceType($this->resourceType)
+            ->whereItemType($this->itemType)
             ->orderBy('position')
             ->get();
         return $this->view($this->viewType, ['galleries' => $galleries, 'sGalleryController' => $this]);
@@ -111,29 +111,30 @@ class sGalleryController
                 if (in_array($filetype, ['application'])) {
                     $filetype = explode('/', $file->getMimeType())[1];
                 }
+                $filename = Str::slug($filename);
 
                 // Upload file
-                $file->move(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat, $filename);
+                $file->move(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat, $filename);
 
                 $newFolderAccessMode = evo()->getConfig('new_folder_permissions', '');
                 $newFolderAccessMode = empty($newFolderAccessMode) ? 0777 : octdec($newFolderAccessMode);
-                chmod(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat, $newFolderAccessMode);
+                chmod(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat, $newFolderAccessMode);
 
                 $newFileAccessMode = evo()->getConfig('new_file_permissions', '');
                 $newFileAccessMode = empty($newFileAccessMode) ? 0666 : octdec($newFileAccessMode);
-                chmod(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat.'/'.$filename, $newFileAccessMode);
+                chmod(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat.'/'.$filename, $newFileAccessMode);
 
                 // Save in DB
                 $thisFile = sGalleryModel::whereParent($request->cat)
                     ->whereBlock($this->blockName)
-                    ->whereResourceType($this->resourceType)
+                    ->whereItemType($this->itemType)
                     ->whereFile($filename)
                     ->firstOrCreate();
                 $thisFile->parent = $request->cat;
                 $thisFile->block = $this->blockName;
                 $thisFile->file = $filename;
                 $thisFile->type = $filetype;
-                $thisFile->resource_type = $this->resourceType;
+                $thisFile->item_type = $this->itemType;
                 $thisFile->update();
 
                 // Create default texts
@@ -183,29 +184,30 @@ class sGalleryController
                 if (in_array($filetype, ['application'])) {
                     $filetype = explode('/', $file->getMimeType())[1];
                 }
+                $filename = Str::slug($filename);
 
                 // Upload file
-                $file->move(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat, $filename);
+                $file->move(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat, $filename);
 
                 $newFolderAccessMode = evo()->getConfig('new_folder_permissions', '');
                 $newFolderAccessMode = empty($newFolderAccessMode) ? 0777 : octdec($newFolderAccessMode);
-                chmod(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat, $newFolderAccessMode);
+                chmod(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat, $newFolderAccessMode);
 
                 $newFileAccessMode = evo()->getConfig('new_file_permissions', '');
                 $newFileAccessMode = empty($newFileAccessMode) ? 0666 : octdec($newFileAccessMode);
-                chmod(sGalleryModel::UPLOAD.$this->resourceType.'/'.$request->cat.'/'.$filename, $newFileAccessMode);
+                chmod(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat.'/'.$filename, $newFileAccessMode);
 
                 // Save in DB
                 $thisFile = sGalleryModel::whereParent($request->cat)
                     ->whereBlock($this->blockName)
-                    ->whereResourceType($this->resourceType)
+                    ->whereItemType($this->itemType)
                     ->whereFile($filename)
                     ->firstOrCreate();
                 $thisFile->parent = $request->cat;
                 $thisFile->block = $this->blockName;
                 $thisFile->file = $filename;
                 $thisFile->type = $filetype;
-                $thisFile->resource_type = $this->resourceType;
+                $thisFile->item_type = $this->itemType;
                 $thisFile->update();
 
                 // Create default texts
@@ -253,14 +255,14 @@ class sGalleryController
                 // Save in DB
                 $thisFile = sGalleryModel::whereParent($request->cat)
                     ->whereBlock($this->blockName)
-                    ->whereResourceType($this->resourceType)
+                    ->whereItemType($this->itemType)
                     ->whereFile($matches[0][1])
                     ->firstOrCreate();
                 $thisFile->parent = $request->cat;
                 $thisFile->block = $this->blockName;
                 $thisFile->file = $matches[0][1];
                 $thisFile->type = 'youtube';
-                $thisFile->resource_type = $this->resourceType;
+                $thisFile->item_type = $this->itemType;
                 $thisFile->update();
 
                 // Create default texts
@@ -301,7 +303,7 @@ class sGalleryController
             $items = implode('", "', $request->item);
             $galleries = sGalleryModel::whereParent($request->cat)
                 ->whereBlock($this->blockName)
-                ->whereResourceType($this->resourceType)
+                ->whereItemType($this->itemType)
                 ->orderByRaw('FIELD(id, "'.$items.'")')
                 ->get();
             foreach ($galleries as $position => $gallery) {
@@ -390,7 +392,7 @@ class sGalleryController
         $gallery = sGalleryModel::find((int)$request->item);
         if ($gallery) {
             sGalleryField::where('key', $gallery->id)->delete();
-            $file = sGalleryModel::UPLOAD . $this->resourceType . '/' . $gallery->parent . '/' . $gallery->file;
+            $file = sGalleryModel::UPLOAD . $this->itemType . '/' . $gallery->parent . '/' . $gallery->file;
             if (file_exists($file)) {
                 unlink($file);
             }
@@ -420,9 +422,9 @@ class sGalleryController
      *
      * @return string
      */
-    public function getResourceType()
+    public function getItemType()
     {
-        return $this->resourceType;
+        return $this->itemType;
     }
 
     /**

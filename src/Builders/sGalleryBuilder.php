@@ -1,12 +1,19 @@
 <?php namespace Seiger\sGallery\Builders;
 
+use Illuminate\Support\Facades\Log;
+use Illuminate\View\View;
 use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
+use Spatie\Image\Enums\Fit;
+use Spatie\Image\Enums\ImageDriver;
+use Spatie\Image\Image;
 
 /**
  * Class sGalleryBuilder
  *
  * This builder class provides a fluent interface to configure and retrieve gallery data.
+ * It supports view configuration, file manipulation (including resizing and format conversion),
+ * and browser-based format detection.
  */
 class sGalleryBuilder
 {
@@ -36,7 +43,7 @@ class sGalleryBuilder
     }
 
     /**
-     * Set the item type.
+     * Set the item type (resource type).
      *
      * @param string $itemType
      * @return self
@@ -72,32 +79,58 @@ class sGalleryBuilder
     }
 
     /**
-     * Set resize parameters.
+     * Set the format of the image output.
      *
-     * @param int $width
-     * @param int $height
+     * @param string $format
      * @return self
      */
-    public function resize(int $width, int $height): self
+    public function format(string $format): self
     {
-        $this->params['w'] = $width;
-        $this->params['h'] = $height;
+        $this->params['format'] = strtolower($format);
         return $this;
     }
 
     /**
-     * Get the URL of the file.
+     * Set the resize dimensions for the image.
      *
-     * @param string $filePath
-     * @return string
+     * @param int $width
+     * @param int|null $height
+     * @return self
      */
-    protected function getFileUrl(string $filePath): string
+    public function resize(int $width, int|null $height = null): self
     {
-        if (file_exists($filePath)) {
-            return str_replace(MODX_BASE_PATH, MODX_SITE_URL, $filePath);
-        }
+        $height = $height ?: $width;
+        $this->params['w'] = max(1, $width);
+        $this->params['h'] = max(1, $height);
+        return $this;
+    }
 
-        return sGalleryModel::NOIMAGE;
+    /**
+     * Set the fit method and dimensions for the image.
+     *
+     * @param string $method
+     * @param int $width
+     * @param int|null $height
+     * @return self
+     */
+    public function fit(string $method, int $width, int|null $height = null): self
+    {
+        $height = $height ?: $width;
+
+        $fitMethods = [
+            'crop' => Fit::Crop,
+            'contain' => Fit::Contain,
+            'max' => Fit::Max,
+            'fill' => Fit::Fill,
+            'stretch' => Fit::Stretch,
+            'fill-max' => Fit::FillMax,
+        ];
+
+        $this->params['fit'] = $fitMethods[$method] ?? Fit::Crop;
+        $this->params['w'] = max(1, $width);
+        $this->params['h'] = max(1, $height);
+
+        return $this;
     }
 
     /**
@@ -111,33 +144,95 @@ class sGalleryBuilder
     }
 
     /**
-     * Get the URL of the file.
+     * Get the URL of the processed file (resized, formatted).
      *
      * @return string
      */
     public function getFile(): string
     {
-        if ($this->file !== null) {
-            return $this->getFileUrl($this->file);
+        if ($this->file !== null && file_exists(MODX_BASE_PATH . $this->file)) {
+            $extension = strtolower(pathinfo(MODX_BASE_PATH . $this->file, PATHINFO_EXTENSION));
+
+            if ($this->params !== null && !in_array($extension, ['svg'])) {
+                $imageName = str_replace('.' . pathinfo($this->file, PATHINFO_EXTENSION), '', pathinfo($this->file, PATHINFO_BASENAME));
+                $imagePath = explode(DIRECTORY_SEPARATOR, pathinfo($this->file, PATHINFO_DIRNAME));
+                $chacheFile = sGalleryModel::CACHE_DIR;
+
+                foreach ($imagePath as $path) {
+                    $chacheFile .= is_numeric($path) ? $path : $path[0];
+                }
+
+                $chacheFile .= DIRECTORY_SEPARATOR;
+                $format = $this->params['format'] ?? $this->getSupportedImageFormat();
+
+                $imageName .= '-' . (isset($this->params['fit']) ? $this->params['fit']->value . '-' : '');
+                $imageName .= isset($this->params['w']) ? $this->params['w'] . 'x' . $this->params['h'] : '';
+                $imageName .= '.' . $format;
+
+                if (!file_exists(MODX_BASE_PATH . $chacheFile . $imageName)) {
+                    if (!file_exists(MODX_BASE_PATH . $chacheFile)) {
+                        mkdir(MODX_BASE_PATH . $chacheFile, octdec(evo()->getConfig('new_folder_permissions', '0777')), true);
+                    }
+
+                    try {
+                        $image = extension_loaded('imagick')
+                            ? Image::load(MODX_BASE_PATH . $this->file)
+                            : Image::useImageDriver(ImageDriver::Gd)->loadFile(MODX_BASE_PATH . $this->file);
+
+                        if (isset($this->params['fit']) && isset($this->params['w']) && isset($this->params['h'])) {
+                            $image->fit($this->params['fit'], $this->params['w'], $this->params['h']);
+                        } elseif (isset($this->params['w']) && isset($this->params['h'])) {
+                            $image->width($this->params['w'])->height($this->params['h']);
+                        }
+
+                        $image->format($format)->save(MODX_BASE_PATH . $chacheFile . $imageName);
+                    } catch (\Exception $e) {
+                        Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+                        return "Error sGallery: " . $e->getMessage();
+                    }
+                }
+
+                $this->file = $chacheFile . $imageName;
+            }
+
+            return MODX_SITE_URL . $this->file;
         }
 
         return sGalleryModel::NOIMAGE;
     }
 
     /**
-     * Set the file path.
+     * Determine and return the first supported image format based on browser capabilities.
+     *
+     * @return string
+     */
+    public function getSupportedImageFormat(): string
+    {
+        if (isset($_SESSION['supported_image_format'])) {
+            return $_SESSION['supported_image_format'];
+        }
+
+        $supportedFormat = $this->detectSupportedImageFormat(['avif', 'webp', 'jpg']);
+        $_SESSION['supported_image_format'] = $supportedFormat;
+
+        return $supportedFormat;
+    }
+
+    /**
+     * Set the file path for the builder.
      *
      * @param string $input
      * @return self
      */
     public function file(string $input): self
     {
+        $input = trim(str_replace([MODX_SITE_URL, MODX_BASE_PATH], '', $input), '/');
         $this->file = $input;
         return $this;
     }
 
     /**
-     * Get the URL of the file.
+     * Get the rendered gallery view.
      *
      * @return string
      */
@@ -150,20 +245,35 @@ class sGalleryBuilder
     }
 
     /**
-     * Render the view or return the file path as a string when the object is treated like a string.
+     * Render the view or return the processed file path as a string when treated like a string.
      *
      * @return string
      */
     public function __toString(): string
     {
         try {
-            if ($this->file !== null) {
-                return $this->getFile();
-            }
-
-            return $this->getView();
+            return $this->file !== null ? $this->getFile() : $this->getView();
         } catch (\Exception $e) {
             return "Error sGallery: " . $e->getMessage();
         }
+    }
+
+    /**
+     * Check and return the first supported image format from a list.
+     *
+     * @param array $formats List of formats to check.
+     * @return string First supported format or 'jpg' by default.
+     */
+    protected function detectSupportedImageFormat(array $formats): string
+    {
+        $acceptHeader = $_SERVER['HTTP_ACCEPT'] ?? '';
+
+        foreach ($formats as $format) {
+            if (strpos($acceptHeader, 'image/' . $format) !== false) {
+                return $format;
+            }
+        }
+
+        return 'jpg';
     }
 }
