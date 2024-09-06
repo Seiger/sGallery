@@ -281,6 +281,7 @@ class sGalleryBuilder
                 if (!file_exists(MODX_BASE_PATH . $chacheFile . $imageName)) {
                     if (!file_exists(MODX_BASE_PATH . $chacheFile)) {
                         mkdir(MODX_BASE_PATH . $chacheFile, octdec(evo()->getConfig('new_folder_permissions', '0777')), true);
+                        chmod(MODX_BASE_PATH . $chacheFile, octdec(evo()->getConfig('new_folder_permissions', '0777')));
                     }
 
                     try {
@@ -295,6 +296,7 @@ class sGalleryBuilder
                         }
 
                         $image->quality($this->quality)->format($format)->save(MODX_BASE_PATH . $chacheFile . $imageName);
+                        chmod(MODX_BASE_PATH . $chacheFile . $imageName, octdec(evo()->getConfig('new_file_permissions', '0666')));
                     } catch (\Exception $e) {
                         Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
                         return "Error sGallery: " . $e->getMessage();
