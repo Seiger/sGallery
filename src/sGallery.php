@@ -89,23 +89,6 @@ class sGallery
     }
 
     /**
-     * Get the first gallery object using the Builder pattern.
-     *
-     * @param string $resourceType The type of resource.
-     * @param int|null $documentId The ID of the document.
-     * @param string|null $lang The language of the resource.
-     * @param string|null $block The block name for filtering.
-     * @return object The first matching gallery object.
-     */
-    public function firstGallery(string $resourceType = 'resource', int $documentId = null, string $lang = null, string $block = null): object
-    {
-        return $this->resourceType($resourceType)
-            ->idType($documentId)
-            ->blockName($block)
-            ->initialiseView();
-    }
-
-    /**
      * @param string $resourceType
      * @param int|null $documentId
      * @param string|null $lang
@@ -124,7 +107,7 @@ class sGallery
 
         return sGalleryModel::lang($lang)
             ->whereParent($documentId)
-            ->whereResourceType($resourceType)
+            ->whereItemType($resourceType)
             ->orderBy('position')
             ->get();
     }
@@ -150,7 +133,7 @@ class sGallery
         return sGalleryModel::lang($lang)
             ->whereParent($documentId)
             ->whereBlock($blockName)
-            ->whereResourceType($resourceType)
+            ->whereItemType($resourceType)
             ->orderBy('position')
             ->get();
     }
@@ -165,7 +148,7 @@ class sGallery
             $lang = evo()->getConfig('lang', 'base');
         }
 
-        $query = sGalleryModel::lang($lang)->whereParent($documentId)->whereResourceType($resourceType);
+        $query = sGalleryModel::lang($lang)->whereParent($documentId)->whereItemType($resourceType);
 
         if ($block && trim($block)) {
             $query->whereBlock($block);
