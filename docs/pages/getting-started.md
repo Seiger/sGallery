@@ -15,6 +15,8 @@ permalink: /getting-started/
 - MariaDB 10.5.2
 - SQLite 3.25.0
 
+---
+
 ## Install by artisan package
 
 Go to You /core/ folder
@@ -37,6 +39,8 @@ php artisan vendor:publish --provider="Seiger\sGallery\sGalleryServiceProvider"
 php artisan migrate
 ```
 
+---
+
 ## Configuration
 
 Templates for displaying gallery tabs are configured in the
@@ -54,6 +58,8 @@ file, where the array contains template IDs for connecting the gallery.
 More examples in **Configuration** page
 
 [Configuration]({{site.baseurl}}/configuration/){: .btn .btn-sky}
+
+---
 
 ## Usage in blade
 
@@ -106,6 +112,8 @@ or
 More examples in **Use in Blade** page
 
 [Use in Blade]({{site.baseurl}}/use-in-blade/){: .btn .btn-sky}
+
+---
 
 ## Integration into the Custom Module (e.g., in sCommerce)
 
@@ -160,6 +168,8 @@ For more customized galleries, you can chain additional methods to tailor the di
 - You can omit methods that utilize default settings if no customization is needed for those aspects.
 - Explore and utilize other available methods and parameters provided by sGallery to further enhance
   and control your gallery's behavior and appearance.
+
+---
 
 ## Extra
 
