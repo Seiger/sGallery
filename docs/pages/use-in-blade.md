@@ -1,11 +1,9 @@
 ---
 layout: page
-title: Use in Blade
+title: Using sGallery in Blade Templates
 description: Use sGallery functionality in Blade layouts
 permalink: /use-in-blade/
 ---
-
-# Using sGallery in Blade Templates
 
 This documentation provides a comprehensive guide on how to use `sGallery` within your Blade templates for
 retrieving and displaying images, videos, and other media from the sGallery module. We'll cover everything
