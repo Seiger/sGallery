@@ -95,12 +95,9 @@ class sGallery
      * @param int|null $documentId Document ID (optional).
      * @param string|null $lang Language code (optional).
      * @return object Collection of gallery items.
-     * @deprecated Use sGallery::collections()->all()->get() instead.
      */
     public function all(string $resourceType = 'resource', int $documentId = null, string $lang = null): object
     {
-        trigger_error('Method all() is deprecated. Use the sGallery::collections()->all()->get() instead.', E_USER_DEPRECATED);
-
         if (!$documentId) {
             $documentId = evo()->documentObject['id'] ?? 0;
         }
