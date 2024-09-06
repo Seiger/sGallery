@@ -97,7 +97,7 @@ file, where the array contains template IDs for connecting the gallery.
 
 Sow all files with Image filter:
 ```php
-@foreach(sGallery::all() as $item)
+@foreach(sGallery::collections()->get() as $item)
     @if(sGallery::hasImage($item->type))
         <a class="swiper-slide" @if(trim($item->link))href="{{$item->link}}"@endif>
             <div class="container">
@@ -114,7 +114,7 @@ Sow all files with Image filter:
 ```
 or YouTube filter
 ```php
-@foreach(sGallery::all() as $item)
+@foreach(sGallery::collections()->get() as $item)
     @if(sGallery::hasYoutube($item->type))
         <div class="item">
             <div class="video">
@@ -127,7 +127,7 @@ or YouTube filter
 ```
 or
 ```php
-@foreach(sGallery::all('product', $product->id) as $item)
+@foreach(sGallery::collections()->documentId($product->id)->itemType('product')->get() as $item)
     <div class="swiper-slide">
         <a class="js-trigger-fancybox" href="{{$item->src}}" data-fancybox="product-gallery">
             <img loading="lazy" src="{{$item->src}}" width="440" height="440" />

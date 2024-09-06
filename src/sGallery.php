@@ -95,6 +95,7 @@ class sGallery
      * @param int|null $documentId Document ID (optional).
      * @param string|null $lang Language code (optional).
      * @return object Collection of gallery items.
+     * @deprecated Use sGallery::collections()->get() instead.
      */
     public function all(string $resourceType = 'resource', int $documentId = null, string $lang = null): object
     {
