@@ -17,12 +17,32 @@ use Spatie\Image\Image;
  */
 class sGalleryBuilder
 {
+    protected string $mode = 'view';
     protected string $viewType = sGalleryModel::VIEW_SECTION;
     protected string $itemType = 'resource';
     protected string $idType = 'i';
-    protected string $blockName = '1';
+    protected ?string $blockName = '1';
+    protected ?int $documentId = null;
+    protected ?string $lang = null;
+    protected ?\Illuminate\Database\Eloquent\Builder $query = null;
+    protected ?\Illuminate\Database\Eloquent\Collection $files = null;
     protected ?string $file = null;
     protected ?array $params = [];
+
+    /**
+     * Set the mode for the builder (e.g., 'view' or 'collections').
+     *
+     * @param string $mode
+     * @return self
+     */
+    public function setMode(string $mode): self
+    {
+        if ($mode == 'collections') {
+            $this->initQuery();
+        }
+        $this->mode = $mode;
+        return $this;
+    }
 
     /**
      * Set the view type.
@@ -75,6 +95,24 @@ class sGalleryBuilder
     public function blockName(string $blockName): self
     {
         $this->blockName = $blockName;
+        return $this;
+    }
+
+    public function all(): self
+    {
+        $this->blockName = null;
+        return $this;
+    }
+
+    public function documentId(int $documentId): self
+    {
+        $this->documentId = $documentId;
+        return $this;
+    }
+
+    public function lang(string $lang): self
+    {
+        $this->lang = $lang;
         return $this;
     }
 
@@ -134,13 +172,41 @@ class sGalleryBuilder
     }
 
     /**
-     * Initialize and retrieve the gallery view.
-     *
-     * @return self
+     * Load files only when necessary (for 'collections' mode).
      */
-    public function initialise(): self
+    protected function loadFiles(): void
     {
-        return $this;
+        if (is_null($this->files)) {
+            $this->initQuery();
+            $query = $this->query->lang($this->lang ?? evo()->getLocale())
+                ->whereParent($this->documentId ?? evo()->documentIdentifier)
+                ->whereItemType($this->itemType);
+
+            if ($this->blockName) {
+                $query->whereBlock($this->blockName);
+            }
+
+            $this->files = $query->orderBy('position')->get();
+        }
+    }
+
+    /**
+     * Execute the query and return the collection of files.
+     */
+    public function get(): \Illuminate\Database\Eloquent\Collection
+    {
+        $this->loadFiles();
+        $files = $this->files;
+        $this->resetBuilder();
+        return $files;
+    }
+
+    public function eq(int $index): ?\Seiger\sGallery\Models\sGalleryModel
+    {
+        $this->loadFiles();
+        $files = $this->files->get($index - 1);
+        $this->resetBuilder();
+        return $files;
     }
 
     /**
@@ -260,6 +326,16 @@ class sGalleryBuilder
     }
 
     /**
+     * Initialize the query if not already done and the mode is 'collections'.
+     */
+    protected function initQuery(): void
+    {
+        if (is_null($this->query) && $this->mode === 'collections') {
+            $this->query = sGalleryModel::query();
+        }
+    }
+
+    /**
      * Check and return the first supported image format from a list.
      *
      * @param array $formats List of formats to check.
@@ -285,6 +361,8 @@ class sGalleryBuilder
      */
     protected function resetBuilder(): void
     {
+        $this->query = null;
+        $this->files = null;
         $this->file = null;
         $this->params = [];
     }

@@ -26,13 +26,23 @@ class sGallery
     }
 
     /**
-     * Initialize the view builder.
+     * Initialize the view builder (default mode).
      *
      * @return sGalleryBuilder
      */
     public function initialiseView(): sGalleryBuilder
     {
-        return $this->builder->initialise();
+        return $this->builder->setMode('view');
+    }
+
+    /**
+     * Initialize the collections query builder.
+     *
+     * @return sGalleryBuilder
+     */
+    public function collections(): sGalleryBuilder
+    {
+        return $this->builder->setMode('collections');
     }
 
     /**
@@ -95,6 +105,13 @@ class sGallery
             ->initialiseView();
     }
 
+    /**
+     * @param string $resourceType
+     * @param int|null $documentId
+     * @param string|null $lang
+     * @return object
+     * @deprecated Use sGallery::collections()->all()->get() instead.
+     */
     public function all(string $resourceType = 'resource', int $documentId = null, string $lang = null): object
     {
         if (!$documentId) {
@@ -112,6 +129,14 @@ class sGallery
             ->get();
     }
 
+    /**
+     * @param string $blockName
+     * @param string $resourceType
+     * @param int|null $documentId
+     * @param string|null $lang
+     * @return object
+     * @deprecated Use sGallery::collections()->blockName('photo')->get() instead.
+     */
     public function block(string $blockName = '1', string $resourceType = 'resource', int $documentId = null, string $lang = null): object
     {
         if (!$documentId) {
