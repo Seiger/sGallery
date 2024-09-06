@@ -28,7 +28,7 @@ class sGallery
     /**
      * Initialize the view builder (default mode).
      *
-     * @return sGalleryBuilder
+     * @return sGalleryBuilder The builder instance for chaining further operations.
      */
     public function initialiseView(): sGalleryBuilder
     {
@@ -38,7 +38,7 @@ class sGallery
     /**
      * Initialize the collections query builder.
      *
-     * @return sGalleryBuilder
+     * @return sGalleryBuilder The builder instance for retrieving collections.
      */
     public function collections(): sGalleryBuilder
     {
@@ -64,7 +64,7 @@ class sGallery
      * @param string $idType The type of id (default is 'id').
      * @param string $blockName The block name (default is '1').
      * @return View|string The initialized view or an error message.
-     * @deprecated Use initialiseView() instead.
+     * @deprecated Use sGallery::initialiseView() instead.
      */
     public function initialise(string $viewType = '', string $resourceType = 'resource', string $idType = 'id', string $blockName = '1')
     {
@@ -89,14 +89,18 @@ class sGallery
     }
 
     /**
-     * @param string $resourceType
-     * @param int|null $documentId
-     * @param string|null $lang
-     * @return object
+     * Retrieve all gallery items for a specific resource type and document.
+     *
+     * @param string $resourceType Resource type (default is 'resource').
+     * @param int|null $documentId Document ID (optional).
+     * @param string|null $lang Language code (optional).
+     * @return object Collection of gallery items.
      * @deprecated Use sGallery::collections()->all()->get() instead.
      */
     public function all(string $resourceType = 'resource', int $documentId = null, string $lang = null): object
     {
+        trigger_error('Method all() is deprecated. Use the sGallery::collections()->all()->get() instead.', E_USER_DEPRECATED);
+
         if (!$documentId) {
             $documentId = evo()->documentObject['id'] ?? 0;
         }
@@ -113,15 +117,19 @@ class sGallery
     }
 
     /**
-     * @param string $blockName
-     * @param string $resourceType
-     * @param int|null $documentId
-     * @param string|null $lang
-     * @return object
+     * Retrieve gallery items for a specific block and resource type.
+     *
+     * @param string $blockName Name of the block (default is '1').
+     * @param string $resourceType Resource type (default is 'resource').
+     * @param int|null $documentId Document ID (optional).
+     * @param string|null $lang Language code (optional).
+     * @return object Collection of gallery items for the specified block.
      * @deprecated Use sGallery::collections()->blockName('photo')->get() instead.
      */
     public function block(string $blockName = '1', string $resourceType = 'resource', int $documentId = null, string $lang = null): object
     {
+        trigger_error('Method block() is deprecated. Use the sGallery::collections()->blockName("photo")->get() instead.', E_USER_DEPRECATED);
+
         if (!$documentId) {
             $documentId = evo()->documentObject['id'] ?? 0;
         }
@@ -138,6 +146,15 @@ class sGallery
             ->get();
     }
 
+    /**
+     * Retrieve the first gallery item for a specific resource type and document.
+     *
+     * @param string $resourceType Resource type (default is 'resource').
+     * @param int|null $documentId Document ID (optional).
+     * @param string|null $lang Language code (optional).
+     * @param string|null $block Block name for filtering (optional).
+     * @return object The first gallery item or a new instance if none found.
+     */
     public function first(string $resourceType = 'resource', int $documentId = null, string $lang = null, string $block = null): object
     {
         if (!$documentId) {
@@ -158,7 +175,7 @@ class sGallery
     }
 
     /**
-     * Determines if the given type is an image.
+     * Determine if the given type is an image.
      *
      * @param string $type The type to check.
      * @return bool Returns true if the type is an image, false otherwise.
@@ -180,7 +197,7 @@ class sGallery
     }
 
     /**
-     * Determines if the given type is a YouTube type.
+     * Determine if the given type is a YouTube type.
      *
      * @param string $type The type to check.
      * @return bool True if the type is a YouTube type, otherwise false.
@@ -191,10 +208,10 @@ class sGallery
     }
 
     /**
-     * Checks if the given type is PDF.
+     * Check if the given type is a PDF.
      *
      * @param string $type The type to be checked.
-     * @return bool Returns true if the given type is PDF, false otherwise.
+     * @return bool Returns true if the given type is PDF, otherwise false.
      */
     public function hasPdf(string $type): bool
     {
@@ -202,9 +219,7 @@ class sGallery
     }
 
     /**
-     * Generate language tabs.
-     *
-     * This method generates an array of language tabs based on the 's_lang_config' configuration value.
+     * Generate language tabs based on the 's_lang_config' configuration value.
      *
      * @return array The language tabs array.
      */
@@ -221,7 +236,7 @@ class sGallery
     /**
      * Set the view type.
      *
-     * @param string $viewType
+     * @param string $viewType View type (e.g., 'tab', 'section').
      * @return self
      */
     public function viewType(string $viewType): self
@@ -233,7 +248,7 @@ class sGallery
     /**
      * Set the item type.
      *
-     * @param string $itemType
+     * @param string $itemType Item type (e.g., 'resource').
      * @return self
      */
     public function itemType(string $itemType): self
@@ -245,7 +260,7 @@ class sGallery
     /**
      * Set the ID type.
      *
-     * @param string $idType
+     * @param string $idType ID type (e.g., 'id', 'document').
      * @return self
      */
     public function idType(string $idType): self
@@ -257,7 +272,7 @@ class sGallery
     /**
      * Set the block name.
      *
-     * @param string $blockName
+     * @param string $blockName Name of the block.
      * @return self
      */
     public function blockName(string $blockName): self
@@ -267,11 +282,9 @@ class sGallery
     }
 
     /**
-     * Gets the default image width.
+     * Get the default fit method for the image.
      *
-     * This method returns the default width value defined as a constant in the class.
-     *
-     * @return int The default width value.
+     * @return string The default fit method.
      */
     public function defaultFit(): string
     {
@@ -279,9 +292,7 @@ class sGallery
     }
 
     /**
-     * Gets the default image width.
-     *
-     * This method returns the default width value defined as a constant in the class.
+     * Get the default image width.
      *
      * @return int The default width value.
      */
@@ -291,9 +302,7 @@ class sGallery
     }
 
     /**
-     * Gets the default image height.
-     *
-     * This method returns the default height value defined as a constant in the class.
+     * Get the default image height.
      *
      * @return int The default height value.
      */

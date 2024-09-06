@@ -22,7 +22,7 @@
 @push('scripts.bot')
     @include('sGallery::partials.scripts', [
         'typeId' => $sGalleryController->getIdType(),
-        'resourceType' => $sGalleryController->getItemType(),
+        'itemType' => $sGalleryController->getItemType(),
         'blockId' => $sGalleryController->getBlockNameId(),
         'blockName' => $sGalleryController->getBlockName()
     ])

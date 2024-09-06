@@ -1,6 +1,7 @@
 <?php namespace Seiger\sGallery\Builders;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
@@ -23,6 +24,7 @@ class sGalleryBuilder
     protected string $idType = 'i';
     protected ?string $blockName = '1';
     protected ?int $documentId = null;
+    protected int $quality = 80;
     protected ?string $lang = null;
     protected ?\Illuminate\Database\Eloquent\Builder $query = null;
     protected ?\Illuminate\Database\Eloquent\Collection $files = null;
@@ -32,8 +34,8 @@ class sGalleryBuilder
     /**
      * Set the mode for the builder (e.g., 'view' or 'collections').
      *
-     * @param string $mode
-     * @return self
+     * @param string $mode Mode for the builder, e.g., 'collections' or 'view'.
+     * @return $this
      */
     public function setMode(string $mode): self
     {
@@ -47,8 +49,8 @@ class sGalleryBuilder
     /**
      * Set the view type.
      *
-     * @param string $viewType
-     * @return self
+     * @param string $viewType View type (e.g., tab, section).
+     * @return $this
      */
     public function viewType(string $viewType): self
     {
@@ -65,8 +67,8 @@ class sGalleryBuilder
     /**
      * Set the item type (resource type).
      *
-     * @param string $itemType
-     * @return self
+     * @param string $itemType Resource type (e.g., 'resource', 'product', 'gallery').
+     * @return $this
      */
     public function itemType(string $itemType): self
     {
@@ -77,8 +79,8 @@ class sGalleryBuilder
     /**
      * Set the document ID type.
      *
-     * @param string $idType
-     * @return self
+     * @param string $idType Document ID type.
+     * @return $this
      */
     public function idType(string $idType): self
     {
@@ -89,8 +91,8 @@ class sGalleryBuilder
     /**
      * Set the block name.
      *
-     * @param string $blockName
-     * @return self
+     * @param string $blockName Name of the block.
+     * @return $this
      */
     public function blockName(string $blockName): self
     {
@@ -98,18 +100,36 @@ class sGalleryBuilder
         return $this;
     }
 
+    /**
+     * Set the block name to null and return the builder instance.
+     * Used to retrieve all files without filtering by block name.
+     *
+     * @return $this
+     */
     public function all(): self
     {
         $this->blockName = null;
         return $this;
     }
 
+    /**
+     * Set the document ID.
+     *
+     * @param int $documentId ID of the document.
+     * @return $this
+     */
     public function documentId(int $documentId): self
     {
         $this->documentId = $documentId;
         return $this;
     }
 
+    /**
+     * Set the language for the query.
+     *
+     * @param string $lang Language code (e.g., 'en', 'uk').
+     * @return $this
+     */
     public function lang(string $lang): self
     {
         $this->lang = $lang;
@@ -119,8 +139,8 @@ class sGalleryBuilder
     /**
      * Set the format of the image output.
      *
-     * @param string $format
-     * @return self
+     * @param string $format Image format (e.g., 'jpg', 'webp').
+     * @return $this
      */
     public function format(string $format): self
     {
@@ -129,11 +149,23 @@ class sGalleryBuilder
     }
 
     /**
+     * Set the quality for the image output.
+     *
+     * @param int $quality Quality percentage (e.g., 80).
+     * @return $this
+     */
+    public function quality(int $quality): self
+    {
+        $this->quality = $quality;
+        return $this;
+    }
+
+    /**
      * Set the resize dimensions for the image.
      *
-     * @param int $width
-     * @param int|null $height
-     * @return self
+     * @param int $width Width of the image.
+     * @param int|null $height Height of the image (optional, defaults to the width if not provided).
+     * @return $this
      */
     public function resize(int $width, int|null $height = null): self
     {
@@ -146,10 +178,10 @@ class sGalleryBuilder
     /**
      * Set the fit method and dimensions for the image.
      *
-     * @param string $method
-     * @param int $width
-     * @param int|null $height
-     * @return self
+     * @param string $method Fit method (e.g., 'crop', 'contain').
+     * @param int $width Width of the image.
+     * @param int|null $height Height of the image (optional, defaults to the width if not provided).
+     * @return $this
      */
     public function fit(string $method, int $width, int|null $height = null): self
     {
@@ -172,7 +204,10 @@ class sGalleryBuilder
     }
 
     /**
-     * Load files only when necessary (for 'collections' mode).
+     * Load files for the 'collections' mode if not already loaded.
+     * This method initializes the query and filters files by language, document ID, item type, and block name (if provided).
+     *
+     * @return void
      */
     protected function loadFiles(): void
     {
@@ -192,6 +227,8 @@ class sGalleryBuilder
 
     /**
      * Execute the query and return the collection of files.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection|\Seiger\sGallery\Models\sGalleryModel[]
      */
     public function get(): \Illuminate\Database\Eloquent\Collection
     {
@@ -201,6 +238,12 @@ class sGalleryBuilder
         return $files;
     }
 
+    /**
+     * Get the file by its position in the collection.
+     *
+     * @param int $index Position index (1-based).
+     * @return \Seiger\sGallery\Models\sGalleryModel|null
+     */
     public function eq(int $index): ?\Seiger\sGallery\Models\sGalleryModel
     {
         $this->loadFiles();
@@ -212,7 +255,7 @@ class sGalleryBuilder
     /**
      * Get the URL of the processed file (resized, formatted).
      *
-     * @return string
+     * @return string URL of the processed image or 'no image' placeholder.
      */
     public function getFile(): string
     {
@@ -231,9 +274,9 @@ class sGalleryBuilder
                 $chacheFile .= DIRECTORY_SEPARATOR;
                 $format = $this->params['format'] ?? $this->getSupportedImageFormat();
 
-                $imageName .= '-' . (isset($this->params['fit']) ? $this->params['fit']->value . '-' : '');
-                $imageName .= isset($this->params['w']) ? $this->params['w'] . 'x' . $this->params['h'] : '';
-                $imageName .= '.' . $format;
+                $ext = isset($this->params['fit']) ? $this->params['fit']->value . '-' : '';
+                $ext .= isset($this->params['w']) ? $this->params['w'] . 'x' . $this->params['h'] : '';
+                $imageName .= (trim($ext) ? '-' . $ext : '') . '.' . $format;
 
                 if (!file_exists(MODX_BASE_PATH . $chacheFile . $imageName)) {
                     if (!file_exists(MODX_BASE_PATH . $chacheFile)) {
@@ -251,7 +294,7 @@ class sGalleryBuilder
                             $image->width($this->params['w'])->height($this->params['h']);
                         }
 
-                        $image->format($format)->save(MODX_BASE_PATH . $chacheFile . $imageName);
+                        $image->quality($this->quality)->format($format)->save(MODX_BASE_PATH . $chacheFile . $imageName);
                     } catch (\Exception $e) {
                         Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
                         return "Error sGallery: " . $e->getMessage();
@@ -287,8 +330,8 @@ class sGalleryBuilder
     /**
      * Set the file path for the builder.
      *
-     * @param string $input
-     * @return self
+     * @param string $input File path relative to the base path.
+     * @return $this
      */
     public function file(string $input): self
     {
@@ -300,7 +343,7 @@ class sGalleryBuilder
     /**
      * Get the rendered gallery view.
      *
-     * @return string
+     * @return string Rendered view of the gallery.
      */
     public function getView(): string
     {
@@ -312,7 +355,7 @@ class sGalleryBuilder
     /**
      * Render the view or return the processed file path as a string when treated like a string.
      *
-     * @return string
+     * @return string Rendered view or processed file path.
      */
     public function __toString(): string
     {
@@ -355,7 +398,7 @@ class sGalleryBuilder
     }
 
     /**
-     * Reset builder state for next usage.
+     * Reset builder state for the next usage.
      *
      * @return void
      */

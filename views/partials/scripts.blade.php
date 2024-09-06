@@ -80,7 +80,7 @@
     async function doResorting{{$blockId}}() {
         let list = new FormData();
         document.querySelectorAll('#uploadBase{{$blockId}} > li').forEach(item => list.append('item[]', item.getAttribute('data-sgallery')));
-        await fetch('{!!route('sGallery.resort', ['cat' => request()->get($typeId), 'resourceType' => $resourceType, 'block' => $blockName])!!}', {method: 'POST', body: list});
+        await fetch('{!!route('sGallery.resort', ['cat' => request()->get($typeId), 'itemType' => $itemType, 'block' => $blockName])!!}', {method: 'POST', body: list});
     }
 
     async function doUploadFile{{$blockId}}(e) {
@@ -104,7 +104,7 @@
         form.append('file', f);
         let resp = await fetch('{!!route('sGallery.upload-file', [
                 'cat' => request()->get($typeId),
-                'resourceType' => $resourceType,
+                'itemType' => $itemType,
                 'block' => $blockName
             ])!!}', {
             method: 'POST',
@@ -143,7 +143,7 @@
         form.append('file', f);
         let resp = await fetch('{!!route('sGallery.upload-download', [
                 'cat' => request()->get($typeId),
-                'resourceType' => $resourceType,
+                'itemType' => $itemType,
                 'block' => $blockName
             ])!!}', {
             method: 'POST',
@@ -254,7 +254,7 @@
         if (youtubeLink) {
             let url = '{!!route('sGallery.addyoutube', [
                 'cat' => request()->get($typeId),
-                'resourceType' => $resourceType,
+                'itemType' => $itemType,
                 'block' => $blockName
             ])!!}';
             fetch(url, {
