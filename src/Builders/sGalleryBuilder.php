@@ -5,6 +5,7 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
+use Spatie\Image\Enums\CropPosition;
 use Spatie\Image\Enums\Fit;
 use Spatie\Image\Enums\ImageDriver;
 use Spatie\Image\Image;
@@ -204,6 +205,74 @@ class sGalleryBuilder
     }
 
     /**
+     * Set the crop method and dimensions for the image.
+     *
+     * @param string $method Fit method (e.g., 'center', 'left', 'right').
+     * @param int $width Width of the image.
+     * @param int|null $height Height of the image (optional, defaults to the width if not provided).
+     * @return $this
+     */
+    public function crop(string $method, int $width, int|null $height = null): self
+    {
+        $height = $height ?: $width;
+
+        $cropMethods = [
+            'topLeft' => CropPosition::TopLeft,
+            'top' => CropPosition::Top,
+            'topRight' => CropPosition::TopRight,
+            'left' => CropPosition::Left,
+            'center' => CropPosition::Center,
+            'right' => CropPosition::Right,
+            'bottomLeft' => CropPosition::BottomLeft,
+            'bottom' => CropPosition::Bottom,
+            'bottomRight' => CropPosition::BottomRight,
+        ];
+
+        $this->params['crop'] = $cropMethods[$method] ?? CropPosition::Center;
+        $this->params['w'] = max(1, $width);
+        $this->params['h'] = max(1, $height);
+        return $this;
+    }
+
+    /**
+     * Set the crop method and dimensions for the image with percentage center.
+     *
+     * @param string $method Fit method (e.g., 'center', 'left', 'right').
+     * @param int $width Width of the image.
+     * @param int|null $height Height of the image (optional, defaults to the width if not provided).
+     * @return $this
+     */
+    public function focalCrop(int $centerX, int $centerY, int $width, int|null $height = null): self
+    {
+        $height = $height ?: $width;
+
+        $this->params['focalCenterX'] = max(0, $centerX);
+        $this->params['focalCenterY'] = max(0, $centerY);
+        $this->params['w'] = max(1, $width);
+        $this->params['h'] = max(1, $height);
+        return $this;
+    }
+
+    /**
+     * Set the crop method and dimensions for the image with percentage center.
+     *
+     * @param string $method Fit method (e.g., 'center', 'left', 'right').
+     * @param int $width Width of the image.
+     * @param int|null $height Height of the image (optional, defaults to the width if not provided).
+     * @return $this
+     */
+    public function manualCrop(int $startX, int $startY, int $width, int|null $height = null): self
+    {
+        $height = $height ?: $width;
+
+        $this->params['startX'] = max(0, $startX);
+        $this->params['startY'] = max(0, $startY);
+        $this->params['w'] = max(1, $width);
+        $this->params['h'] = max(1, $height);
+        return $this;
+    }
+
+    /**
      * Load files for the 'collections' mode if not already loaded.
      * This method initializes the query and filters files by language, document ID, item type, and block name (if provided).
      *
@@ -274,7 +343,9 @@ class sGalleryBuilder
                 $chacheFile .= DIRECTORY_SEPARATOR;
                 $format = $this->params['format'] ?? $this->getSupportedImageFormat();
 
-                $ext = isset($this->params['fit']) ? $this->params['fit']->value . '-' : '';
+                $ext = isset($this->params['fit']) ? strtolower($this->params['fit']->value) . '-' : '';
+                $ext .= isset($this->params['crop']) ? strtolower($this->params['crop']->value) . '-' : '';
+                $ext .= isset($this->params['focalCenterX']) ? 'focal' . $this->params['focalCenterX'] . '-' . $this->params['focalCenterY'] . '-' : '';
                 $ext .= isset($this->params['w']) ? $this->params['w'] . 'x' . $this->params['h'] : '';
                 $imageName .= (trim($ext) ? '-' . $ext : '') . '.' . $format;
 
@@ -291,6 +362,12 @@ class sGalleryBuilder
 
                         if (isset($this->params['fit']) && isset($this->params['w']) && isset($this->params['h'])) {
                             $image->fit($this->params['fit'], $this->params['w'], $this->params['h']);
+                        } elseif (isset($this->params['crop']) && isset($this->params['w']) && isset($this->params['h'])) {
+                            $image->crop($this->params['w'], $this->params['h'], $this->params['crop']);
+                        } elseif (isset($this->params['focalCenterX']) && isset($this->params['focalCenterY']) && isset($this->params['w']) && isset($this->params['h'])) {
+                            $image->focalCrop($this->params['w'], $this->params['h'], $this->params['focalCenterX'], $this->params['focalCenterY']);
+                        } elseif (isset($this->params['startX']) && isset($this->params['startY']) && isset($this->params['w']) && isset($this->params['h'])) {
+                            $image->manualCrop($this->params['w'], $this->params['h'], $this->params['startX'], $this->params['startY']);
                         } elseif (isset($this->params['w']) && isset($this->params['h'])) {
                             $image->width($this->params['w'])->height($this->params['h']);
                         }

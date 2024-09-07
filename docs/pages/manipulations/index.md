@@ -5,8 +5,8 @@ description: Image manipulation doesn't have to be hard. This sGallery package m
 permalink: /manipulations/
 ---
 
-## Links
-
 ### Resizing images
 
+- [Resize]({{site.baseurl}}/manipulations/resize/)
+- [Fit]({{site.baseurl}}/manipulations/fit/)
 - [Crop]({{site.baseurl}}/manipulations/crop/)
