@@ -7,3 +7,5 @@
       url: "configuration"
     - title: "Use in Blade"
       url: "use-in-blade"
+    - title: "Image manipulations"
+      url: "manipulations"
