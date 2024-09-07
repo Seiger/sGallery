@@ -14,13 +14,13 @@ class sGalleryServiceProvider extends ServiceProvider
     {
         // Only load these resources in Manager mode
         if (IN_MANAGER_MODE) {
-            // Add custom routes for package
-            include(__DIR__.'/Http/routes.php');
+            // Load the package routes
+            $this->loadRoutesFrom(__DIR__.'/Http/routes.php');
 
             // Load migrations, views, translations only if necessary
-            $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
-            $this->loadViewsFrom(__DIR__ . '/../views', 'sGallery');
-            $this->loadTranslationsFrom(__DIR__.'/../lang', 'sGallery');
+            $this->loadMigrationsFrom(dirname(__DIR__) . '/database/migrations');
+            $this->loadViewsFrom(dirname(__DIR__) . '/views', 'sGallery');
+            $this->loadTranslationsFrom(dirname(__DIR__) . '/lang', 'sGallery');
 
             // Publish configuration and assets
             $this->publishResources();
@@ -30,9 +30,7 @@ class sGalleryServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(dirname(__DIR__) . '/config/sGalleryCheck.php', 'cms.settings');
 
         // Register sGallery as a singleton using the key 'sGallery'
-        $this->app->singleton('sGallery', function ($app) {
-            return new \Seiger\sGallery\sGallery();
-        });
+        $this->app->singleton('sGallery', fn($app) => new \Seiger\sGallery\sGallery());
 
         // Create class alias for the facade
         class_alias(\Seiger\sGallery\Facades\sGallery::class, 'sGallery');
@@ -45,10 +43,8 @@ class sGalleryServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        //this code work for add plugins to Evo
-        $this->loadPluginsFrom(
-            dirname(__DIR__) . '/plugins/'
-        );
+        // Add plugins to Evolution CMS
+        $this->loadPluginsFrom(dirname(__DIR__) . '/plugins/');
     }
 
     /**
