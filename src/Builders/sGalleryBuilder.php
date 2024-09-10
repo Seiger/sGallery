@@ -25,7 +25,7 @@ class sGalleryBuilder
     protected string $idType = 'i';
     protected ?string $blockName = '1';
     protected ?int $documentId = null;
-    protected int $quality = 80;
+    protected int $quality = 100;
     protected ?string $lang = null;
     protected ?\Illuminate\Database\Eloquent\Builder $query = null;
     protected ?\Illuminate\Database\Eloquent\Collection $files = null;
