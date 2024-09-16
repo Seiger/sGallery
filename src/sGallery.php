@@ -308,4 +308,57 @@ class sGallery
     {
         return self::DEFAULT_HEIGHT;
     }
+
+    /**
+     * Generate a URL from the route name with an action ID appended.
+     *
+     * @param string $name Route name
+     * @return string
+     */
+    public function route(string $name, array $parameters = []): string
+    {
+        // Generate the base route URL and remove trailing slashes
+        $route = rtrim(route($name, $parameters), '/');
+        $friendlyUrlSuffix = evo()->getConfig('friendly_url_suffix', '');
+
+        // Remove friendly URL suffix if it's not a slash
+        if ($friendlyUrlSuffix !== '/') {
+            $route = str_ireplace($friendlyUrlSuffix, '', $route);
+        }
+
+        // Return the route URL with the action ID appended
+        return $this->scheme($route);
+    }
+
+    /**
+     * Determine the URL scheme (HTTP or HTTPS) based on server variables.
+     *
+     * @param string $url URL to modify
+     * @return string
+     */
+    public function scheme(string $url): string
+    {
+        // Determine the current scheme from various sources
+        $scheme = 'http'; // Default to HTTP
+
+        // Check the server variables for HTTPS
+        if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+            $scheme = 'https';
+        }
+        // Check the forward headers if present
+        elseif (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') {
+            $scheme = 'https';
+        }
+        // Check the HTTP_HOST for known HTTPS setups
+        elseif (isset($_SERVER['HTTP_HOST']) && preg_match('/^https:/i', $_SERVER['HTTP_HOST'])) {
+            $scheme = 'https';
+        }
+        // Check if the server is using HTTPS by default
+        elseif (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443) {
+            $scheme = 'https';
+        }
+
+        // Replace the scheme in the URL if necessary
+        return preg_replace('/^http:\/\//', $scheme . '://', $url);
+    }
 }

@@ -80,7 +80,7 @@
     async function doResorting{{$blockId}}() {
         let list = new FormData();
         document.querySelectorAll('#uploadBase{{$blockId}} > li').forEach(item => list.append('item[]', item.getAttribute('data-sgallery')));
-        await fetch('{!!route('sGallery.resort', ['cat' => request()->get($typeId), 'itemType' => $itemType, 'block' => $blockName])!!}', {method: 'POST', body: list});
+        await fetch('{!!sGallery::route('sGallery.resort', ['cat' => request()->get($typeId), 'itemType' => $itemType, 'block' => $blockName])!!}', {method: 'POST', body: list});
     }
 
     async function doUploadFile{{$blockId}}(e) {
@@ -102,7 +102,7 @@
         console.log("Uploading file with name:", f.name);
         let form = new FormData();
         form.append('file', f);
-        let resp = await fetch('{!!route('sGallery.upload-file', [
+        let resp = await fetch('{!!sGallery::route('sGallery.upload-file', [
                 'cat' => request()->get($typeId),
                 'itemType' => $itemType,
                 'block' => $blockName
@@ -141,7 +141,7 @@
         console.log("Uploading file with name:", f.name);
         let form = new FormData();
         form.append('file', f);
-        let resp = await fetch('{!!route('sGallery.upload-download', [
+        let resp = await fetch('{!!sGallery::route('sGallery.upload-download', [
                 'cat' => request()->get($typeId),
                 'itemType' => $itemType,
                 'block' => $blockName
@@ -166,7 +166,7 @@
         let itemId = e.target.closest('button').getAttribute("data-image-edit");
         console.log("Editing file with ID:", itemId);
 
-        fetch('{!!route('sGallery.gettranslate')!!}' + '?item=' + encodeURIComponent(itemId), {
+        fetch('{!!sGallery::route('sGallery.gettranslate')!!}' + '?item=' + encodeURIComponent(itemId), {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
@@ -213,7 +213,7 @@
             "@lang('sGallery::manager.deleted_irretrievably')",
             function() {
                 alertify.success("@lang('sGallery::manager.deleted')");
-                fetch('{!!route('sGallery.delete')!!}', {
+                fetch('{!!sGallery::route('sGallery.delete')!!}', {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded",
@@ -252,7 +252,7 @@
     function addYoutubeVideo(e) {
         let youtubeLink = prompt("@lang('sGallery::manager.youtube_link')");
         if (youtubeLink) {
-            let url = '{!!route('sGallery.addyoutube', [
+            let url = '{!!sGallery::route('sGallery.addyoutube', [
                 'cat' => request()->get($typeId),
                 'itemType' => $itemType,
                 'block' => $blockName
@@ -317,7 +317,7 @@
         inputs.forEach(function(input) {
             formData.append(input.name, input.value);
         });
-        fetch('{!!route('sGallery.settranslate')!!}', {
+        fetch('{!!sGallery::route('sGallery.settranslate')!!}', {
             method: "POST",
             body: new URLSearchParams(formData),
             headers: {
