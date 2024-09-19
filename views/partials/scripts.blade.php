@@ -23,6 +23,7 @@
     .alertify .ajs-header{user-select:none;}
     .alertify .ajs-footer .ajs-buttons .ajs-button.ajs-ok{color:#fff;background-color:#d9534f;border-color:#d9534f;}
     .alertify .ajs-footer .ajs-buttons .ajs-button.ajs-ok-green{color:#fff;background-color:#28a745;border-color:#28a745;}
+    .alertify .ajs-footer .ajs-buttons .ajs-button.ajs-ok-info{color:#fff;background-color:#5bc0de;border-color:#5bc0de;}
     .alertify.sgallery-modal .ajs-body .ajs-content{padding:10px 0 0;}
     .ajs-content .form-group{margin-bottom:1rem;}
     .ajs-content .form-control{width:100%;padding:0.375rem 0.75rem;font-size:1rem;line-height:1.5;color:#495057;background-color:#f8f9fa;background-clip:padding-box;border:1px solid #ced4da;border-radius:0.25rem;transition:border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;resize:none;}
