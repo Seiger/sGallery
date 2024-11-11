@@ -25,9 +25,9 @@ use Illuminate\Support\Facades\DB;
  */
 class sGalleryModel extends Model
 {
-    const UPLOAD = MODX_BASE_PATH . "assets/sgallery/";
-    const UPLOADED = MODX_SITE_URL . "assets/sgallery/";
-    const NOIMAGE = MODX_SITE_URL . "assets/site/noimage.png";
+    const UPLOAD = EVO_BASE_PATH . "assets/sgallery/";
+    const UPLOADED = EVO_SITE_URL . "assets/sgallery/";
+    const NOIMAGE = EVO_SITE_URL . "assets/site/noimage.png";
     const CACHE_DIR = "assets/cache/";
 
     const TYPE_IMAGE = "image";
@@ -89,24 +89,23 @@ class sGalleryModel extends Model
     {
         switch ($this->type) {
             case self::TYPE_IMAGE:
-                $src = !empty($this->file) && is_file(self::UPLOAD.$this->item_type.'/'.$this->parent.'/'.$this->file)
-                    ? self::UPLOADED.$this->item_type.'/'.$this->parent.'/'.$this->file
-                    : self::NOIMAGE;
+                $src = self::NOIMAGE;
+                if (!empty($this->file) && is_file(self::UPLOAD . $this->item_type . '/' . $this->parent . '/' . $this->file)) {
+                    $src = self::UPLOADED . $this->item_type . '/' . $this->parent . '/' . $this->file;
+                } elseif (!empty($this->file) && is_file(EVO_BASE_PATH . $this->file)) {
+                    $src = EVO_SITE_URL . $this->file;
+                }
                 break;
-
             case self::TYPE_VIDEO:
-                $src = self::UPLOADED.'video_placeholder.png';
+                $src = self::UPLOADED . 'video_placeholder.png';
                 break;
-
             case self::TYPE_PDF:
-                $src = self::UPLOADED.'pdf_icon.png';
+                $src = self::UPLOADED . 'pdf_icon.png';
                 break;
-
             default:
                 $src = self::NOIMAGE;
                 break;
         }
-
         return $src;
     }
 
@@ -124,12 +123,13 @@ class sGalleryModel extends Model
             return $this->cachedFilePath;
         }
 
-        if (!empty($this->file) && is_file(self::UPLOAD.$this->item_type.'/'.$this->parent.'/'.$this->file)) {
-            $this->cachedFilePath = self::UPLOAD.$this->item_type.'/'.$this->parent.'/'.$this->file;
+        if (!empty($this->file) && is_file(self::UPLOAD . $this->item_type . '/' . $this->parent . '/' . $this->file)) {
+            $this->cachedFilePath = self::UPLOAD . $this->item_type . '/' . $this->parent . '/' . $this->file;
+        } elseif (!empty($this->file) && is_file(EVO_BASE_PATH . $this->file)) {
+            $this->cachedFilePath = EVO_BASE_PATH . $this->file;
         } else {
-            $this->cachedFilePath = self::UPLOAD.'noimage.png';
+            $this->cachedFilePath = self::UPLOAD . 'noimage.png';
         }
-
         return $this->cachedFilePath;
     }
 }

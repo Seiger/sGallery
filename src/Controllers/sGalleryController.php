@@ -111,6 +111,7 @@ class sGalleryController
                 if (in_array($filetype, ['application'])) {
                     $filetype = explode('/', $file->getMimeType())[1];
                 }
+
                 $filename = Str::slug($filename);
 
                 // Upload file
@@ -279,6 +280,66 @@ class sGalleryController
                 // Response
                 $data['success'] = 2;
                 $data['message'] = 'Video not added.';
+            }
+        }
+        return response()->json($data);
+    }
+
+    /**
+     * Add a EVO library file
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function uploadEvoLibrary(Request $request)
+    {
+        $data = [];
+
+        $validator = Validator::make($request->all(), [
+            'cat' => 'required|integer|min:1',
+            'file' => 'required|string'
+        ]);
+
+        if ($validator->fails()) {
+            $data['success'] = 0;
+            $data['error'] = $validator->errors()->first(); // Error response
+        } else {
+            $filename = trim($request->input('file'), '/');
+            $file = EVO_BASE_PATH . $filename;
+            if (file_exists($file)) {
+                $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                $filetype = explode('/', $finfo->file($file))[0];
+                if (in_array($filetype, ['application'])) {
+                    $filetype = explode('/', $file->getMimeType())[1];
+                }
+
+                // Save in DB
+                $thisFile = sGalleryModel::whereParent($request->cat)
+                    ->whereBlock($this->blockName)
+                    ->whereItemType($this->itemType)
+                    ->whereFile($filename)
+                    ->firstOrCreate();
+                $thisFile->parent = $request->cat;
+                $thisFile->block = $this->blockName;
+                $thisFile->file = $filename;
+                $thisFile->type = $filetype;
+                $thisFile->item_type = $this->itemType;
+                $thisFile->update();
+
+                // Create default texts
+                $translate = new sGalleryField();
+                $translate->key = $thisFile->id;
+                $translate->lang = evo()->getConfig('lang', 'base');
+                $translate->save();
+
+                // Response
+                $data['success'] = 1;
+                $data['message'] = 'Add Successfully!';
+                $data['preview'] = $this->view('partials.'.$filetype, ['gallery' => $thisFile, 'sGalleryController' => $this])->render();
+            } else {
+                // Response
+                $data['success'] = 2;
+                $data['message'] = 'File not added.';
             }
         }
         return response()->json($data);

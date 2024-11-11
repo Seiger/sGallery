@@ -11,6 +11,7 @@
     'file_upload_error' => 'Error',
     'gallery' => 'Gallery',
     'image_delete' => 'Delete image',
+    'іmage_library' => 'Image library',
     'save' => 'Save',
     'saved_successfully' => 'Saved successfully',
     'tab_texts' => 'Content',

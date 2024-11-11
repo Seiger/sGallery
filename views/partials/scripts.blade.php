@@ -73,8 +73,14 @@
                 toggleVideoPlay(event);
             } else if (target.closest('button')?.hasAttribute("data-target")) {
                 switchTab(event);
+            } else if (target.closest('label')?.id === "browseImage{{$blockId}}") {
+                BrowseServer(target.closest('label').id);
             }
         }
+    });
+
+    document.getElementById('browseImage{{$blockId}}').addEventListener('change', event => {
+        doEvoLibrary{{$blockId}}(event);
     });
 
     /* Save new positions */
@@ -158,6 +164,28 @@
             uploadBase{{$blockId}}.insertAdjacentHTML('beforeend', data.preview);
         }
         window.parent.document.getElementById('mainloader').classList.remove('show');
+        doResorting{{$blockId}}();
+        return data;
+    }
+
+    async function doEvoLibrary{{$blockId}}(e) {
+        console.log("Past EVO library file:", e.target.value);
+        let form = new FormData();
+        form.append('file', e.target.value);
+        let resp = await fetch('{!!sGallery::route('sGallery.upload-evo-library', [
+                'cat' => request()->get($typeId),
+                'itemType' => $itemType,
+                'block' => $blockName
+            ])!!}', {
+            method: 'POST',
+            body: form
+        });
+        let data = await resp.json();
+        if (data.success == 0) {
+            alertify.alert('@lang('sGallery::manager.file_upload_error')', data.error);
+        } else {
+            uploadBase{{$blockId}}.insertAdjacentHTML('beforeend', data.preview);
+        }
         doResorting{{$blockId}}();
         return data;
     }

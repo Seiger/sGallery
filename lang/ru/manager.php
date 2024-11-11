@@ -11,6 +11,7 @@
     'file_upload_error' => 'Ошибка',
     'gallery' => 'Галерея',
     'image_delete' => 'Удалить изображение',
+    'іmage_library' => 'Библиотека изображений',
     'save' => 'Сохранить',
     'saved_successfully' => 'Успешно сохранено',
     'tab_texts' => 'Содержимое',
