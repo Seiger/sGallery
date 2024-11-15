@@ -319,6 +319,7 @@ class sGallery
     {
         // Generate the base route URL and remove trailing slashes
         $route = rtrim(route($name, $parameters), '/');
+        $route = str_replace(MODX_MANAGER_URL, '/', $route);
         $friendlyUrlSuffix = evo()->getConfig('friendly_url_suffix', '');
 
         // Remove friendly URL suffix if it's not a slash

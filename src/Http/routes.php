@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Seiger\sGallery\Controllers\sGalleryController;
 
-Route::middleware('mgr')->prefix('sgallery/')->name('sGallery.')->group(function () {
+Route::middleware('mgr')->prefix('sgallerymanager/')->name('sGallery.')->group(function () {
     Route::get('', [sGalleryController::class, 'index']);
     Route::post('upload-file', [sGalleryController::class, 'uploadFile'])->name('upload-file');
     Route::post('upload-download', [sGalleryController::class, 'uploadDownload'])->name('upload-download');

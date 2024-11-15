@@ -12,19 +12,17 @@ class sGalleryServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        // Only load these resources in Manager mode
-        if (IN_MANAGER_MODE) {
-            // Load the package routes
-            $this->loadRoutesFrom(__DIR__.'/Http/routes.php');
+        // Load the package routes
+        $this->app->router->middlewareGroup('mgr', config('app.middleware.mgr', []));
+        $this->loadRoutesFrom(__DIR__.'/Http/routes.php');
 
-            // Load migrations, views, translations only if necessary
-            $this->loadMigrationsFrom(dirname(__DIR__) . '/database/migrations');
-            $this->loadViewsFrom(dirname(__DIR__) . '/views', 'sGallery');
-            $this->loadTranslationsFrom(dirname(__DIR__) . '/lang', 'sGallery');
+        // Load migrations, views, translations only if necessary
+        $this->loadMigrationsFrom(dirname(__DIR__) . '/database/migrations');
+        $this->loadViewsFrom(dirname(__DIR__) . '/views', 'sGallery');
+        $this->loadTranslationsFrom(dirname(__DIR__) . '/lang', 'sGallery');
 
-            // Publish configuration and assets
-            $this->publishResources();
-        }
+        // Publish configuration and assets
+        $this->publishResources();
 
         // Merge configuration for sGallery
         $this->mergeConfigFrom(dirname(__DIR__) . '/config/sGalleryCheck.php', 'cms.settings');
