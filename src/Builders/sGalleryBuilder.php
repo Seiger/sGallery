@@ -5,6 +5,7 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
+use Seiger\sGallery\sGallery;
 use Spatie\Image\Enums\CropPosition;
 use Spatie\Image\Enums\Fit;
 use Spatie\Image\Enums\ImageDriver;
@@ -328,7 +329,7 @@ class sGalleryBuilder
      */
     public function getFile(): string
     {
-        if ($this->file !== null && file_exists(MODX_BASE_PATH . $this->file)) {
+        if (($this->file !== null && file_exists(MODX_BASE_PATH . $this->file)) || sGallery::hasLink($this->file)) {
             $extension = strtolower(pathinfo(MODX_BASE_PATH . $this->file, PATHINFO_EXTENSION));
 
             if ($this->params !== null && !in_array($extension, ['svg'])) {
@@ -337,7 +338,7 @@ class sGalleryBuilder
                 $chacheFile = sGalleryModel::CACHE_DIR;
 
                 foreach ($imagePath as $path) {
-                    $chacheFile .= is_numeric($path) ? $path : $path[0];
+                    $chacheFile .= is_numeric($path) ? $path : ($path[0] ?? '');
                 }
 
                 $chacheFile .= DIRECTORY_SEPARATOR;
@@ -356,9 +357,15 @@ class sGalleryBuilder
                     }
 
                     try {
-                        $image = extension_loaded('imagick')
-                            ? Image::load(MODX_BASE_PATH . $this->file)
-                            : Image::useImageDriver(ImageDriver::Gd)->loadFile(MODX_BASE_PATH . $this->file);
+                        if (sGallery::hasLink($this->file)) {
+                            $temp = tmpfile();
+                            fwrite($temp, file_get_contents($this->file));
+                            $file = stream_get_meta_data($temp)['uri'];
+                        } else {
+                            $file = MODX_BASE_PATH . $this->file;
+                        }
+
+                        $image = extension_loaded('imagick') ? Image::load($file) : Image::useImageDriver(ImageDriver::Gd)->loadFile($file);
 
                         if (isset($this->params['fit']) && isset($this->params['w']) && isset($this->params['h'])) {
                             $image->fit($this->params['fit'], $this->params['w'], $this->params['h']);

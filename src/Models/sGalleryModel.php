@@ -3,6 +3,7 @@
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Seiger\sGallery\sGallery;
 
 /**
  * Class sGalleryModel
@@ -94,6 +95,8 @@ class sGalleryModel extends Model
                     $src = self::UPLOADED . $this->item_type . '/' . $this->parent . '/' . $this->file;
                 } elseif (!empty($this->file) && is_file(EVO_BASE_PATH . $this->file)) {
                     $src = EVO_SITE_URL . $this->file;
+                } elseif (!empty($this->file) && sGallery::hasLink($this->file)) {
+                    $src = $this->file;
                 }
                 break;
             case self::TYPE_VIDEO:
@@ -127,9 +130,10 @@ class sGalleryModel extends Model
             $this->cachedFilePath = self::UPLOAD . $this->item_type . '/' . $this->parent . '/' . $this->file;
         } elseif (!empty($this->file) && is_file(EVO_BASE_PATH . $this->file)) {
             $this->cachedFilePath = EVO_BASE_PATH . $this->file;
-        } else {
-            $this->cachedFilePath = self::UPLOAD . 'noimage.png';
+        } elseif (!empty($this->file) && sGallery::hasLink($this->file)) {
+            $this->cachedFilePath = $this->file;
         }
-        return $this->cachedFilePath;
+
+        return $this->cachedFilePath ?? self::UPLOAD . 'noimage.png';
     }
 }

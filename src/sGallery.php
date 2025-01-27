@@ -217,6 +217,25 @@ class sGallery
     }
 
     /**
+     * Check if the given string contains a valid HTTP or HTTPS link.
+     *
+     * This method determines if the provided string starts with "https://" or "http://".
+     *
+     * @param string $string The string to be checked.
+     * @return bool Returns true if the string starts with "https://" or "http://", otherwise false.
+     */
+    public static function hasLink($string): bool
+    {
+        if (str_starts_with($string, 'https://')) {
+            return true;
+        } elseif (str_starts_with($string, 'http://')) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
      * Generate language tabs based on the 's_lang_config' configuration value.
      *
      * @return array The language tabs array.
