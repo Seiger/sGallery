@@ -358,9 +358,22 @@ class sGalleryBuilder
 
                     try {
                         if (sGallery::hasLink($this->file)) {
-                            $temp = tmpfile();
-                            fwrite($temp, file_get_contents($this->file));
-                            $file = stream_get_meta_data($temp)['uri'];
+                            try {
+                                $fileContents = @file_get_contents($this->file);
+                                if ($fileContents === false) {
+                                    throw new \Exception("Failed to fetch remote file: " . $this->file);
+                                }
+
+                                $temp = tmpfile();
+                                if (!$temp) {
+                                    throw new \Exception("Failed to create temporary file.");
+                                }
+
+                                fwrite($temp, $fileContents);
+                                $file = stream_get_meta_data($temp)['uri'];
+                            } catch (\Exception $e) {
+                                return sGalleryModel::NOIMAGE;
+                            }
                         } else {
                             $file = MODX_BASE_PATH . $this->file;
                         }

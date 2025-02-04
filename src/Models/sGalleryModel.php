@@ -134,6 +134,6 @@ class sGalleryModel extends Model
             $this->cachedFilePath = $this->file;
         }
 
-        return $this->cachedFilePath ?? self::UPLOAD . 'noimage.png';
+        return $this->cachedFilePath ?? EVO_BASE_PATH . 'assets/site/noimage.png';
     }
 }
