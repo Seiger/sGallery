@@ -305,7 +305,7 @@ class sGalleryController
             $data['error'] = $validator->errors()->first(); // Error response
         } else {
             $filename = trim($request->input('file'), '/');
-            $file = EVO_BASE_PATH . $filename;
+            $file = MODX_BASE_PATH . $filename;
             if (file_exists($file)) {
                 $finfo = new \finfo(FILEINFO_MIME_TYPE);
                 $filetype = explode('/', $finfo->file($file))[0];

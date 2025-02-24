@@ -26,9 +26,9 @@ use Seiger\sGallery\sGallery;
  */
 class sGalleryModel extends Model
 {
-    const UPLOAD = EVO_BASE_PATH . "assets/sgallery/";
-    const UPLOADED = EVO_SITE_URL . "assets/sgallery/";
-    const NOIMAGE = EVO_SITE_URL . "assets/site/noimage.png";
+    const UPLOAD = MODX_BASE_PATH . "assets/sgallery/";
+    const UPLOADED = MODX_SITE_URL . "assets/sgallery/";
+    const NOIMAGE = MODX_SITE_URL . "assets/site/noimage.png";
     const CACHE_DIR = "assets/cache/";
 
     const TYPE_IMAGE = "image";
@@ -93,8 +93,8 @@ class sGalleryModel extends Model
                 $src = self::NOIMAGE;
                 if (!empty($this->file) && is_file(self::UPLOAD . $this->item_type . '/' . $this->parent . '/' . $this->file)) {
                     $src = self::UPLOADED . $this->item_type . '/' . $this->parent . '/' . $this->file;
-                } elseif (!empty($this->file) && is_file(EVO_BASE_PATH . $this->file)) {
-                    $src = EVO_SITE_URL . $this->file;
+                } elseif (!empty($this->file) && is_file(MODX_BASE_PATH . $this->file)) {
+                    $src = MODX_SITE_URL . $this->file;
                 } elseif (!empty($this->file) && sGallery::hasLink($this->file)) {
                     $src = $this->file;
                 }
@@ -128,12 +128,12 @@ class sGalleryModel extends Model
 
         if (!empty($this->file) && is_file(self::UPLOAD . $this->item_type . '/' . $this->parent . '/' . $this->file)) {
             $this->cachedFilePath = self::UPLOAD . $this->item_type . '/' . $this->parent . '/' . $this->file;
-        } elseif (!empty($this->file) && is_file(EVO_BASE_PATH . $this->file)) {
-            $this->cachedFilePath = EVO_BASE_PATH . $this->file;
+        } elseif (!empty($this->file) && is_file(MODX_BASE_PATH . $this->file)) {
+            $this->cachedFilePath = MODX_BASE_PATH . $this->file;
         } elseif (!empty($this->file) && sGallery::hasLink($this->file)) {
             $this->cachedFilePath = $this->file;
         }
 
-        return $this->cachedFilePath ?? EVO_BASE_PATH . 'assets/site/noimage.png';
+        return $this->cachedFilePath ?? MODX_BASE_PATH . 'assets/site/noimage.png';
     }
 }
