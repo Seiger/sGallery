@@ -57,12 +57,12 @@
         .prev-slide, .next-slide {@apply absolute top-2/4 -translate-y-1/2 text-white}
         .prev-slide {@apply left-[10px]}
         .next-slide {@apply right-[10px]}
-        .sg-btn {@apply inline-flex items-center justify-center gap-2 px-3 py-1.5 h-8 text-xs md:text-sm font-medium leading-tight rounded-md border transition-colors duration-200 cursor-pointer select-none appearance-none focus:outline-none focus:ring-2 focus:ring-offset-1 mb-0 align-middle;}
+        .sg-btn {@apply inline-flex items-center justify-center gap-2 px-2.5 py-1 h-8 text-xs min-w-[7rem] font-medium leading-tight rounded-md border transition-colors duration-200 cursor-pointer select-none appearance-none focus:outline-none focus:ring-2 focus:ring-offset-1 mb-0 align-middle;}
         button.sg-btn, label.sg-btn {border-color: currentColor !important;}
         label.sg-btn {@apply rounded-none;}
         .sg-btn-blue {@apply text-blue-600 bg-white hover:bg-blue-600 hover:text-white focus:ring-blue-500;}
         .sg-btn-red {@apply text-red-600 bg-white hover:bg-red-600 hover:text-white focus:ring-red-500;}
-        .sg-btn i {@apply text-base leading-none;}
+        .sg-btn i {@apply text-sm leading-none;}
     }
     @layer utilities {
         .content-auto {content-visibility: auto;}
