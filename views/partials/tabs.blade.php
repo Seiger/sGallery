@@ -1,3 +1,12 @@
+<script src="https://cdn.tailwindcss.com"></script>
+<style type="text/tailwindcss">
+    @layer components {
+        .label {@apply block text-sm font-medium text-gray-700}
+        .field-wrap {@apply flex items-center space-x-4 mb-4}
+        .input-field {@apply mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500}
+    }
+    @layer utilities {}
+</style>
 <ul class="nav nav-tabs">
     @foreach(sGallery::langTabs() as $lang => $tab)
         <li class="nav-item">

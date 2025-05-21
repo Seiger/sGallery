@@ -1,12 +1,15 @@
-<div class="btn-group btn-group-sm">
-    <label for="filesToUpload{{$blockId}}" class="btn btn-secondary" style="margin-bottom:0;">
-        <i class="fas fa-file-upload" style="color:#0b78ff;"></i> <span>@lang('sGallery::manager.file_upload')</span>
+<div class="flex flex-wrap gap-2">
+    <label id="browseImage{{$blockId}}" class="sg-btn sg-btn-blue">
+        <i class="fas fa-camera"></i>
+        <span>@lang('sGallery::manager.image_library')</span>
     </label>
-    <button id="addYoutube{{$blockId}}" class="btn btn-secondary">
-        <i class="fab fa-youtube" style="color:#0b78ff;"></i> <span>@lang('sGallery::manager.add_youtube')</span>
+    <label for="filesToUpload{{$blockId}}" class="sg-btn sg-btn-blue">
+        <i class="fas fa-file-upload"></i>
+        <span>@lang('sGallery::manager.file_upload')</span>
+    </label>
+    <button id="addYoutube{{$blockId}}" type="button" class="sg-btn sg-btn-red">
+        <i class="fab fa-youtube"></i>
+        <span>@lang('sGallery::manager.add_youtube')</span>
     </button>
-    <label id="browseImage{{$blockId}}" class="btn btn-secondary" style="margin-bottom:0;">
-        <i class="fas fa-camera" style="color:#0b78ff;"></i> <span>@lang('sGallery::manager.іmage_library')</span>
-    </label>
     <input id="filesToUpload{{$blockId}}" type="file" name="files[]" multiple hidden/>
 </div>

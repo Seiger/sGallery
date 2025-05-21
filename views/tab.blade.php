@@ -11,11 +11,15 @@
     @include('sGallery::partials.buttons', [
         'blockId' => $sGalleryController->getBlockNameId(),
     ])
-    <ul id="uploadBase{{$sGalleryController->getBlockNameId()}}">
+    <ul class="grid-gallery" id="uploadBase{{$sGalleryController->getBlockNameId()}}">
         @foreach($galleries as $gallery)
             @include('sGallery::partials.'.$gallery->type)
         @endforeach
     </ul>
+    @include('sGallery::partials.slider', [
+        'blockId' => $sGalleryController->getBlockNameId(),
+        'galleries' => $galleries,
+    ])
 </div>
 @push('scripts.bot')
     @include('sGallery::partials.scripts', [
