@@ -29,6 +29,7 @@ Elevate your media management experience with **sGallery** today.
 - [x] Integration with Custom Modules.
 - [x] **[sLang](https://github.com/Seiger/sLang)** Integration.
 - [x] More than one tab.
+- [x] Full Image slider in Admin panel.
 
 ## Supported formats
 
