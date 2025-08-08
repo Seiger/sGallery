@@ -337,6 +337,15 @@ class sGallery
     public function route(string $name, array $parameters = []): string
     {
         // Generate the base route URL and remove trailing slashes
+        $route = route($name, $parameters);
+
+        // Trim friendly URL suffix
+        if (!empty(evo()->getConfig('friendly_url_suffix'))) {
+            $route = rtrim($route, evo()->getConfig('friendly_url_suffix'));
+        }
+
+        return $route;
+        /*// Generate the base route URL and remove trailing slashes
         $route = rtrim(route($name, $parameters), '/');
         $route = str_replace(MODX_MANAGER_URL, '/', $route);
         $friendlyUrlSuffix = evo()->getConfig('friendly_url_suffix', '');
@@ -347,7 +356,7 @@ class sGallery
         }
 
         // Return the route URL with the action ID appended
-        return $this->scheme($route);
+        return $this->scheme($route);*/
     }
 
     /**

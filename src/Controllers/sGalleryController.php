@@ -112,7 +112,9 @@ class sGalleryController
                     $filetype = explode('/', $file->getMimeType())[1];
                 }
 
-                $filename = Str::slug($filename);
+                $ext  = pathinfo($filename, PATHINFO_EXTENSION);
+                $name = pathinfo($filename, PATHINFO_FILENAME);
+                $filename = Str::slug($name) . '.' . strtolower($ext);
 
                 // Upload file
                 $file->move(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat, $filename);
@@ -185,7 +187,10 @@ class sGalleryController
                 if (in_array($filetype, ['application'])) {
                     $filetype = explode('/', $file->getMimeType())[1];
                 }
-                $filename = Str::slug($filename);
+
+                $ext  = pathinfo($filename, PATHINFO_EXTENSION);
+                $name = pathinfo($filename, PATHINFO_FILENAME);
+                $filename = Str::slug($name) . '.' . strtolower($ext);
 
                 // Upload file
                 $file->move(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat, $filename);
