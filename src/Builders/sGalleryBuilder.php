@@ -363,6 +363,11 @@ class sGalleryBuilder
                 $chacheFile .= DIRECTORY_SEPARATOR;
                 $format = $this->params['format'] ?? $this->getSupportedImageFormat();
 
+                // Force AVIF for testing transparency
+                if (isset($this->params['format']) && $this->params['format'] === 'avif') {
+                    $format = 'avif';
+                }
+
                 // Build cache filename with transformation parameters
                 $ext = isset($this->params['fit']) ? strtolower($this->params['fit']->value) . '-' : '';
                 $ext .= isset($this->params['crop']) ? strtolower($this->params['crop']->value) . '-' : '';
@@ -401,8 +406,11 @@ class sGalleryBuilder
                             $file = MODX_BASE_PATH . $this->file;
                         }
 
-                        // Load image with appropriate driver (ImageMagick or GD)
-                        $image = extension_loaded('imagick') ? Image::load($file) : Image::useImageDriver(ImageDriver::Gd)->loadFile($file);
+                        if ($format === 'avif') {
+                            $image = Image::useImageDriver(ImageDriver::Gd)->loadFile($file);
+                        } else {
+                            $image = extension_loaded('imagick') ? Image::load($file) : Image::useImageDriver(ImageDriver::Gd)->loadFile($file);
+                        }
 
                         // Apply image transformations based on parameters
                         if (isset($this->params['fit']) && isset($this->params['w']) && isset($this->params['h'])) {
@@ -418,15 +426,24 @@ class sGalleryBuilder
                         }
 
                         // Handle AVIF format with custom transparency support
-                        if ($format === 'avif' && !extension_loaded('imagick')) {
-                            $this->saveAvifWithTransparency($image, MODX_BASE_PATH . $chacheFile . $imageName);
+                        if ($format === 'avif') {
+                            $image->quality($this->quality);
+
+                            // Check if original file has transparency (PNG, GIF, WebP)
+                            $originalExtension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+                            $hasTransparency = in_array($originalExtension, ['png', 'gif', 'webp']);
+
+                            if ($hasTransparency) {
+                                $this->saveAvifWithTransparency($image, MODX_BASE_PATH . $chacheFile . $imageName);
+                            } else {
+                                $image->format($format)->save(MODX_BASE_PATH . $chacheFile . $imageName);
+                            }
                         } else {
                             $image->quality($this->quality)->format($format)->save(MODX_BASE_PATH . $chacheFile . $imageName);
                         }
                         chmod(MODX_BASE_PATH . $chacheFile . $imageName, octdec(evo()->getConfig('new_file_permissions', '0666')));
                     } catch (\Exception $e) {
                         Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
-                        return "Error sGallery: " . $e->getMessage();
                     }
                 }
 
@@ -548,8 +565,129 @@ class sGalleryBuilder
      */
     private function saveAvifWithTransparency($image, string $path): void
     {
+        $originalFile = $this->file;
         $gdImage = $image->image();
+
+        // Check if image has alpha channel
+        $width = \imagesx($gdImage);
+        $height = \imagesy($gdImage);
+        $isTrueColor = \imageistruecolor($gdImage);
+        $hasAlpha = false;
+
+        if ($isTrueColor) {
+            for ($x = 0; $x < min($width, 10); $x++) {
+                for ($y = 0; $y < min($height, 10); $y++) {
+                    $color = \imagecolorat($gdImage, $x, $y);
+                    $alpha = ($color >> 24) & 0xFF;
+                    if ($alpha < 255) {
+                        $hasAlpha = true;
+                        break 2;
+                    }
+                }
+            }
+        }
+
+        // Check if original file has transparency before attempting custom approach
+        $originalHasTransparency = false;
+        if (file_exists(MODX_BASE_PATH . $originalFile)) {
+            $extension = strtolower(pathinfo($originalFile, PATHINFO_EXTENSION));
+            if ($extension === 'png') {
+                // Quick check: PNG files with transparency usually have larger file sizes
+                $originalSize = filesize(MODX_BASE_PATH . $originalFile);
+                $originalHasTransparency = $originalSize > 50000; // Heuristic: large PNGs likely have transparency
+            }
+        }
+
+        // If Spatie Image lost transparency and original has transparency, try to reload original image directly
+        if (!$hasAlpha && $originalHasTransparency && file_exists(MODX_BASE_PATH . $originalFile)) {
+            $originalPath = MODX_BASE_PATH . $originalFile;
+            $originalImage = null;
+
+            $extension = strtolower(pathinfo($originalPath, PATHINFO_EXTENSION));
+            switch ($extension) {
+                case 'png':
+                    // For PNG, load without modifying alpha settings initially
+                    $originalImage = \imagecreatefrompng($originalPath);
+                    break;
+                case 'jpg':
+                case 'jpeg':
+                    $originalImage = \imagecreatefromjpeg($originalPath);
+                    break;
+                case 'gif':
+                    $originalImage = \imagecreatefromgif($originalPath);
+                    break;
+                case 'webp':
+                    $originalImage = \imagecreatefromwebp($originalPath);
+                    break;
+            }
+
+            if ($originalImage) {
+                $originalWidth = \imagesx($originalImage);
+                $originalHeight = \imagesy($originalImage);
+
+                // For PNG, apply alpha settings first, then check
+                if ($extension === 'png') {
+                    \imagepalettetotruecolor($originalImage);
+                    \imagealphablending($originalImage, false);
+                    \imagesavealpha($originalImage, true);
+                }
+
+                // Check if original image has transparency
+                $originalHasAlpha = false;
+
+                // Check pixels for transparency detection
+                for ($x = 0; $x < min($originalWidth, 50); $x++) {
+                    for ($y = 0; $y < min($originalHeight, 50); $y++) {
+                        $color = \imagecolorat($originalImage, $x, $y);
+                        $alpha = ($color >> 24) & 0xFF;
+
+                        if ($alpha < 255) { // Any transparency
+                            $originalHasAlpha = true;
+                            break 2;
+                        }
+                    }
+                }
+
+                $targetWidth = $width;
+                $targetHeight = $height;
+                $resizedImage = \imagecreatetruecolor($targetWidth, $targetHeight);
+
+                // Preserve transparency - set transparent background
+                \imagealphablending($resizedImage, false);
+                \imagesavealpha($resizedImage, true);
+
+                // Fill with transparent color
+                $transparent = \imagecolorallocatealpha($resizedImage, 0, 0, 0, 127);
+                \imagefill($resizedImage, 0, 0, $transparent);
+
+                // Copy and resize with better transparency handling
+                \imagealphablending($resizedImage, true);
+                \imagecopyresampled(
+                    $resizedImage, $originalImage,
+                    0, 0, 0, 0,
+                    $targetWidth, $targetHeight,
+                    \imagesx($originalImage), \imagesy($originalImage)
+                );
+                \imagealphablending($resizedImage, false);
+
+                \imagedestroy($originalImage);
+                \imagedestroy($gdImage);
+                $gdImage = $resizedImage;
+            }
+        }
+
+        // Apply transparency fixes
         \imagepalettetotruecolor($gdImage);
-        \imageavif($gdImage, $path, $this->quality);
+        \imagealphablending($gdImage, false);
+        \imagesavealpha($gdImage, true);
+
+        // For transparency, use maximum quality
+        $quality = $this->quality;
+        if ($originalHasTransparency || $hasAlpha) {
+            $quality = 100; // Maximum quality for transparency
+        }
+
+        $result = \imageavif($gdImage, $path, $quality);
+        \imagedestroy($gdImage);
     }
 }
