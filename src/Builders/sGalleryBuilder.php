@@ -14,9 +14,14 @@ use Spatie\Image\Image;
 /**
  * Class sGalleryBuilder
  *
- * This builder class provides a fluent interface to configure and retrieve gallery data.
- * It supports view configuration, file manipulation (including resizing and format conversion),
- * and browser-based format detection.
+ * A fluent builder class for configuring and retrieving gallery data with comprehensive
+ * image manipulation capabilities. This class provides a chainable interface for:
+ *
+ * - Gallery view configuration (tabs, sections, downloads)
+ * - File manipulation (resizing, cropping, format conversion)
+ * - Browser-based format detection (AVIF, WebP, JPEG)
+ * - Image processing with transparency support
+ * - Caching and optimization
  */
 class sGalleryBuilder
 {
@@ -146,7 +151,13 @@ class sGalleryBuilder
      */
     public function format(string $format): self
     {
-        $this->params['format'] = strtolower($format);
+        $supportedFormats = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'];
+        $format = strtolower($format);
+
+        if (in_array($format, $supportedFormats)) {
+            $this->params['format'] = $format;
+        }
+
         return $this;
     }
 
@@ -158,7 +169,7 @@ class sGalleryBuilder
      */
     public function quality(int $quality): self
     {
-        $this->quality = $quality;
+        $this->quality = max(1, min(100, $quality));
         return $this;
     }
 
@@ -236,12 +247,16 @@ class sGalleryBuilder
     }
 
     /**
-     * Set the crop method and dimensions for the image with percentage center.
+     * Set focal crop with percentage-based center point.
      *
-     * @param string $method Fit method (e.g., 'center', 'left', 'right').
-     * @param int $width Width of the image.
-     * @param int|null $height Height of the image (optional, defaults to the width if not provided).
-     * @return $this
+     * @param int $centerX The X coordinate of the focal center (0-100)
+     * @param int $centerY The Y coordinate of the focal center (0-100)
+     * @param int $width The width in pixels (minimum 1)
+     * @param int|null $height The height in pixels (optional, defaults to width)
+     * @return $this Fluent interface for method chaining
+     *
+     * @example
+     * $builder->focalCrop(50, 30, 400, 300);
      */
     public function focalCrop(int $centerX, int $centerY, int $width, int|null $height = null): self
     {
@@ -255,12 +270,16 @@ class sGalleryBuilder
     }
 
     /**
-     * Set the crop method and dimensions for the image with percentage center.
+     * Set manual crop with specific start coordinates.
      *
-     * @param string $method Fit method (e.g., 'center', 'left', 'right').
-     * @param int $width Width of the image.
-     * @param int|null $height Height of the image (optional, defaults to the width if not provided).
-     * @return $this
+     * @param int $startX The X coordinate to start cropping from (minimum 0)
+     * @param int $startY The Y coordinate to start cropping from (minimum 0)
+     * @param int $width The width in pixels (minimum 1)
+     * @param int|null $height The height in pixels (optional, defaults to width)
+     * @return $this Fluent interface for method chaining
+     *
+     * @example
+     * $builder->manualCrop(100, 50, 400, 300);
      */
     public function manualCrop(int $startX, int $startY, int $width, int|null $height = null): self
     {
@@ -344,6 +363,7 @@ class sGalleryBuilder
                 $chacheFile .= DIRECTORY_SEPARATOR;
                 $format = $this->params['format'] ?? $this->getSupportedImageFormat();
 
+                // Build cache filename with transformation parameters
                 $ext = isset($this->params['fit']) ? strtolower($this->params['fit']->value) . '-' : '';
                 $ext .= isset($this->params['crop']) ? strtolower($this->params['crop']->value) . '-' : '';
                 $ext .= isset($this->params['focalCenterX']) ? 'focal' . $this->params['focalCenterX'] . '-' . $this->params['focalCenterY'] . '-' : '';
@@ -357,8 +377,10 @@ class sGalleryBuilder
                     }
 
                     try {
+                        // Handle remote files vs local files
                         if (sGallery::hasLink($this->file)) {
                             try {
+                                // Download remote file to temporary location
                                 $fileContents = @file_get_contents($this->file);
                                 if ($fileContents === false) {
                                     throw new \Exception("Failed to fetch remote file: " . $this->file);
@@ -375,11 +397,14 @@ class sGalleryBuilder
                                 return sGalleryModel::NOIMAGE;
                             }
                         } else {
+                            // Use local file path
                             $file = MODX_BASE_PATH . $this->file;
                         }
 
+                        // Load image with appropriate driver (ImageMagick or GD)
                         $image = extension_loaded('imagick') ? Image::load($file) : Image::useImageDriver(ImageDriver::Gd)->loadFile($file);
 
+                        // Apply image transformations based on parameters
                         if (isset($this->params['fit']) && isset($this->params['w']) && isset($this->params['h'])) {
                             $image->fit($this->params['fit'], $this->params['w'], $this->params['h']);
                         } elseif (isset($this->params['crop']) && isset($this->params['w']) && isset($this->params['h'])) {
@@ -392,7 +417,12 @@ class sGalleryBuilder
                             $image->width($this->params['w'])->height($this->params['h']);
                         }
 
-                        $image->quality($this->quality)->format($format)->save(MODX_BASE_PATH . $chacheFile . $imageName);
+                        // Handle AVIF format with custom transparency support
+                        if ($format === 'avif' && !extension_loaded('imagick')) {
+                            $this->saveAvifWithTransparency($image, MODX_BASE_PATH . $chacheFile . $imageName);
+                        } else {
+                            $image->quality($this->quality)->format($format)->save(MODX_BASE_PATH . $chacheFile . $imageName);
+                        }
                         chmod(MODX_BASE_PATH . $chacheFile . $imageName, octdec(evo()->getConfig('new_file_permissions', '0666')));
                     } catch (\Exception $e) {
                         Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
@@ -507,5 +537,19 @@ class sGalleryBuilder
         $this->files = null;
         $this->file = null;
         $this->params = [];
+    }
+
+    /**
+     * Save image as AVIF with proper transparency support.
+     *
+     * @param \Spatie\Image\Image $image The image instance.
+     * @param string $path The path where to save the image.
+     * @return void
+     */
+    private function saveAvifWithTransparency($image, string $path): void
+    {
+        $gdImage = $image->image();
+        \imagepalettetotruecolor($gdImage);
+        \imageavif($gdImage, $path, $this->quality);
     }
 }
