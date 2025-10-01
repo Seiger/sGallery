@@ -48,11 +48,17 @@ class sGallery
     /**
      * Return the URL of the file using the Builder pattern.
      *
-     * @param string $input The path of the input file.
+     * @param string|null $input The path of the input file.
      * @return sGalleryBuilder The builder instance to chain further operations.
      */
-    public function file(string $input): sGalleryBuilder
+    public function file(string|null $input): sGalleryBuilder
     {
+        $input = trim($input ?? sGalleryModel::NOIMAGE);
+
+        if (empty($input)) {
+            $input = sGalleryModel::NOIMAGE;
+        }
+
         return $this->builder->file($input);
     }
 
@@ -221,18 +227,16 @@ class sGallery
      *
      * This method determines if the provided string starts with "https://" or "http://".
      *
-     * @param string $string The string to be checked.
+     * @param string|null $string The string to be checked.
      * @return bool Returns true if the string starts with "https://" or "http://", otherwise false.
      */
-    public static function hasLink($string): bool
+    public static function hasLink(string|null $string): bool
     {
-        if (str_starts_with($string, 'https://')) {
-            return true;
-        } elseif (str_starts_with($string, 'http://')) {
-            return true;
-        } else {
+        if (!$string) {
             return false;
         }
+
+        return str_starts_with($string, 'https://') || str_starts_with($string, 'http://');
     }
 
     /**
@@ -345,18 +349,6 @@ class sGallery
         }
 
         return $route;
-        /*// Generate the base route URL and remove trailing slashes
-        $route = rtrim(route($name, $parameters), '/');
-        $route = str_replace(MODX_MANAGER_URL, '/', $route);
-        $friendlyUrlSuffix = evo()->getConfig('friendly_url_suffix', '');
-
-        // Remove friendly URL suffix if it's not a slash
-        if ($friendlyUrlSuffix !== '/') {
-            $route = str_ireplace($friendlyUrlSuffix, '', $route);
-        }
-
-        // Return the route URL with the action ID appended
-        return $this->scheme($route);*/
     }
 
     /**
