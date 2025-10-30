@@ -71,7 +71,7 @@ class sGallery
      * @param string|null $block Block name for filtering (optional).
      * @return object The first gallery item or a new instance if none found.
      */
-    public function first(string $resourceType = 'resource', int $documentId = null, string $lang = null, string $block = null): object
+    public function first(string $resourceType = 'resource', ?int $documentId = null, ?string $lang = null, ?string $block = null): object
     {
         if (!$documentId) {
             $documentId = evo()->documentObject['id'] ?? 0;
