@@ -32,11 +32,14 @@ class sGalleryBuilder
     protected ?string $blockName = '1';
     protected ?int $documentId = null;
     protected int $quality = 100;
+    protected bool $qualityExplicit = false;
     protected ?string $lang = null;
     protected ?\Illuminate\Database\Eloquent\Builder $query = null;
     protected ?\Illuminate\Database\Eloquent\Collection $files = null;
     protected ?string $file = null;
     protected ?array $params = [];
+    protected ?bool $sourceHasAlpha = null;
+    protected array $alphaDetectionCache = [];
 
     /**
      * Set the mode for the builder (e.g., 'view' or 'collections').
@@ -169,6 +172,7 @@ class sGalleryBuilder
      */
     public function quality(int $quality): self
     {
+        $this->qualityExplicit = true;
         $this->quality = max(1, min(100, $quality));
         return $this;
     }
@@ -408,6 +412,10 @@ class sGalleryBuilder
                             $file = EVO_BASE_PATH . $this->file;
                         }
 
+                        if (is_file($file)) {
+                            $this->sourceHasAlpha = $this->detectAlphaChannelFromPath($file);
+                        }
+
                         if (!$this->isProcessableImage($file)) {
                             throw new \RuntimeException("Unsupported or corrupted image data: " . $this->file);
                         }
@@ -477,7 +485,7 @@ class sGalleryBuilder
      */
     public function getSupportedImageFormat(): string
     {
-        $availableFormats = ['avif', 'webp', 'png', 'jpg'];
+        $availableFormats = $this->buildFormatPreferenceList();
 
         if ($override = $this->getClientOverrideFormat($availableFormats)) {
             return $this->rememberSupportedImageFormat($override);
@@ -556,6 +564,10 @@ class sGalleryBuilder
      */
     protected function detectSupportedImageFormat(array $formats): string
     {
+        if (empty($formats)) {
+            return 'jpg';
+        }
+
         if ($format = $this->detectSupportedFormatFromHeaders($formats)) {
             return $format;
         }
@@ -564,7 +576,39 @@ class sGalleryBuilder
             return $format;
         }
 
-        return 'jpg';
+        $hasAlpha = $this->sourceHasAlphaChannel();
+
+        if ($hasAlpha && in_array('png', $formats, true)) {
+            return 'png';
+        }
+
+        if (!$hasAlpha && in_array('jpg', $formats, true)) {
+            return 'jpg';
+        }
+
+        return reset($formats) ?: 'jpg';
+    }
+
+    /**
+     * Build preferred format list based on source properties.
+     *
+     * @return array
+     */
+    private function buildFormatPreferenceList(): array
+    {
+        $hasAlpha = $this->sourceHasAlphaChannel();
+
+        $formats = ['avif', 'webp'];
+
+        if ($hasAlpha) {
+            $formats[] = 'png';
+            $formats[] = 'jpg';
+        } else {
+            $formats[] = 'jpg';
+            $formats[] = 'png';
+        }
+
+        return array_values(array_unique($formats));
     }
 
     /**
@@ -578,6 +622,9 @@ class sGalleryBuilder
         $this->files = null;
         $this->file = null;
         $this->params = [];
+        $this->sourceHasAlpha = null;
+        $this->qualityExplicit = false;
+        $this->alphaDetectionCache = [];
     }
 
     /**
@@ -613,18 +660,14 @@ class sGalleryBuilder
 
         // Check if original file has transparency before attempting custom approach
         $originalHasTransparency = false;
-        if (file_exists(EVO_BASE_PATH . $originalFile)) {
-            $extension = strtolower(pathinfo($originalFile, PATHINFO_EXTENSION));
-            if ($extension === 'png') {
-                // Quick check: PNG files with transparency usually have larger file sizes
-                $originalSize = filesize(EVO_BASE_PATH . $originalFile);
-                $originalHasTransparency = $originalSize > 50000; // Heuristic: large PNGs likely have transparency
-            }
+        $absoluteOriginalPath = $this->getAbsoluteSourcePath($originalFile);
+        if ($absoluteOriginalPath !== null) {
+            $originalHasTransparency = $this->detectAlphaChannelFromPath($absoluteOriginalPath);
         }
 
         // If Spatie Image lost transparency and original has transparency, try to reload original image directly
-        if (!$hasAlpha && $originalHasTransparency && file_exists(EVO_BASE_PATH . $originalFile)) {
-            $originalPath = EVO_BASE_PATH . $originalFile;
+        if (!$hasAlpha && $originalHasTransparency && $absoluteOriginalPath !== null) {
+            $originalPath = $absoluteOriginalPath;
             $originalImage = null;
 
             $extension = strtolower(pathinfo($originalPath, PATHINFO_EXTENSION));
@@ -705,10 +748,14 @@ class sGalleryBuilder
         \imagealphablending($gdImage, false);
         \imagesavealpha($gdImage, true);
 
-        // For transparency, use maximum quality
         $quality = $this->quality;
         if ($originalHasTransparency || $hasAlpha) {
-            $quality = 100; // Maximum quality for transparency
+            $this->markTransparentSource();
+            if (!$this->qualityExplicit) {
+                $quality = 100;
+            }
+        } else {
+            $this->clearTransparentSource();
         }
 
         $result = \imageavif($gdImage, $path, $quality);
@@ -746,6 +793,182 @@ class sGalleryBuilder
             $mime = strtolower($imageInfo['mime'] ?? '');
             if ($mime !== '' && strpos($mime, 'image/') === 0) {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine if current source image includes an alpha channel.
+     *
+     * @return bool
+     */
+    private function sourceHasAlphaChannel(): bool
+    {
+        if ($this->sourceHasAlpha !== null) {
+            return $this->sourceHasAlpha;
+        }
+
+        $absolutePath = $this->getAbsoluteSourcePath();
+        if ($absolutePath !== null) {
+            $this->sourceHasAlpha = $this->detectAlphaChannelFromPath($absolutePath);
+            return $this->sourceHasAlpha;
+        }
+
+        if ($this->file !== null) {
+            $extension = strtolower(pathinfo($this->file, PATHINFO_EXTENSION));
+            $this->sourceHasAlpha = in_array($extension, ['png', 'gif', 'webp'], true);
+            return $this->sourceHasAlpha;
+        }
+
+        $this->sourceHasAlpha = false;
+        return false;
+    }
+
+    /**
+     * Persistently mark current source as containing transparency.
+     *
+     * @return void
+     */
+    private function markTransparentSource(): void
+    {
+        $this->sourceHasAlpha = true;
+    }
+
+    /**
+     * Persistently mark current source as opaque.
+     *
+     * @return void
+     */
+    private function clearTransparentSource(): void
+    {
+        $this->sourceHasAlpha = false;
+    }
+
+    /**
+     * Resolve absolute path for current or given relative file.
+     *
+     * @param string|null $relative
+     * @return string|null
+     */
+    private function getAbsoluteSourcePath(?string $relative = null): ?string
+    {
+        $target = $relative ?? $this->file;
+
+        if ($target === null || sGallery::hasLink($target)) {
+            return null;
+        }
+
+        $target = ltrim($target, '/');
+
+        $candidates = [
+            EVO_BASE_PATH . $target,
+            sGalleryModel::UPLOAD . $target,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Detect whether image at path uses transparency.
+     *
+     * @param string $path
+     * @return bool
+     */
+    private function detectAlphaChannelFromPath(string $path): bool
+    {
+        if (!is_file($path)) {
+            return false;
+        }
+
+        $stats = @stat($path);
+        $cacheKey = (realpath($path) ?: $path) . '|' . ($stats['size'] ?? 0) . '|' . ($stats['mtime'] ?? 0);
+
+        if (array_key_exists($cacheKey, $this->alphaDetectionCache)) {
+            return $this->alphaDetectionCache[$cacheKey];
+        }
+
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $result = false;
+
+        switch ($extension) {
+            case 'png':
+                $resource = @imagecreatefrompng($path);
+                if ($resource) {
+                    \imagealphablending($resource, true);
+                    \imagesavealpha($resource, true);
+                    $result = $this->hasTransparentPixel($resource);
+                    \imagedestroy($resource);
+                }
+                break;
+            case 'gif':
+                $resource = @imagecreatefromgif($path);
+                if ($resource) {
+                    $transparentIndex = \imagecolortransparent($resource);
+                    if ($transparentIndex >= 0) {
+                        $result = true;
+                    } else {
+                        $result = $this->hasTransparentPixel($resource);
+                    }
+                    \imagedestroy($resource);
+                }
+                break;
+            case 'webp':
+                if (\function_exists('imagecreatefromwebp')) {
+                    $resource = @imagecreatefromwebp($path);
+                    if ($resource) {
+                        $result = $this->hasTransparentPixel($resource);
+                        \imagedestroy($resource);
+                    }
+                }
+                break;
+            default:
+                $result = false;
+        }
+
+        $this->alphaDetectionCache[$cacheKey] = $result;
+
+        return $result;
+    }
+
+    /**
+     * Inspect GD resource for presence of transparent pixels.
+     *
+     * @param \GdImage|resource $resource
+     * @return bool
+     */
+    private function hasTransparentPixel($resource): bool
+    {
+        if (!\is_resource($resource) && !($resource instanceof \GdImage)) {
+            return false;
+        }
+
+        $width = \imagesx($resource);
+        $height = \imagesy($resource);
+
+        if ($width === 0 || $height === 0) {
+            return false;
+        }
+
+        $sampleWidth = min($width, 100);
+        $sampleHeight = min($height, 100);
+        $stepX = max(1, (int)floor($width / $sampleWidth));
+        $stepY = max(1, (int)floor($height / $sampleHeight));
+
+        for ($x = 0; $x < $width; $x += $stepX) {
+            for ($y = 0; $y < $height; $y += $stepY) {
+                $color = \imagecolorat($resource, $x, $y);
+                $alpha = ($color >> 24) & 0x7F;
+                if ($alpha > 0) {
+                    return true;
+                }
             }
         }
 
