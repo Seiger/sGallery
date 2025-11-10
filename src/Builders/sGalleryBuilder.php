@@ -477,14 +477,24 @@ class sGalleryBuilder
      */
     public function getSupportedImageFormat(): string
     {
-        if (isset($_SESSION['supported_image_format'])) {
+        $availableFormats = ['avif', 'webp', 'png', 'jpg'];
+
+        if ($override = $this->getClientOverrideFormat($availableFormats)) {
+            return $this->rememberSupportedImageFormat($override);
+        }
+
+        if (isset($_SESSION['supported_image_format']) && in_array($_SESSION['supported_image_format'], $availableFormats, true)) {
             return $_SESSION['supported_image_format'];
         }
 
-        $supportedFormat = $this->detectSupportedImageFormat(['avif', 'webp', 'jpg']);
-        $_SESSION['supported_image_format'] = $supportedFormat;
+        $cookieFormat = $this->normalizeFormat($_COOKIE['sgallery_supported_image_format'] ?? null);
+        if ($cookieFormat !== null && in_array($cookieFormat, $availableFormats, true)) {
+            return $this->rememberSupportedImageFormat($cookieFormat);
+        }
 
-        return $supportedFormat;
+        $supportedFormat = $this->detectSupportedImageFormat($availableFormats);
+
+        return $this->rememberSupportedImageFormat($supportedFormat);
     }
 
     /**
@@ -546,12 +556,12 @@ class sGalleryBuilder
      */
     protected function detectSupportedImageFormat(array $formats): string
     {
-        $acceptHeader = $_SERVER['HTTP_ACCEPT'] ?? '';
+        if ($format = $this->detectSupportedFormatFromHeaders($formats)) {
+            return $format;
+        }
 
-        foreach ($formats as $format) {
-            if (strpos($acceptHeader, 'image/' . $format) !== false) {
-                return $format;
-            }
+        if ($format = $this->guessSupportedFormatByUserAgent($formats)) {
+            return $format;
         }
 
         return 'jpg';
@@ -740,5 +750,305 @@ class sGalleryBuilder
         }
 
         return false;
+    }
+
+    /**
+     * Try to fetch preferred format provided by client.
+     *
+     * @param array $availableFormats
+     * @return string|null
+     */
+    private function getClientOverrideFormat(array $availableFormats): ?string
+    {
+        $sources = [
+            $_GET['sgallery-format'] ?? null,
+            $_POST['sgallery-format'] ?? null,
+            $_REQUEST['sgallery-format'] ?? null,
+        ];
+
+        foreach ($sources as $value) {
+            $normalized = $this->normalizeFormat($value);
+            if ($normalized !== null && in_array($normalized, $availableFormats, true)) {
+                return $normalized;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalize common format aliases.
+     *
+     * @param mixed $value
+     * @return string|null
+     */
+    private function normalizeFormat(mixed $value): ?string
+    {
+        if (!is_string($value) || $value === '') {
+            return null;
+        }
+
+        $format = strtolower(trim($value));
+
+        if ($format === 'jpeg') {
+            $format = 'jpg';
+        }
+
+        return in_array($format, ['avif', 'webp', 'png', 'jpg', 'gif'], true) ? $format : null;
+    }
+
+    /**
+     * Store supported format in session and cookie.
+     *
+     * @param string $format
+     * @return string
+     */
+    private function rememberSupportedImageFormat(string $format): string
+    {
+        $_SESSION['supported_image_format'] = $format;
+
+        $currentCookie = $this->normalizeFormat($_COOKIE['sgallery_supported_image_format'] ?? null);
+
+        if ($currentCookie !== $format && !headers_sent()) {
+            $cookieOptions = [
+                'expires' => time() + (86400 * 30),
+                'path' => '/',
+                'samesite' => 'Lax',
+            ];
+
+            if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+                $cookieOptions['secure'] = true;
+            }
+
+            setcookie('sgallery_supported_image_format', $format, $cookieOptions);
+        }
+
+        return $format;
+    }
+
+    /**
+     * Detect format support based on request headers.
+     *
+     * @param array $formats
+     * @return string|null
+     */
+    private function detectSupportedFormatFromHeaders(array $formats): ?string
+    {
+        $headers = [];
+
+        foreach (['HTTP_SEC_CH_ACCEPT', 'HTTP_ACCEPT'] as $headerName) {
+            if (!empty($_SERVER[$headerName])) {
+                $headers[] = strtolower($_SERVER[$headerName]);
+            }
+        }
+
+        if (empty($headers)) {
+            return null;
+        }
+
+        foreach ($headers as $header) {
+            foreach ($formats as $format) {
+                foreach ($this->mapFormatToMimeList($format) as $mime) {
+                    if (strpos($header, $mime) !== false) {
+                        return $format === 'jpeg' ? 'jpg' : $format;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Provide MIME candidates for specific format.
+     *
+     * @param string $format
+     * @return array
+     */
+    private function mapFormatToMimeList(string $format): array
+    {
+        return match ($format) {
+            'avif' => ['image/avif'],
+            'webp' => ['image/webp'],
+            'png' => ['image/png'],
+            'jpg' => ['image/jpeg', 'image/jpg'],
+            default => ['image/' . $format],
+        };
+    }
+
+    /**
+     * Guess supported format using User-Agent heuristics.
+     *
+     * @param array $formats
+     * @return string|null
+     */
+    private function guessSupportedFormatByUserAgent(array $formats): ?string
+    {
+        $userAgent = strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
+
+        if ($userAgent === '') {
+            return null;
+        }
+
+        $supportsAvif = false;
+        $supportsWebp = false;
+
+        $chromeVersion = $this->extractVersionFromUserAgent($userAgent, ['chrome/', 'crios/', 'crmo/']);
+        if ($chromeVersion !== null) {
+            if ($chromeVersion >= 85.0) {
+                $supportsAvif = true;
+            }
+            if ($chromeVersion >= 32.0) {
+                $supportsWebp = true;
+            }
+        }
+
+        $edgeVersion = $this->extractVersionFromUserAgent($userAgent, ['edg/', 'edgios/']);
+        if ($edgeVersion !== null) {
+            if ($edgeVersion >= 85.0) {
+                $supportsAvif = true;
+            }
+            if ($edgeVersion >= 18.0) {
+                $supportsWebp = true;
+            }
+        }
+
+        $operaVersion = $this->extractVersionFromUserAgent($userAgent, ['opr/', 'opera/']);
+        if ($operaVersion !== null) {
+            if ($operaVersion >= 71.0) {
+                $supportsAvif = true;
+            }
+            if ($operaVersion >= 19.0) {
+                $supportsWebp = true;
+            }
+        }
+
+        $firefoxVersion = $this->extractVersionFromUserAgent($userAgent, ['firefox/', 'fxios/']);
+        if ($firefoxVersion !== null) {
+            if ($firefoxVersion >= 93.0) {
+                $supportsAvif = true;
+            }
+            if ($firefoxVersion >= 65.0) {
+                $supportsWebp = true;
+            }
+        }
+
+        if ($this->isSafariUserAgent($userAgent)) {
+            $safariVersion = $this->extractVersionFromUserAgent($userAgent, ['version/']);
+            $iosVersion = $this->extractIosVersion($userAgent);
+
+            if ($safariVersion !== null) {
+                if ($safariVersion >= 16.0) {
+                    $supportsAvif = true;
+                }
+                if ($safariVersion >= 14.0) {
+                    $supportsWebp = true;
+                }
+            } elseif ($iosVersion !== null) {
+                if ($iosVersion >= 16.0) {
+                    $supportsAvif = true;
+                }
+                if ($iosVersion >= 14.0) {
+                    $supportsWebp = true;
+                }
+            }
+        }
+
+        if (strpos($userAgent, 'samsungbrowser/') !== false) {
+            $samsungVersion = $this->extractVersionFromUserAgent($userAgent, ['samsungbrowser/']);
+            if ($samsungVersion !== null) {
+                if ($samsungVersion >= 14.0) {
+                    $supportsAvif = true;
+                }
+                if ($samsungVersion >= 5.0) {
+                    $supportsWebp = true;
+                }
+            }
+        }
+
+        foreach ($formats as $format) {
+            if ($format === 'avif' && $supportsAvif) {
+                return 'avif';
+            }
+
+            if ($format === 'webp' && $supportsWebp) {
+                return 'webp';
+            }
+
+            if ($format === 'png') {
+                return 'png';
+            }
+
+            if (in_array($format, ['jpg', 'jpeg'], true)) {
+                return 'jpg';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract numeric version from User-Agent markers.
+     *
+     * @param string $userAgent
+     * @param array $markers
+     * @return float|null
+     */
+    private function extractVersionFromUserAgent(string $userAgent, array $markers): ?float
+    {
+        foreach ($markers as $marker) {
+            $position = strpos($userAgent, $marker);
+            if ($position === false) {
+                continue;
+            }
+
+            $versionString = substr($userAgent, $position + strlen($marker));
+            if ($versionString === false) {
+                continue;
+            }
+
+            if (preg_match('/^([0-9]+(?:\.[0-9]+)?)/', $versionString, $matches)) {
+                return (float)$matches[1];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Determine if User-Agent represents Safari (desktop or iOS).
+     *
+     * @param string $userAgent
+     * @return bool
+     */
+    private function isSafariUserAgent(string $userAgent): bool
+    {
+        if (strpos($userAgent, 'safari') === false) {
+            return false;
+        }
+
+        $nonSafariMarkers = ['chrome', 'crios', 'crmo', 'fxios', 'ucbrowser', 'edg', 'opr/', 'opera', 'yabrowser'];
+        foreach ($nonSafariMarkers as $marker) {
+            if (strpos($userAgent, $marker) !== false) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Extract iOS version from User-Agent string.
+     *
+     * @param string $userAgent
+     * @return float|null
+     */
+    private function extractIosVersion(string $userAgent): ?float
+    {
+        if (preg_match('/os\s(\d+)[._](\d+)/', $userAgent, $matches)) {
+            return (float)($matches[1] . '.' . $matches[2]);
+        }
+
+        return null;
     }
 }
