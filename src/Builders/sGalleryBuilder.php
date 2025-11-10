@@ -348,8 +348,8 @@ class sGalleryBuilder
      */
     public function getFile(): string
     {
-        if (($this->file !== null && file_exists(MODX_BASE_PATH . $this->file)) || sGallery::hasLink($this->file)) {
-            $extension = strtolower(pathinfo(MODX_BASE_PATH . $this->file, PATHINFO_EXTENSION));
+        if (($this->file !== null && file_exists(EVO_BASE_PATH . $this->file)) || sGallery::hasLink($this->file)) {
+            $extension = strtolower(pathinfo(EVO_BASE_PATH . $this->file, PATHINFO_EXTENSION));
 
             if ($this->params !== null && !in_array($extension, ['svg'])) {
                 $imageName = str_replace('.' . pathinfo($this->file, PATHINFO_EXTENSION), '', pathinfo($this->file, PATHINFO_BASENAME));
@@ -375,11 +375,13 @@ class sGalleryBuilder
                 $ext .= isset($this->params['w']) ? $this->params['w'] . 'x' . $this->params['h'] : '';
                 $imageName .= (trim($ext) ? '-' . $ext : '') . '.' . $format;
 
-                if (!file_exists(MODX_BASE_PATH . $chacheFile . $imageName)) {
-                    if (!file_exists(MODX_BASE_PATH . $chacheFile)) {
-                        mkdir(MODX_BASE_PATH . $chacheFile, octdec(evo()->getConfig('new_folder_permissions', '0777')), true);
-                        chmod(MODX_BASE_PATH . $chacheFile, octdec(evo()->getConfig('new_folder_permissions', '0777')));
+                if (!file_exists(EVO_BASE_PATH . $chacheFile . $imageName)) {
+                    if (!file_exists(EVO_BASE_PATH . $chacheFile)) {
+                        mkdir(EVO_BASE_PATH . $chacheFile, octdec(evo()->getConfig('new_folder_permissions', '0777')), true);
+                        chmod(EVO_BASE_PATH . $chacheFile, octdec(evo()->getConfig('new_folder_permissions', '0777')));
                     }
+
+                    $temp = null;
 
                     try {
                         // Handle remote files vs local files
@@ -403,7 +405,11 @@ class sGalleryBuilder
                             }
                         } else {
                             // Use local file path
-                            $file = MODX_BASE_PATH . $this->file;
+                            $file = EVO_BASE_PATH . $this->file;
+                        }
+
+                        if (!$this->isProcessableImage($file)) {
+                            throw new \RuntimeException("Unsupported or corrupted image data: " . $this->file);
                         }
 
                         if ($format === 'avif') {
@@ -434,20 +440,28 @@ class sGalleryBuilder
                             $hasTransparency = in_array($originalExtension, ['png', 'gif', 'webp']);
 
                             if ($hasTransparency) {
-                                $this->saveAvifWithTransparency($image, MODX_BASE_PATH . $chacheFile . $imageName);
+                                $this->saveAvifWithTransparency($image, EVO_BASE_PATH . $chacheFile . $imageName);
                             } else {
-                                $image->format($format)->save(MODX_BASE_PATH . $chacheFile . $imageName);
+                                $image->format($format)->save(EVO_BASE_PATH . $chacheFile . $imageName);
                             }
                         } else {
-                            $image->quality($this->quality)->format($format)->save(MODX_BASE_PATH . $chacheFile . $imageName);
+                            $image->quality($this->quality)->format($format)->save(EVO_BASE_PATH . $chacheFile . $imageName);
                         }
-                        chmod(MODX_BASE_PATH . $chacheFile . $imageName, octdec(evo()->getConfig('new_file_permissions', '0666')));
+                        chmod(EVO_BASE_PATH . $chacheFile . $imageName, octdec(evo()->getConfig('new_file_permissions', '0666')));
                     } catch (\Exception $e) {
                         Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+                    } finally {
+                        if (is_resource($temp)) {
+                            fclose($temp);
+                        }
                     }
                 }
 
-                $this->file = $chacheFile . $imageName;
+                if (file_exists(EVO_BASE_PATH . $chacheFile . $imageName)) {
+                    $this->file = $chacheFile . $imageName;
+                } else {
+                    return sGalleryModel::NOIMAGE;
+                }
             }
 
             return MODX_SITE_URL . $this->file;
@@ -481,7 +495,7 @@ class sGalleryBuilder
      */
     public function file(string $input): self
     {
-        $input = trim(str_replace([MODX_SITE_URL, MODX_BASE_PATH], '', $input), '/');
+        $input = trim(str_replace([MODX_SITE_URL, EVO_BASE_PATH], '', $input), '/');
         $this->file = $input;
         return $this;
     }
@@ -589,18 +603,18 @@ class sGalleryBuilder
 
         // Check if original file has transparency before attempting custom approach
         $originalHasTransparency = false;
-        if (file_exists(MODX_BASE_PATH . $originalFile)) {
+        if (file_exists(EVO_BASE_PATH . $originalFile)) {
             $extension = strtolower(pathinfo($originalFile, PATHINFO_EXTENSION));
             if ($extension === 'png') {
                 // Quick check: PNG files with transparency usually have larger file sizes
-                $originalSize = filesize(MODX_BASE_PATH . $originalFile);
+                $originalSize = filesize(EVO_BASE_PATH . $originalFile);
                 $originalHasTransparency = $originalSize > 50000; // Heuristic: large PNGs likely have transparency
             }
         }
 
         // If Spatie Image lost transparency and original has transparency, try to reload original image directly
-        if (!$hasAlpha && $originalHasTransparency && file_exists(MODX_BASE_PATH . $originalFile)) {
-            $originalPath = MODX_BASE_PATH . $originalFile;
+        if (!$hasAlpha && $originalHasTransparency && file_exists(EVO_BASE_PATH . $originalFile)) {
+            $originalPath = EVO_BASE_PATH . $originalFile;
             $originalImage = null;
 
             $extension = strtolower(pathinfo($originalPath, PATHINFO_EXTENSION));
@@ -689,5 +703,42 @@ class sGalleryBuilder
 
         $result = \imageavif($gdImage, $path, $quality);
         \imagedestroy($gdImage);
+    }
+
+    /**
+     * Validate if file contains processable image data.
+     *
+     * @param string $filePath
+     * @return bool
+     */
+    private function isProcessableImage(string $filePath): bool
+    {
+        if (!is_file($filePath)) {
+            return false;
+        }
+
+        $size = @filesize($filePath);
+        if ($size === false || $size === 0) {
+            return false;
+        }
+
+        $finfo = function_exists('finfo_open') ? @finfo_open(FILEINFO_MIME_TYPE) : false;
+        if ($finfo) {
+            $mime = @finfo_file($finfo, $filePath);
+            finfo_close($finfo);
+            if (is_string($mime) && strpos(strtolower($mime), 'image/') === 0) {
+                return true;
+            }
+        }
+
+        $imageInfo = @getimagesize($filePath);
+        if ($imageInfo !== false) {
+            $mime = strtolower($imageInfo['mime'] ?? '');
+            if ($mime !== '' && strpos($mime, 'image/') === 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
