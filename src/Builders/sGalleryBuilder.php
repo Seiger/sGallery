@@ -464,7 +464,7 @@ class sGalleryBuilder
                 }
             }
 
-            return MODX_SITE_URL . $this->file;
+            return EVO_SITE_URL . $this->file;
         }
 
         return sGalleryModel::NOIMAGE;
@@ -495,7 +495,7 @@ class sGalleryBuilder
      */
     public function file(string $input): self
     {
-        $input = trim(str_replace([MODX_SITE_URL, EVO_BASE_PATH], '', $input), '/');
+        $input = trim(str_replace([EVO_SITE_URL, EVO_BASE_PATH], '', $input), '/');
         $this->file = $input;
         return $this;
     }

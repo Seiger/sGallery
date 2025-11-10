@@ -1,37 +1,38 @@
 {
-    "name": "seiger/sgallery",
-    "license": "GPL-3.0",
-    "type": "EvolutionCMS-Plugin",
-    "description": "Evocms package for work with Gallery for Resource in Evolution CMS and manipulate images with an expressive API",
-    "keywords": ["evocms", "evolution-cms", "gallery"],
-    "authors": [
-        {
-            "name": "Serhii Korneliuk",
-            "email": "info@seigerit.com"
-        }
-    ],
-    "require": {
-        "php": "^8.3",
-        "spatie/image": "3.*"
-    },
-    "autoload": {
-        "psr-4": {
-            "Seiger\\sGallery\\": "src/"
-        }
-    },
-    "extra": {
-        "laravel": {
-            "providers": [
-                "Seiger\\sGallery\\sGalleryServiceProvider"
-            ],
-            "aliases": {
-                "sGallery": "Seiger\\sGallery\\Facades\\sGallery"
-            }
-        }
-    },
-    "scripts": {
-        "post-autoload-dump": [
-            "php artisan migrate"
-        ]
+  "name": "seiger/sgallery",
+  "license": "GPL-3.0",
+  "type": "EvolutionCMS-Plugin",
+  "description": "Evocms package for work with Gallery for Resource in Evolution CMS and manipulate images with an expressive API",
+  "keywords": ["evocms", "evolution-cms", "gallery"],
+  "authors": [
+    {
+      "name": "Serhii Korneliuk",
+      "email": "info@seigerit.com"
     }
+  ],
+  "require": {
+    "php": "^8.3",
+    "evolutioncms/evolution": "^3.2.7",
+    "spatie/image": "3.*"
+  },
+  "autoload": {
+    "psr-4": {
+      "Seiger\\sGallery\\": "src/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Seiger\\sGallery\\sGalleryServiceProvider"
+      ],
+      "aliases": {
+        "sGallery": "Seiger\\sGallery\\Facades\\sGallery"
+      }
+    }
+  },
+  "scripts": {
+    "post-autoload-dump": [
+      "php artisan migrate"
+    ]
+  }
 }

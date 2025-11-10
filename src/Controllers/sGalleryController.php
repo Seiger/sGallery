@@ -310,12 +310,15 @@ class sGalleryController
             $data['error'] = $validator->errors()->first(); // Error response
         } else {
             $filename = trim($request->input('file'), '/');
-            $file = MODX_BASE_PATH . $filename;
+            $file = EVO_BASE_PATH . $filename;
             if (file_exists($file)) {
                 $finfo = new \finfo(FILEINFO_MIME_TYPE);
-                $filetype = explode('/', $finfo->file($file))[0];
-                if (in_array($filetype, ['application'])) {
-                    $filetype = explode('/', $file->getMimeType())[1];
+                $mimeType = (string)$finfo->file($file);
+                [$type, $subtype] = array_pad(explode('/', $mimeType, 2), 2, '');
+                $filetype = $type;
+
+                if ($filetype === 'application' && $subtype !== '') {
+                    $filetype = $subtype;
                 }
 
                 // Save in DB
