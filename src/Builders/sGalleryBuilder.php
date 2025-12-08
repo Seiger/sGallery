@@ -440,19 +440,100 @@ class sGalleryBuilder
                         }
 
                         // Handle AVIF format with custom transparency support
+                        $imageSaved = false;
                         if ($format === 'avif') {
-                            $image->quality($this->quality);
-
-                            // Check if original file has transparency (PNG, GIF, WebP)
-                            $originalExtension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-                            $hasTransparency = in_array($originalExtension, ['png', 'gif', 'webp']);
-
-                            if ($hasTransparency) {
-                                $this->saveAvifWithTransparency($image, EVO_BASE_PATH . $chacheFile . $imageName);
-                            } else {
-                                $image->format($format)->save(EVO_BASE_PATH . $chacheFile . $imageName);
+                            // Check if AVIF is supported
+                            $avifSupported = false;
+                            if (function_exists('imageavif')) {
+                                if (function_exists('imagetypes')) {
+                                    $avifSupported = (imagetypes() & IMG_AVIF) !== 0;
+                                } else {
+                                    $avifSupported = true;
+                                }
                             }
-                        } else {
+
+                            // Fallback to WebP if AVIF is not supported
+                            if (!$avifSupported) {
+                                $format = 'webp';
+                                $imageName = preg_replace('/\.avif$/i', '.webp', $imageName);
+                            } else {
+                                $image->quality($this->quality);
+
+                                // Check if original file has transparency (PNG, GIF, WebP)
+                                $originalExtension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+                                $hasTransparency = in_array($originalExtension, ['png', 'gif', 'webp']);
+
+                                if ($hasTransparency) {
+                                    // Set error handler to catch AVIF warnings
+                                    $errorOccurred = false;
+                                    set_error_handler(function($errno, $errstr, $errfile, $errline) use (&$errorOccurred) {
+                                        if (strpos($errstr, 'imageavif') !== false || strpos($errstr, 'avif error') !== false) {
+                                            $errorOccurred = true;
+                                            return true; // Suppress the error
+                                        }
+                                        return false; // Let other errors through
+                                    }, E_WARNING);
+
+                                    try {
+                                        $this->saveAvifWithTransparency($image, EVO_BASE_PATH . $chacheFile . $imageName);
+
+                                        // Check if file was actually created
+                                        if (!file_exists(EVO_BASE_PATH . $chacheFile . $imageName)) {
+                                            $errorOccurred = true;
+                                        } else {
+                                            $imageSaved = true;
+                                        }
+                                    } catch (\Exception $e) {
+                                        // If AVIF encoding fails, fallback to WebP
+                                        $errorOccurred = true;
+                                    } finally {
+                                        restore_error_handler();
+                                    }
+
+                                    if ($errorOccurred) {
+                                        // If AVIF encoding fails, fallback to WebP
+                                        $format = 'webp';
+                                        $imageName = preg_replace('/\.avif$/i', '.webp', $imageName);
+                                        $imageSaved = false;
+                                    }
+                                } else {
+                                    // Set error handler to catch AVIF warnings
+                                    $errorOccurred = false;
+                                    set_error_handler(function($errno, $errstr, $errfile, $errline) use (&$errorOccurred) {
+                                        if (strpos($errstr, 'imageavif') !== false || strpos($errstr, 'avif error') !== false) {
+                                            $errorOccurred = true;
+                                            return true; // Suppress the error
+                                        }
+                                        return false; // Let other errors through
+                                    }, E_WARNING);
+
+                                    try {
+                                        $image->format($format)->save(EVO_BASE_PATH . $chacheFile . $imageName);
+                                        $imageSaved = true;
+
+                                        // Check if file was actually created
+                                        if (!file_exists(EVO_BASE_PATH . $chacheFile . $imageName)) {
+                                            $errorOccurred = true;
+                                        }
+                                    } catch (\Exception $e) {
+                                        // If AVIF encoding fails, fallback to WebP
+                                        $errorOccurred = true;
+                                    } finally {
+                                        restore_error_handler();
+                                    }
+
+                                    if ($errorOccurred) {
+                                        // If AVIF encoding fails, fallback to WebP
+                                        $format = 'webp';
+                                        $imageName = preg_replace('/\.avif$/i', '.webp', $imageName);
+                                        $imageSaved = false;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Save image if not already saved
+                        if (!$imageSaved) {
                             $image->quality($this->quality)->format($format)->save(EVO_BASE_PATH . $chacheFile . $imageName);
                         }
                         chmod(EVO_BASE_PATH . $chacheFile . $imageName, octdec(evo()->getConfig('new_file_permissions', '0666')));
@@ -758,7 +839,52 @@ class sGalleryBuilder
             $this->clearTransparentSource();
         }
 
-        $result = \imageavif($gdImage, $path, $quality);
+        // Check if AVIF is supported
+        $avifSupported = false;
+        if (function_exists('imageavif')) {
+            if (function_exists('imagetypes')) {
+                $avifSupported = (imagetypes() & IMG_AVIF) !== 0;
+            } else {
+                // Fallback: try to check if function exists and can be called
+                $avifSupported = true;
+            }
+        }
+
+        // Set error handler to catch AVIF warnings
+        $errorOccurred = false;
+        set_error_handler(function($errno, $errstr, $errfile, $errline) use (&$errorOccurred) {
+            if (strpos($errstr, 'imageavif') !== false || strpos($errstr, 'avif error') !== false || strpos($errstr, 'No codec available') !== false) {
+                $errorOccurred = true;
+                return true; // Suppress the error
+            }
+            return false; // Let other errors through
+        }, E_WARNING | E_NOTICE);
+
+        if ($avifSupported) {
+            $result = @\imageavif($gdImage, $path, $quality);
+            if ($result === false || $errorOccurred) {
+                // AVIF encoding failed, fallback to WebP
+                $avifSupported = false;
+                $errorOccurred = false; // Reset for next attempt
+            }
+        }
+
+        restore_error_handler();
+
+        // Fallback to WebP if AVIF is not supported or encoding failed
+        if (!$avifSupported) {
+            // Change file extension to webp
+            $webpPath = preg_replace('/\.avif$/i', '.webp', $path);
+            $webpQuality = $this->quality === 100 ? IMG_WEBP_LOSSLESS : $this->quality;
+            \imagepalettetotruecolor($gdImage);
+            $result = \imagewebp($gdImage, $webpPath, $webpQuality);
+
+            if (!$result) {
+                \imagedestroy($gdImage);
+                throw new \RuntimeException('Failed to save image as WebP fallback');
+            }
+        }
+
         \imagedestroy($gdImage);
     }
 
