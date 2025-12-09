@@ -810,7 +810,17 @@ class sGalleryBuilder
     private function saveAvifWithTransparency($image, string $path): void
     {
         $originalFile = $this->file;
-        $gdImage = $image->image();
+        $driverName = $image->driverName();
+        $imageResource = $image->image();
+
+        // If using ImageMagick, we can save directly without custom transparency handling
+        if ($driverName === 'imagick') {
+            $image->format('avif')->save($path);
+            return;
+        }
+
+        // For GD driver, use custom transparency handling
+        $gdImage = $imageResource;
 
         // Check if image has alpha channel
         $width = \imagesx($gdImage);
