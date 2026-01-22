@@ -718,13 +718,21 @@ class sGalleryBuilder
 
         $formats = [];
 
-        // Only include AVIF if server actually supports it
-        // Even in 2025, ImageMagick can be compiled without AVIF support
-        if ($this->isAvifSupported()) {
+        $preferred = $this->normalizeFormat(env('SGALLERY_PREFER_FORMAT'));
+        $avifSupported = $this->isAvifSupported();
+
+        // Default: prefer WebP first, then AVIF (if supported).
+        $formats[] = 'webp';
+        if ($avifSupported) {
             $formats[] = 'avif';
         }
 
-        $formats[] = 'webp';
+        // If preferred format is set, move it to the front (when available).
+        if ($preferred === 'avif' && $avifSupported) {
+            array_unshift($formats, 'avif');
+        } elseif (in_array($preferred, ['webp', 'png', 'jpg'], true)) {
+            array_unshift($formats, $preferred);
+        }
 
         if ($hasAlpha) {
             $formats[] = 'png';
