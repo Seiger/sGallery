@@ -8,7 +8,7 @@
 
     <ul id="uploadBase{{$sGalleryController->getBlockNameId()}}">
         @foreach($galleries as $gallery)
-            @include('sGallery::partials.'.$gallery->type)
+            @includeIf('sGallery::partials.'.$gallery->type)
         @endforeach
     </ul>
 </section>

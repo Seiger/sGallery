@@ -13,7 +13,7 @@
     ])
     <ul class="grid-gallery" id="uploadBase{{$sGalleryController->getBlockNameId()}}">
         @foreach($galleries as $gallery)
-            @include('sGallery::partials.'.$gallery->type)
+            @includeIf('sGallery::partials.'.$gallery->type)
         @endforeach
     </ul>
     @include('sGallery::partials.slider', [

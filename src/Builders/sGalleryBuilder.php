@@ -656,11 +656,11 @@ class sGalleryBuilder
     public function __toString(): string
     {
         try {
-            $result = $this->file !== null ? $this->getFile() : $this->getView();
-            $this->resetBuilder();
-            return $result;
+            return $this->file !== null ? $this->getFile() : $this->getView();
         } catch (\Exception $e) {
             return "Error sGallery: " . $e->getMessage();
+        } finally {
+            $this->resetBuilder();
         }
     }
 
