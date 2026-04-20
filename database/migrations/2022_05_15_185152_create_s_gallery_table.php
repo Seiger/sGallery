@@ -31,7 +31,7 @@ class CreateSGalleryTable extends Migration
             $table->string('title', 100)->default('');
             $table->string('description', 1024)->default('');
             $table->string('link_text', 100)->default('');
-            $table->string('link', 100)->default('');
+            $table->string('link', 1024)->default('');
             $table->timestamps();
         });
     }
