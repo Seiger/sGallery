@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\File;
@@ -369,11 +370,21 @@ class sGalleryController
         if ($validator->fails()) {
             Log::error('sGallery->resortGallery(): ' . $validator->errors()->first());
         } else {
-            $items = implode('", "', $request->item);
+            $ids = array_map('intval', $request->item);
+            if ($ids === []) {
+                return;
+            }
+
+            $idColumn = DB::connection()->getQueryGrammar()->wrap('id');
+            $orderSql = 'CASE ' . $idColumn . ' ' . implode(' ', array_map(
+                fn($id, $position) => 'WHEN ' . $id . ' THEN ' . $position,
+                $ids,
+                array_keys($ids)
+            )) . ' ELSE ' . count($ids) . ' END';
             $galleries = sGalleryModel::whereParent($request->cat)
                 ->whereBlock($this->blockName)
                 ->whereItemType($this->itemType)
-                ->orderByRaw('FIELD(id, "'.$items.'")')
+                ->orderByRaw($orderSql)
                 ->get();
             foreach ($galleries as $position => $gallery) {
                 $gallery->position = $position;
