@@ -65,17 +65,32 @@ class sGalleryModel extends Model
      */
     public function scopeLang($query, $locale)
     {
-        return $this->select('*')->leftJoin('s_gallery_fields', function ($leftJoin) use ($locale) {
+        $grammar = $query->getQuery()->getGrammar();
+        $quotedLocale = DB::connection()->getPdo()->quote($locale);
+        $quotedBase = DB::connection()->getPdo()->quote('base');
+        $langColumn = $grammar->wrap('lang');
+        $langOrderSql = 'CASE WHEN ' . $langColumn . ' = ' . $quotedLocale
+            . ' THEN 0 WHEN ' . $langColumn . ' = ' . $quotedBase
+            . ' THEN 1 ELSE 2 END';
+        $typeColumn = $grammar->wrap('type');
+        $itemTypeColumn = $grammar->wrap('item_type');
+        $parentColumn = $grammar->wrap('parent');
+        $fileColumn = $grammar->wrap('file');
+        $srcSql = DB::connection()->getDriverName() === 'sqlite'
+            ? '(CASE WHEN ' . $typeColumn . ' = \'image\' THEN \'/assets/sgallery/\' || ' . $itemTypeColumn . ' || \'/\' || ' . $parentColumn . ' || \'/\' || ' . $fileColumn . ' ELSE \'\' END) as src'
+            : '(CASE WHEN ' . $typeColumn . ' = \'image\' THEN CONCAT(\'/assets/sgallery/\', ' . $itemTypeColumn . ', \'/\', ' . $parentColumn . ', \'/\', ' . $fileColumn . ') ELSE \'\' END) as src';
+
+        return $this->select('*')->leftJoin('s_gallery_fields', function ($leftJoin) use ($locale, $langOrderSql) {
             $leftJoin->on('s_galleries.id', '=', 's_gallery_fields.key')
-                ->where('lang', function ($leftJoin) use ($locale) {
+                ->where('lang', function ($leftJoin) use ($locale, $langOrderSql) {
                     $leftJoin->select('lang')
-                        ->from('s_gallery_fields')
-                        ->whereRaw(DB::getTablePrefix().'s_gallery_fields.key = '.DB::getTablePrefix().'s_galleries.id')
+                        ->from('s_gallery_fields as sgf')
+                        ->whereColumn('sgf.key', 's_galleries.id')
                         ->whereIn('lang', [$locale, 'base'])
-                        ->orderByRaw('FIELD(lang, "'.$locale.'", "base")')
+                        ->orderByRaw($langOrderSql)
                         ->limit(1);
                 });
-        })->addSelect(DB::Raw('(CASE WHEN `type` = \'image\' THEN CONCAT("/assets/sgallery/", item_type, "/", parent, "/", file) ELSE "" END) as src'));
+        })->addSelect(DB::Raw($srcSql));
     }
 
     /**
