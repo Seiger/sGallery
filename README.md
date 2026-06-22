@@ -26,6 +26,7 @@ Elevate your media management experience with **sGallery** today.
 - [x] Sortable Positions.
 - [x] Text Fields for File Management.
 - [x] Image Resize and AVIF or WEBP Conversion.
+- [x] Default image optimization with optional sharpening controls.
 - [x] Integration with Custom Modules.
 - [x] **[sLang](https://github.com/Seiger/sLang)** Integration.
 - [x] More than one tab.

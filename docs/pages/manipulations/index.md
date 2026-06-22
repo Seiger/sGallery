@@ -10,3 +10,4 @@ permalink: /manipulations/
 - [Resize]({{site.baseurl}}/manipulations/resize/)
 - [Fit]({{site.baseurl}}/manipulations/fit/)
 - [Crop]({{site.baseurl}}/manipulations/crop/)
+- [Optimization]({{site.baseurl}}/manipulations/optimization/)
