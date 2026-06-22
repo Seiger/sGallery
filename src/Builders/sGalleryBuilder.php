@@ -184,6 +184,30 @@ class sGalleryBuilder
     }
 
     /**
+     * Sharpen the processed image after resize/crop transformations.
+     *
+     * @param float $amount Sharpen amount from 0 to 100.
+     * @return $this
+     */
+    public function sharpen(float $amount): self
+    {
+        $this->params['sharpen'] = max(0, min(100, $amount));
+        return $this;
+    }
+
+    /**
+     * Run Spatie image optimizer after the processed image is saved.
+     *
+     * @param bool $optimize Whether to optimize the output image.
+     * @return $this
+     */
+    public function optimize(bool $optimize = true): self
+    {
+        $this->params['optimize'] = $optimize;
+        return $this;
+    }
+
+    /**
      * Set the resize dimensions for the image.
      *
      * @param int $width Width of the image.
@@ -383,6 +407,8 @@ class sGalleryBuilder
                 $ext .= isset($this->params['crop']) ? strtolower($this->params['crop']->value) . '-' : '';
                 $ext .= isset($this->params['focalCenterX']) ? 'focal' . $this->params['focalCenterX'] . '-' . $this->params['focalCenterY'] . '-' : '';
                 $ext .= isset($this->params['w']) ? $this->params['w'] . 'x' . $this->params['h'] : '';
+                $ext .= isset($this->params['sharpen']) && $this->params['sharpen'] > 0 ? '-sh' . $this->params['sharpen'] : '';
+                $ext .= !empty($this->params['optimize']) ? '-opt' : '';
                 $imageName .= (trim($ext) ? '-' . $ext : '') . '.' . $format;
 
                 if (!file_exists(EVO_BASE_PATH . $chacheFile . $imageName)) {
@@ -459,6 +485,14 @@ class sGalleryBuilder
                             $image->manualCrop($this->params['w'], $this->params['h'], $this->params['startX'], $this->params['startY']);
                         } elseif (isset($this->params['w']) && isset($this->params['h'])) {
                             $image->width($this->params['w'])->height($this->params['h']);
+                        }
+
+                        if (isset($this->params['sharpen']) && $this->params['sharpen'] > 0) {
+                            $image->sharpen($this->params['sharpen']);
+                        }
+
+                        if (!empty($this->params['optimize'])) {
+                            $image->optimize();
                         }
 
                         // Handle AVIF format with custom transparency support
@@ -560,6 +594,14 @@ class sGalleryBuilder
                                             $webpImage->width($this->params['w'])->height($this->params['h']);
                                         }
 
+                                        if (isset($this->params['sharpen']) && $this->params['sharpen'] > 0) {
+                                            $webpImage->sharpen($this->params['sharpen']);
+                                        }
+
+                                        if (!empty($this->params['optimize'])) {
+                                            $webpImage->optimize();
+                                        }
+
                                         $webpImage->quality($this->quality)->format('webp')->save($webpPath);
                                         chmod($webpPath, octdec(evo()->getConfig('new_file_permissions', '0666')));
                                     }
@@ -633,6 +675,7 @@ class sGalleryBuilder
     {
         $input = trim(str_replace([EVO_SITE_URL, EVO_BASE_PATH], '', $input), '/');
         $this->file = $input;
+        $this->params = ['optimize' => true];
         return $this;
     }
 
