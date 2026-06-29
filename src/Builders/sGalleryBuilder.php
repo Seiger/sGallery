@@ -538,10 +538,14 @@ class sGalleryBuilder
 
                                 $format = 'webp';
                                 $imageName = preg_replace('/\.avif$/i', '.webp', $imageName);
-                                $image->quality($this->quality)->format('webp')->save(EVO_BASE_PATH . $chacheFile . $imageName);
+                                $this->saveWebpImage($image, EVO_BASE_PATH . $chacheFile . $imageName);
                             }
                         } else {
-                            $image->quality($this->quality)->format($format)->save(EVO_BASE_PATH . $chacheFile . $imageName);
+                            if ($format === 'webp') {
+                                $this->saveWebpImage($image, EVO_BASE_PATH . $chacheFile . $imageName);
+                            } else {
+                                $image->quality($this->quality)->format($format)->save(EVO_BASE_PATH . $chacheFile . $imageName);
+                            }
                         }
                         chmod(EVO_BASE_PATH . $chacheFile . $imageName, octdec(evo()->getConfig('new_file_permissions', '0666')));
                     } catch (\Exception $e) {
@@ -602,7 +606,7 @@ class sGalleryBuilder
                                             $webpImage->optimize();
                                         }
 
-                                        $webpImage->quality($this->quality)->format('webp')->save($webpPath);
+                                        $this->saveWebpImage($webpImage, $webpPath);
                                         chmod($webpPath, octdec(evo()->getConfig('new_file_permissions', '0666')));
                                     }
 
@@ -699,11 +703,11 @@ class sGalleryBuilder
     public function __toString(): string
     {
         try {
-            return $this->file !== null ? $this->getFile() : $this->getView();
+            $result = $this->file !== null ? $this->getFile() : $this->getView();
+            $this->resetBuilder();
+            return $result;
         } catch (\Exception $e) {
             return "Error sGallery: " . $e->getMessage();
-        } finally {
-            $this->resetBuilder();
         }
     }
 
@@ -760,22 +764,7 @@ class sGalleryBuilder
         $hasAlpha = $this->sourceHasAlphaChannel();
 
         $formats = [];
-
-        $preferred = $this->normalizeFormat(env('SGALLERY_PREFER_FORMAT'));
-        $avifSupported = $this->isAvifSupported();
-
-        // Default: prefer WebP first, then AVIF (if supported).
         $formats[] = 'webp';
-        if ($avifSupported) {
-            $formats[] = 'avif';
-        }
-
-        // If preferred format is set, move it to the front (when available).
-        if ($preferred === 'avif' && $avifSupported) {
-            array_unshift($formats, 'avif');
-        } elseif (in_array($preferred, ['webp', 'png', 'jpg'], true)) {
-            array_unshift($formats, $preferred);
-        }
 
         if ($hasAlpha) {
             $formats[] = 'png';
@@ -849,6 +838,73 @@ class sGalleryBuilder
         $this->sourceHasAlpha = null;
         $this->qualityExplicit = false;
         $this->alphaDetectionCache = [];
+    }
+
+    /**
+     * Get the effective WebP output quality.
+     *
+     * WebP quality 100 can create unnecessarily heavy files, so the default
+     * upper bound is normalized to 99 unless a lower quality is configured.
+     *
+     * @return int
+     * @since 1.5.0
+     */
+    private function getWebpOutputQuality(): int
+    {
+        return $this->quality >= 100 ? 99 : $this->quality;
+    }
+
+    /**
+     * Save the image as WebP with optional adaptive PageSpeed-friendly quality.
+     *
+     * Explicit quality settings keep the requested value, while optimized images
+     * are saved with the highest tested quality that fits the estimated target size.
+     *
+     * @param \Spatie\Image\Image $image The image instance.
+     * @param string $path The path where to save the WebP image.
+     * @return void
+     * @since 1.5.0
+     */
+    private function saveWebpImage(Image $image, string $path): void
+    {
+        if ($this->qualityExplicit || empty($this->params['optimize'])) {
+            $image->quality($this->getWebpOutputQuality())->format('webp')->save($path);
+            return;
+        }
+
+        $targetBytes = $this->getPageSpeedImageTargetBytes($image);
+        $qualities = [99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80];
+
+        foreach ($qualities as $quality) {
+            $image->quality($quality)->format('webp')->save($path);
+
+            if (!file_exists($path)) {
+                continue;
+            }
+
+            if (filesize($path) <= $targetBytes) {
+                break;
+            }
+        }
+    }
+
+    /**
+     * Estimate the target file size for PageSpeed image delivery checks.
+     *
+     * The estimate is based on rendered pixels and the Lighthouse/WebPageTest-style
+     * bytes-per-pixel target used for modern image delivery recommendations.
+     *
+     * @param \Spatie\Image\Image $image The image instance.
+     * @return int Estimated target size in bytes.
+     * @since 1.5.0
+     */
+    private function getPageSpeedImageTargetBytes(Image $image): int
+    {
+        $pixels = max(1, $image->getWidth() * $image->getHeight());
+        $displaySafetyFactor = 0.9;
+        $targetBytesPerPixel = 2 / 12;
+
+        return (int) ceil($pixels * $displaySafetyFactor * $targetBytesPerPixel) + 4096;
     }
 
     /**
