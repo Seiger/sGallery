@@ -129,17 +129,7 @@ class sGalleryController
                 chmod(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat.'/'.$filename, $newFileAccessMode);
 
                 // Save in DB
-                $thisFile = sGalleryModel::whereParent($request->cat)
-                    ->whereBlock($this->blockName)
-                    ->whereItemType($this->itemType)
-                    ->whereFile($filename)
-                    ->firstOrCreate();
-                $thisFile->parent = $request->cat;
-                $thisFile->block = $this->blockName;
-                $thisFile->file = $filename;
-                $thisFile->type = $filetype;
-                $thisFile->item_type = $this->itemType;
-                $thisFile->update();
+                $thisFile = $this->saveGalleryFile((int)$request->cat, $filename, $filetype);
 
                 // Create default texts
                 $translate = new sGalleryField();
@@ -205,17 +195,7 @@ class sGalleryController
                 chmod(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat.'/'.$filename, $newFileAccessMode);
 
                 // Save in DB
-                $thisFile = sGalleryModel::whereParent($request->cat)
-                    ->whereBlock($this->blockName)
-                    ->whereItemType($this->itemType)
-                    ->whereFile($filename)
-                    ->firstOrCreate();
-                $thisFile->parent = $request->cat;
-                $thisFile->block = $this->blockName;
-                $thisFile->file = $filename;
-                $thisFile->type = $filetype;
-                $thisFile->item_type = $this->itemType;
-                $thisFile->update();
+                $thisFile = $this->saveGalleryFile((int)$request->cat, $filename, $filetype);
 
                 // Create default texts
                 $translate = new sGalleryField();
@@ -260,17 +240,7 @@ class sGalleryController
             preg_match_all($r, $request->input('youtubeLink'), $matches, PREG_SET_ORDER, 0);
             if (isset($matches[0][1])) {
                 // Save in DB
-                $thisFile = sGalleryModel::whereParent($request->cat)
-                    ->whereBlock($this->blockName)
-                    ->whereItemType($this->itemType)
-                    ->whereFile($matches[0][1])
-                    ->firstOrCreate();
-                $thisFile->parent = $request->cat;
-                $thisFile->block = $this->blockName;
-                $thisFile->file = $matches[0][1];
-                $thisFile->type = 'youtube';
-                $thisFile->item_type = $this->itemType;
-                $thisFile->update();
+                $thisFile = $this->saveGalleryFile((int)$request->cat, $matches[0][1], 'youtube');
 
                 // Create default texts
                 $translate = new sGalleryField();
@@ -323,17 +293,7 @@ class sGalleryController
                 }
 
                 // Save in DB
-                $thisFile = sGalleryModel::whereParent($request->cat)
-                    ->whereBlock($this->blockName)
-                    ->whereItemType($this->itemType)
-                    ->whereFile($filename)
-                    ->firstOrCreate();
-                $thisFile->parent = $request->cat;
-                $thisFile->block = $this->blockName;
-                $thisFile->file = $filename;
-                $thisFile->type = $filetype;
-                $thisFile->item_type = $this->itemType;
-                $thisFile->update();
+                $thisFile = $this->saveGalleryFile((int)$request->cat, $filename, $filetype);
 
                 // Create default texts
                 $translate = new sGalleryField();
@@ -444,7 +404,10 @@ class sGalleryController
             $items = $request->list[$key];
 
             foreach ($items as $lang => $item) {
-                $translate = sGalleryField::where('key', $key)->where('lang', $lang)->firstOrCreate();
+                $translate = sGalleryField::where('key', $key)->where('lang', $lang)->first();
+                if (!$translate) {
+                    $translate = new sGalleryField();
+                }
                 $translate->key = $key;
                 $translate->lang = $lang;
                 $translate->alt = ($item['alt'] ?? '');
@@ -459,6 +422,38 @@ class sGalleryController
             $data['message'] = __('sGallery::manager.saved_successfully');
         }
         return response()->json($data);
+    }
+
+    /**
+     * Find or create a gallery file row with all required SQLite fields populated before insert.
+     *
+     * @param int $parent Gallery parent identifier.
+     * @param string $filename Stored file or external media identifier.
+     * @param string $filetype Gallery item type.
+     * @return sGalleryModel The persisted gallery model.
+     *
+     * @since 1.6.0
+     */
+    protected function saveGalleryFile(int $parent, string $filename, string $filetype): sGalleryModel
+    {
+        $gallery = sGalleryModel::whereParent($parent)
+            ->whereBlock($this->blockName)
+            ->whereItemType($this->itemType)
+            ->whereFile($filename)
+            ->first();
+
+        if (!$gallery) {
+            $gallery = new sGalleryModel();
+        }
+
+        $gallery->parent = $parent;
+        $gallery->block = $this->blockName;
+        $gallery->file = $filename;
+        $gallery->type = $filetype;
+        $gallery->item_type = $this->itemType;
+        $gallery->save();
+
+        return $gallery;
     }
 
     /**
