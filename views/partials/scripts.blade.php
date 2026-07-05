@@ -123,19 +123,59 @@
         await fetch('{!!sGallery::route('sGallery.resort', ['cat' => request()->get($typeId), 'itemType' => $itemType, 'block' => $blockName])!!}', {method: 'POST', body: list});
     }
 
+    function hideMainLoader{{$blockId}}() {
+        const mainloader = window.parent.document.getElementById('mainloader');
+        if (mainloader) {
+            mainloader.classList.remove('show');
+        }
+    }
+
+    function showUploadError{{$blockId}}(message) {
+        alertify.alert('@lang('sGallery::manager.file_upload_error')', message || 'Upload failed.');
+    }
+
+    async function readUploadResponse{{$blockId}}(resp) {
+        const contentType = resp.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            return await resp.json();
+        }
+
+        if (!resp.ok) {
+            throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
+        }
+
+        throw new Error('Unexpected server response.');
+    }
+
+    async function handleUploadResult{{$blockId}}(data) {
+        if (data.success == 1 && data.preview) {
+            uploadBase{{$blockId}}.insertAdjacentHTML('beforeend', data.preview);
+            await doResorting{{$blockId}}();
+        } else {
+            showUploadError{{$blockId}}(data.error || data.message);
+        }
+    }
+
     async function doUploadFile{{$blockId}}(e) {
         e.preventDefault();
         const files = e.target.files;
         let totalFilesToUpload = files.length;
         // Nothing was selected
         if (totalFilesToUpload === 0) {
+            hideMainLoader{{$blockId}}();
             return;
         }
         let uploads = [];
         for (let i = 0; i < totalFilesToUpload; i++) {
             uploads.push(uploadFile{{$blockId}}(files[i]));
         }
-        await Promise.all(uploads);
+        try {
+            await Promise.all(uploads);
+        } catch (error) {
+            showUploadError{{$blockId}}(error.message);
+        } finally {
+            hideMainLoader{{$blockId}}();
+        }
     }
 
     async function uploadFile{{$blockId}}(f) {
@@ -150,15 +190,9 @@
             method: 'POST',
             body: form
         });
-        let data = await resp.json();
+        let data = await readUploadResponse{{$blockId}}(resp);
         console.log("Uploaded file with name:", f.name);
-        if (data.success == 0) {
-            alertify.alert('@lang('sGallery::manager.file_upload_error')', data.error);
-        } else {
-            uploadBase{{$blockId}}.insertAdjacentHTML('beforeend', data.preview);
-        }
-        window.parent.document.getElementById('mainloader').classList.remove('show');
-        doResorting{{$blockId}}();
+        await handleUploadResult{{$blockId}}(data);
         return data;
     }
 
@@ -168,13 +202,20 @@
         let totalFilesToUpload = files.length;
         // Nothing was selected
         if (totalFilesToUpload === 0) {
+            hideMainLoader{{$blockId}}();
             return;
         }
         let uploads = [];
         for (let i = 0; i < totalFilesToUpload; i++) {
             uploads.push(uploadDownload{{$blockId}}(files[i]));
         }
-        await Promise.all(uploads);
+        try {
+            await Promise.all(uploads);
+        } catch (error) {
+            showUploadError{{$blockId}}(error.message);
+        } finally {
+            hideMainLoader{{$blockId}}();
+        }
     }
 
     async function uploadDownload{{$blockId}}(f) {
@@ -189,15 +230,9 @@
             method: 'POST',
             body: form
         });
-        let data = await resp.json();
+        let data = await readUploadResponse{{$blockId}}(resp);
         console.log("Uploaded file with name:", f.name);
-        if (data.success == 0) {
-            alertify.alert('@lang('sGallery::manager.file_upload_error')', data.error);
-        } else {
-            uploadBase{{$blockId}}.insertAdjacentHTML('beforeend', data.preview);
-        }
-        window.parent.document.getElementById('mainloader').classList.remove('show');
-        doResorting{{$blockId}}();
+        await handleUploadResult{{$blockId}}(data);
         return data;
     }
 
@@ -205,22 +240,23 @@
         console.log("Past EVO library file:", e.target.value);
         let form = new FormData();
         form.append('file', e.target.value);
-        let resp = await fetch('{!!sGallery::route('sGallery.upload-evo-library', [
-                'cat' => request()->get($typeId),
-                'itemType' => $itemType,
-                'block' => $blockName
-            ])!!}', {
-            method: 'POST',
-            body: form
-        });
-        let data = await resp.json();
-        if (data.success == 0) {
-            alertify.alert('@lang('sGallery::manager.file_upload_error')', data.error);
-        } else {
-            uploadBase{{$blockId}}.insertAdjacentHTML('beforeend', data.preview);
+        try {
+            let resp = await fetch('{!!sGallery::route('sGallery.upload-evo-library', [
+                    'cat' => request()->get($typeId),
+                    'itemType' => $itemType,
+                    'block' => $blockName
+                ])!!}', {
+                method: 'POST',
+                body: form
+            });
+            let data = await readUploadResponse{{$blockId}}(resp);
+            await handleUploadResult{{$blockId}}(data);
+            return data;
+        } catch (error) {
+            showUploadError{{$blockId}}(error.message);
+        } finally {
+            hideMainLoader{{$blockId}}();
         }
-        doResorting{{$blockId}}();
-        return data;
     }
 
     // Function to edit image details
