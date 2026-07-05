@@ -11,6 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (
+            !Schema::hasTable('s_galleries') ||
+            !Schema::hasColumn('s_galleries', 'resource_type') ||
+            Schema::hasColumn('s_galleries', 'item_type')
+        ) {
+            return;
+        }
+
         Schema::table('s_galleries', function (Blueprint $table) {
             $table->renameColumn('resource_type', 'item_type');
         });
@@ -21,6 +29,14 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (
+            !Schema::hasTable('s_galleries') ||
+            !Schema::hasColumn('s_galleries', 'item_type') ||
+            Schema::hasColumn('s_galleries', 'resource_type')
+        ) {
+            return;
+        }
+
         Schema::table('s_galleries', function (Blueprint $table) {
             $table->renameColumn('item_type', 'resource_type');
         });
