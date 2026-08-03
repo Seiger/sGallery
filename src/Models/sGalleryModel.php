@@ -29,7 +29,7 @@ class sGalleryModel extends Model
     const UPLOAD = EVO_BASE_PATH . "assets/sgallery/";
     const UPLOADED = EVO_SITE_URL . "assets/sgallery/";
     const NOIMAGE = EVO_SITE_URL . "assets/site/noimage.png";
-    const CACHE_DIR = "assets/cache/";
+    const CACHE_DIR = "assets/sgallery/cache/";
 
     const TYPE_IMAGE = "image";
     const TYPE_VIDEO = "video";
