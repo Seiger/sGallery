@@ -84,9 +84,10 @@ class sGalleryModel extends Model
         $parentColumn = $grammar->wrap('parent');
         $fileColumn = $grammar->wrap('file');
         $srcSql = DB::connection()->getDriverName() === 'sqlite'
-            ? '(CASE WHEN ' . $typeColumn . ' = \'image\' THEN \'/assets/sgallery/\' || ' . $itemTypeColumn . ' || \'/\' || ' . $parentColumn . ' || \'/\' || ' . $fileColumn . ' ELSE \'\' END) as src'
-            : '(CASE WHEN ' . $typeColumn . ' = \'image\' THEN CONCAT(\'/assets/sgallery/\', ' . $itemTypeColumn . ', \'/\', ' . $parentColumn . ', \'/\', ' . $fileColumn . ') ELSE \'\' END) as src';
-
+            ? '(CASE WHEN ' . $typeColumn . ' = \'image\' AND ' . $fileColumn . ' LIKE \'assets/%\' THEN \'/\' || ' . $fileColumn
+                . ' WHEN ' . $typeColumn . ' = \'image\' THEN \'/assets/sgallery/\' || ' . $itemTypeColumn . ' || \'/\' || ' . $parentColumn . ' || \'/\' || ' . $fileColumn . ' ELSE \'\' END) as src'
+            : '(CASE WHEN ' . $typeColumn . ' = \'image\' AND ' . $fileColumn . ' LIKE \'assets/%\' THEN CONCAT(\'/\', ' . $fileColumn
+                . ') WHEN ' . $typeColumn . ' = \'image\' THEN CONCAT(\'/assets/sgallery/\', ' . $itemTypeColumn . ', \'/\', ' . $parentColumn . ', \'/\', ' . $fileColumn . ') ELSE \'\' END) as src';
         return $this->select('*')->leftJoin('s_gallery_fields', function ($leftJoin) use ($locale, $langOrderSql) {
             $leftJoin->on('s_galleries.id', '=', 's_gallery_fields.key')
                 ->where('lang', function ($leftJoin) use ($locale, $langOrderSql) {

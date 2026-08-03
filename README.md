@@ -95,32 +95,28 @@ file, where the array contains template IDs for connecting the gallery.
 
 Sow all files with Image filter:
 ```php
-@foreach(sGallery::collections()->get() as $item)
-    @if(sGallery::hasImage($item->type))
-        <a class="swiper-slide" @if(trim($item->link))href="{{$item->link}}"@endif>
-            <div class="container">
-                <img loading="lazy" class="intro__img" src="{{$item->src}}" alt="{{$item->alt}}" width="1440" height="456">
-                <div class="intro__inner">
-                    <div class="h1__title">{{$item->title}}</div>
-                    <p class="intro__text">{{$item->description}}</p>
-                    @if(trim($item->link_text))<div class="btn background__mod">{{$item->link_text}}</div>@endif
-                </div>
+@foreach(sGallery::collections()->mediaType('image')->get() as $item)
+    <a class="swiper-slide" @if(trim($item->link))href="{{$item->link}}"@endif>
+        <div class="container">
+            <img loading="lazy" class="intro__img" src="{{$item->src}}" alt="{{$item->alt}}" width="1440" height="456">
+            <div class="intro__inner">
+                <div class="h1__title">{{$item->title}}</div>
+                <p class="intro__text">{{$item->description}}</p>
+                @if(trim($item->link_text))<div class="btn background__mod">{{$item->link_text}}</div>@endif
             </div>
-        </a>
-    @endif
+        </div>
+    </a>
 @endforeach
 ```
 or YouTube filter
 ```php
-@foreach(sGallery::collections()->get() as $item)
-    @if(sGallery::hasYoutube($item->type))
-        <div class="item">
-            <div class="video">
-                <iframe width="560" height="315" src="https://www.youtube.com/embed/{{$item->file}}" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-            </div>
-            <p>{{$item->title}}</p>
+@foreach(sGallery::collections()->mediaType('youtube')->get() as $item)
+    <div class="item">
+        <div class="video">
+            <iframe width="560" height="315" src="https://www.youtube.com/embed/{{$item->file}}" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
         </div>
-    @endif
+        <p>{{$item->title}}</p>
+    </div>
 @endforeach
 ```
 or

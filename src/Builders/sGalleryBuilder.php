@@ -27,6 +27,7 @@ class sGalleryBuilder
     protected string $mode = 'view';
     protected string $viewType = sGalleryModel::VIEW_SECTION;
     protected string $itemType = 'resource';
+    protected ?string $type = null;
     protected string $idType = 'i';
     protected ?string $blockName = '1';
     protected ?int $documentId = null;
@@ -89,6 +90,20 @@ class sGalleryBuilder
     public function itemType(string $itemType): self
     {
         $this->itemType = $itemType;
+        return $this;
+    }
+
+    /**
+     * Filter the collection by the stored media type.
+     *
+     * @param string $type Media type, such as image, youtube, or pdf.
+     * @return $this
+     *
+     * @since 1.5.1
+     */
+    public function mediaType(string $type): self
+    {
+        $this->type = $type;
         return $this;
     }
 
@@ -342,6 +357,10 @@ class sGalleryBuilder
 
             if ($this->blockName) {
                 $query->whereBlock($this->blockName);
+            }
+
+            if ($this->type !== null) {
+                $query->whereType($this->type);
             }
 
             $this->files = $query->orderBy('position')->get();
@@ -835,6 +854,7 @@ class sGalleryBuilder
         $this->files = null;
         $this->file = null;
         $this->params = [];
+        $this->type = null;
         $this->sourceHasAlpha = null;
         $this->qualityExplicit = false;
         $this->alphaDetectionCache = [];

@@ -11,9 +11,9 @@ from displaying filtered collections to managing multiple galleries on a single 
 
 ---
 
-## Display All Files with Image Filter
+## Display Mixed Gallery Items
 
-This example demonstrates how to display all files in a collection that are identified as images.
+Use this pattern when one gallery can contain different media types and each needs its own markup.
 
 ```php
 @foreach(sGallery::collections()->get() as $item)
@@ -24,34 +24,13 @@ This example demonstrates how to display all files in a collection that are iden
                 <div class="intro__inner">
                     <div class="h1__title">{% raw %}{{$item->title}}{% endraw %}</div>
                     <p class="intro__text">{% raw %}{{$item->description}}{% endraw %}</p>
-                    @if(trim($item->link_text)) 
-                        <div class="btn background__mod">{% raw %}{{$item->link_text}}{% endraw %}</div> 
-                    @endif
                 </div>
             </div>
         </a>
-    @endif
-@endforeach
-```
-
-### Explanation:
-
-- `sGallery::collections()->get()` retrieves all files in the gallery.
-- `sGallery::hasImage($item->type)` checks if the file type is an image.
-- The `img` tag uses `lazy loading` for better performance, especially with large images.
-
----
-
-## Display All Files with YouTube Filter
-
-If you want to filter and display YouTube videos from your collection, use the following example:
-
-```php
-@foreach(sGallery::collections()->get() as $item)
-    @if(sGallery::hasYoutube($item->type))
+    @elseif(sGallery::hasYoutube($item->type))
         <div class="item">
             <div class="video">
-                <iframe width="560" height="315" src="https://www.youtube.com/embed/{% raw %}{{$item->file}}{% endraw %}" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                <iframe width="560" height="315" src="https://www.youtube.com/embed/{% raw %}{{$item->file}}{% endraw %}" title="YouTube video player" allowfullscreen></iframe>
             </div>
             <p>{% raw %}{{$item->title}}{% endraw %}</p>
         </div>
@@ -61,7 +40,57 @@ If you want to filter and display YouTube videos from your collection, use the f
 
 ### Explanation:
 
-- `sGallery::hasYoutube($item->type)` filters out YouTube video files.
+- `sGallery::collections()->get()` retrieves the current gallery collection.
+- `hasImage()` and `hasYoutube()` choose the correct markup for every loaded item.
+
+---
+
+## Display Images with Query Filter
+
+Use `mediaType()` when the page needs only one media type and should not load other rows.
+
+```php
+@foreach(sGallery::collections()->mediaType('image')->get() as $item)
+    <a class="swiper-slide" @if(trim($item->link)) href="{% raw %}{{$item->link}}{% endraw %}" @endif>
+        <div class="container">
+            <img loading="lazy" class="intro__img" src="{% raw %}{{$item->src}}{% endraw %}" alt="{% raw %}{{$item->alt}}{% endraw %}" width="1440" height="456">
+            <div class="intro__inner">
+                <div class="h1__title">{% raw %}{{$item->title}}{% endraw %}</div>
+                <p class="intro__text">{% raw %}{{$item->description}}{% endraw %}</p>
+                @if(trim($item->link_text))
+                    <div class="btn background__mod">{% raw %}{{$item->link_text}}{% endraw %}</div>
+                @endif
+            </div>
+        </div>
+    </a>
+@endforeach
+```
+
+### Explanation:
+
+- `sGallery::collections()->mediaType('image')->get()` filters image rows in the database before rendering.
+- The `img` tag uses `lazy loading` for better performance, especially with large images.
+
+---
+
+## Display All Files with YouTube Filter
+
+If you want to filter and display YouTube videos from your collection, use the following example:
+
+```php
+@foreach(sGallery::collections()->mediaType('youtube')->get() as $item)
+    <div class="item">
+        <div class="video">
+            <iframe width="560" height="315" src="https://www.youtube.com/embed/{% raw %}{{$item->file}}{% endraw %}" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        <p>{% raw %}{{$item->title}}{% endraw %}</p>
+    </div>
+@endforeach
+```
+
+### Explanation:
+
+- `sGallery::collections()->mediaType('youtube')->get()` filters YouTube rows in the database before rendering.
 - The `iframe` tag embeds the YouTube video into your page.
 
 ---
