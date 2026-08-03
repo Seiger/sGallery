@@ -42,3 +42,16 @@ When a resource template requires more than one gallery, the configuration file 
 ```
 
 To visually separate tabs with galleries, a block name is added to the tab header. In this case, it is block 1 and block 2.
+
+## Generated image cache
+
+Use the `imageCacheDir` key to choose the project-relative public directory for generated image derivatives.
+
+```php
+<?php return [
+    1,
+    'imageCacheDir' => 'assets/derived/',
+];
+```
+
+The default is `assets/cache/` for backward compatibility. After changing the directory, run `php artisan vendor:publish --tag=sGallery`. It creates `.gitignore` and `index.html` in the selected directory without changing existing generated images.

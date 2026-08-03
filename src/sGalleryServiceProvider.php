@@ -2,6 +2,7 @@
 
 use EvolutionCMS\ServiceProvider;
 use Event;
+use Seiger\sGallery\Models\sGalleryModel;
 
 class sGalleryServiceProvider extends ServiceProvider
 {
@@ -52,10 +53,14 @@ class sGalleryServiceProvider extends ServiceProvider
      */
     protected function publishResources()
     {
+        $cacheDirectory = rtrim(public_path(sGalleryModel::imageCacheDir()), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+
         $this->publishes([
             dirname(__DIR__) . '/config/sGallerySettings.php' => config_path('seiger/settings/sGallery.php', true),
             dirname(__DIR__) . '/images/noimage.png' => public_path('assets/site/noimage.png'),
             dirname(__DIR__) . '/images/youtube-logo.png' => public_path('assets/site/youtube-logo.png'),
-        ]);
+            dirname(__DIR__) . '/config/for-cache.gitignore' => $cacheDirectory . '.gitignore',
+            dirname(__DIR__) . '/config/for-cache.index.html' => $cacheDirectory . 'index.html',
+        ], 'sGallery');
     }
 }
