@@ -387,14 +387,14 @@ class sGalleryBuilder
 
             if ($this->params !== null && !in_array($extension, ['svg'])) {
                 $imageName = str_replace('.' . pathinfo($this->file, PATHINFO_EXTENSION), '', pathinfo($this->file, PATHINFO_BASENAME));
-                $imagePath = explode(DIRECTORY_SEPARATOR, pathinfo($this->file, PATHINFO_DIRNAME));
+                $imagePath = explode('/', str_replace('\\', '/', pathinfo($this->file, PATHINFO_DIRNAME)));
                 $chacheFile = sGalleryModel::CACHE_DIR;
 
                 foreach ($imagePath as $path) {
                     $chacheFile .= is_numeric($path) ? $path : ($path[0] ?? '');
                 }
 
-                $chacheFile .= DIRECTORY_SEPARATOR;
+                $chacheFile .= '/';
                 $format = $this->params['format'] ?? $this->getSupportedImageFormat();
 
                 // Ensure format is supported (if AVIF was requested but not supported, fallback to WebP)
