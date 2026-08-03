@@ -54,6 +54,13 @@ class sGalleryModel extends Model
      */
     protected $appends = ['src', 'path'];
 
+    /**
+     * The attributes that may be mass assigned when a gallery row is persisted.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = ['parent', 'block', 'position', 'file', 'type', 'item_type'];
+
     private $cachedFilePath;
 
     /**

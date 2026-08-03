@@ -404,18 +404,16 @@ class sGalleryController
             $items = $request->list[$key];
 
             foreach ($items as $lang => $item) {
-                $translate = sGalleryField::where('key', $key)->where('lang', $lang)->first();
-                if (!$translate) {
-                    $translate = new sGalleryField();
-                }
-                $translate->key = $key;
-                $translate->lang = $lang;
-                $translate->alt = ($item['alt'] ?? '');
-                $translate->title = ($item['title'] ?? '');
-                $translate->description = ($item['description'] ?? '');
-                $translate->link_text = ($item['link_text'] ?? '');
-                $translate->link = ($item['link'] ?? '');
-                $translate->save();
+                sGalleryField::updateOrCreate(
+                    ['key' => $key, 'lang' => $lang],
+                    [
+                        'alt' => $item['alt'] ?? '',
+                        'title' => $item['title'] ?? '',
+                        'description' => $item['description'] ?? '',
+                        'link_text' => $item['link_text'] ?? '',
+                        'link' => $item['link'] ?? '',
+                    ]
+                );
             }
 
             $data['success'] = 1;
@@ -436,24 +434,15 @@ class sGalleryController
      */
     protected function saveGalleryFile(int $parent, string $filename, string $filetype): sGalleryModel
     {
-        $gallery = sGalleryModel::whereParent($parent)
-            ->whereBlock($this->blockName)
-            ->whereItemType($this->itemType)
-            ->whereFile($filename)
-            ->first();
-
-        if (!$gallery) {
-            $gallery = new sGalleryModel();
-        }
-
-        $gallery->parent = $parent;
-        $gallery->block = $this->blockName;
-        $gallery->file = $filename;
-        $gallery->type = $filetype;
-        $gallery->item_type = $this->itemType;
-        $gallery->save();
-
-        return $gallery;
+        return sGalleryModel::updateOrCreate(
+            [
+                'parent' => $parent,
+                'block' => $this->blockName,
+                'item_type' => $this->itemType,
+                'file' => $filename,
+            ],
+            ['type' => $filetype]
+        );
     }
 
     /**
