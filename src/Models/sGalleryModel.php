@@ -41,6 +41,24 @@ class sGalleryModel extends Model
     const VIEW_SECTION_DOWNLOADS = "sectionDownloads";
 
     /**
+     * Get the project-relative directory for generated image derivatives.
+     *
+     * @return string
+     *
+     * @since 1.5.1
+     */
+    public static function imageCacheDir(): string
+    {
+        $directory = config('seiger.settings.sGallery.imageCacheDir', self::CACHE_DIR);
+
+        if (!is_string($directory) || trim($directory) === '') {
+            return self::CACHE_DIR;
+        }
+
+        return trim(str_replace('\\', '/', $directory), '/') . '/';
+    }
+
+    /**
      * The table associated with the model.
      *
      * @var string

@@ -388,7 +388,7 @@ class sGalleryBuilder
             if ($this->params !== null && !in_array($extension, ['svg'])) {
                 $imageName = str_replace('.' . pathinfo($this->file, PATHINFO_EXTENSION), '', pathinfo($this->file, PATHINFO_BASENAME));
                 $imagePath = explode('/', str_replace('\\', '/', pathinfo($this->file, PATHINFO_DIRNAME)));
-                $chacheFile = sGalleryModel::CACHE_DIR;
+                $chacheFile = sGalleryModel::imageCacheDir();
 
                 foreach ($imagePath as $path) {
                     $chacheFile .= is_numeric($path) ? $path : ($path[0] ?? '');
