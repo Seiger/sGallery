@@ -10,5 +10,10 @@ use Illuminate\Database\Eloquent;
  */
 class sGalleryField extends Eloquent\Model
 {
-
+    /**
+     * The attributes that may be mass assigned when translated gallery fields are saved.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = ['key', 'lang', 'alt', 'title', 'description', 'link_text', 'link'];
 }
