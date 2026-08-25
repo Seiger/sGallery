@@ -71,6 +71,14 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/alertifyjs@1.14.0/build/alertify.min.js"></script>
 <script>
+    function sGalleryFetch{{$blockId}}(url, options = {}) {
+        const headers = new Headers(options.headers || {});
+        headers.set('Accept', 'application/json');
+        headers.set('X-CSRF-TOKEN', {!! json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!});
+
+        return fetch(url, {...options, headers});
+    }
+
     // Initialize sorting for the gallery images
     const uploadBase{{$blockId}} = document.getElementById('uploadBase{{$blockId}}');
     const sortableInstance{{$blockId}} = new Sortable(uploadBase{{$blockId}}, {
@@ -120,7 +128,10 @@
     async function doResorting{{$blockId}}() {
         let list = new FormData();
         document.querySelectorAll('#uploadBase{{$blockId}} > li').forEach(item => list.append('item[]', item.getAttribute('data-sgallery')));
-        await fetch('{!!sGallery::route('sGallery.resort', ['cat' => request()->get($typeId), 'itemType' => $itemType, 'block' => $blockName])!!}', {method: 'POST', body: list});
+        const response = await sGalleryFetch{{$blockId}}('{!!sGallery::route('sGallery.resort', ['cat' => request()->get($typeId), 'itemType' => $itemType, 'block' => $blockName])!!}', {method: 'POST', body: list});
+        if (!response.ok) {
+            await readUploadResponse{{$blockId}}(response);
+        }
     }
 
     function hideMainLoader{{$blockId}}() {
@@ -136,15 +147,46 @@
 
     async function readUploadResponse{{$blockId}}(resp) {
         const contentType = resp.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-            return await resp.json();
+        const responseBody = await resp.text();
+        let data = null;
+        let responseMessage = '';
+
+        if (responseBody.trim() && (contentType.includes('application/json') || /^[\[{]/.test(responseBody.trim()))) {
+            try {
+                data = JSON.parse(responseBody);
+            } catch (error) {
+                console.error('Invalid JSON response:', error);
+            }
+        }
+
+        if (data !== null) {
+            responseMessage = data.error || data.message || '';
+            if (typeof responseMessage !== 'string') {
+                responseMessage = JSON.stringify(responseMessage);
+            } else if (!responseMessage) {
+                responseMessage = JSON.stringify(data);
+            }
+        } else if (responseBody.trim()) {
+            if (contentType.includes('text/html') || /<html[\s>]/i.test(responseBody)) {
+                const errorDocument = new DOMParser().parseFromString(responseBody, 'text/html');
+                errorDocument.querySelectorAll('script, style, noscript').forEach(element => element.remove());
+                responseMessage = errorDocument.body?.textContent || errorDocument.title || '';
+            } else {
+                responseMessage = responseBody;
+            }
+
+            responseMessage = responseMessage.replace(/\s+/g, ' ').trim().slice(0, 500);
         }
 
         if (!resp.ok) {
-            throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
+            throw new Error('HTTP ' + resp.status + (responseMessage ? ': ' + responseMessage : ' ' + resp.statusText));
         }
 
-        throw new Error('Unexpected server response.');
+        if (data !== null) {
+            return data;
+        }
+
+        throw new Error(responseMessage || 'Unexpected server response.');
     }
 
     async function handleUploadResult{{$blockId}}(data) {
@@ -182,7 +224,7 @@
         console.log("Uploading file with name:", f.name);
         let form = new FormData();
         form.append('file', f);
-        let resp = await fetch('{!!sGallery::route('sGallery.upload-file', [
+        let resp = await sGalleryFetch{{$blockId}}('{!!sGallery::route('sGallery.upload-file', [
                 'cat' => request()->get($typeId),
                 'itemType' => $itemType,
                 'block' => $blockName
@@ -222,7 +264,7 @@
         console.log("Uploading file with name:", f.name);
         let form = new FormData();
         form.append('file', f);
-        let resp = await fetch('{!!sGallery::route('sGallery.upload-download', [
+        let resp = await sGalleryFetch{{$blockId}}('{!!sGallery::route('sGallery.upload-download', [
                 'cat' => request()->get($typeId),
                 'itemType' => $itemType,
                 'block' => $blockName
@@ -241,7 +283,7 @@
         let form = new FormData();
         form.append('file', e.target.value);
         try {
-            let resp = await fetch('{!!sGallery::route('sGallery.upload-evo-library', [
+            let resp = await sGalleryFetch{{$blockId}}('{!!sGallery::route('sGallery.upload-evo-library', [
                     'cat' => request()->get($typeId),
                     'itemType' => $itemType,
                     'block' => $blockName
@@ -310,8 +352,7 @@
             "@lang('sGallery::manager.are_you_sure')",
             "@lang('sGallery::manager.deleted_irretrievably')",
             function() {
-                alertify.success("@lang('sGallery::manager.deleted')");
-                fetch('{!!sGallery::route('sGallery.delete')!!}', {
+                sGalleryFetch{{$blockId}}('{!!sGallery::route('sGallery.delete')!!}', {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded",
@@ -319,8 +360,13 @@
                     body: 'item=' + encodeURIComponent(itemId),
                     cache: "no-cache"
                 })
-                    .then(response => response.json())
+                    .then(response => readUploadResponse{{$blockId}}(response))
                     .then(data => {
+                        if (data.success != 1) {
+                            throw new Error(data.error || data.message || 'Delete failed.');
+                        }
+
+                        alertify.success(data.message || "@lang('sGallery::manager.deleted')");
                         let imageElement = _this.closest(".card");
                         if (imageElement) {
                             // Apply fade-out effect and remove the image element after 1 second
@@ -331,7 +377,10 @@
                             }, 1000);
                         }
                     })
-                    .catch(error => console.error('Error:', error));
+                    .catch(error => {
+                        alertify.error(error.message);
+                        console.error('Error:', error);
+                    });
             },
             function() {
                 alertify.error("@lang('sGallery::manager.cancel')");
@@ -355,7 +404,7 @@
                 'itemType' => $itemType,
                 'block' => $blockName
             ])!!}';
-            fetch(url, {
+            sGalleryFetch{{$blockId}}(url, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
@@ -363,7 +412,7 @@
                 body: 'youtubeLink=' + encodeURIComponent(youtubeLink),
                 cache: "no-cache"
             })
-                .then(response => response.json())
+                .then(response => readUploadResponse{{$blockId}}(response))
                 .then(data => {
                     if (data.success == 0) {
                         alertify.alert('@lang('sGallery::manager.file_upload_error')', data.error);
@@ -415,7 +464,7 @@
         inputs.forEach(function(input) {
             formData.append(input.name, input.value);
         });
-        fetch('{!!sGallery::route('sGallery.settranslate')!!}', {
+        sGalleryFetch{{$blockId}}('{!!sGallery::route('sGallery.settranslate')!!}', {
             method: "POST",
             body: new URLSearchParams(formData),
             headers: {
@@ -423,7 +472,7 @@
             },
             cache: "no-cache"
         })
-            .then(response => response.json())
+            .then(response => readUploadResponse{{$blockId}}(response))
             .then(ajax => {
                 if (ajax.success == 1) {
                     alertify.success("@lang('sGallery::manager.saved_successfully')");
