@@ -1,4 +1,6 @@
 <?php return [
+    'image_optimization_worker' => 'sGallery image optimization',
+    'image_optimization_description' => 'Generate optimized images in the background',
     'add_youtube' => 'Add YouTube',
     'are_you_sure' => 'Are you impressed?',
     'cancel' => 'Cancel',
