@@ -138,3 +138,9 @@ Just paste this code in your View backend
 ```
 
 [See full documentation here](https://seiger.github.io/sGallery/)
+
+## Background image optimization
+
+Slow transformations can be processed by the optional sTask ImageOptimizationWorker, while the frontend temporarily serves the original. See [background image optimization](docs/pages/background-image-optimization.md) for requirements, timing limits and recovery behavior.
+
+Documentation: [English](docs/pages/background-image-optimization.md) · [Українська](docs/pages/uk/background-image-optimization.md) · [Русский](docs/pages/ru/background-image-optimization.md)

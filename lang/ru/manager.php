@@ -1,4 +1,6 @@
 <?php return [
+    'image_optimization_worker' => 'Оптимизация изображений sGallery',
+    'image_optimization_description' => 'Создание оптимизированных изображений в фоновом режиме',
     'add_youtube' => 'Додати YouTube',
     'are_you_sure' => 'Ви впевнені?',
     'cancel' => 'Відміна',

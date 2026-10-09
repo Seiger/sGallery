@@ -8,6 +8,10 @@ permalink: /manipulations/optimization/
 Processed images are optimized by default when they are rendered through `sGallery::file()`.
 The optimization step runs after resizing, fitting, or cropping, so generated cache files stay as small as possible.
 
+Slow uncached transformations can be handed to the optional sTask worker while the
+frontend serves the original. See [background image optimization](../../background-image-optimization/)
+for the cooperative time budget, heartbeat requirements and cache recovery.
+
 ```php
 $image = sGallery::file($gallery->path)->fit('crop', 592, 320);
 ```

@@ -5,6 +5,8 @@ use Illuminate\View\View;
 use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
 use Seiger\sGallery\sGallery;
+use Seiger\sGallery\Exceptions\OptimizationDeferred;
+use Seiger\sGallery\Services\ImageOptimizationQueue;
 use Spatie\Image\Enums\CropPosition;
 use Spatie\Image\Enums\Fit;
 use Spatie\Image\Enums\ImageDriver;
@@ -40,6 +42,9 @@ class sGalleryBuilder
     protected ?array $params = [];
     protected ?bool $sourceHasAlpha = null;
     protected array $alphaDetectionCache = [];
+    protected bool $backgroundOptimization = false;
+    protected float $optimizationStartedAt = 0;
+    protected array $optimizationJob = [];
 
     /**
      * Cached AVIF support driver (null = not checked, 'imagick' = ImageMagick supports AVIF, 'gd' = GD supports AVIF, false = no support)
@@ -397,10 +402,15 @@ class sGalleryBuilder
     /**
      * Get the URL of the processed file (resized, formatted).
      *
+     * Slow web transformations return the original and optionally enqueue a versioned
+     * sTask job. Empty cache files are regenerated. The cooperative deadline cannot
+     * interrupt a native encoder already executing.
+     *
      * @return string URL of the processed image or 'no image' placeholder.
      */
     public function getFile(): string
     {
+        $this->optimizationStartedAt = microtime(true);
         if (($this->file !== null && file_exists(EVO_BASE_PATH . $this->file)) || sGallery::hasLink($this->file)) {
             $extension = strtolower(pathinfo(EVO_BASE_PATH . $this->file, PATHINFO_EXTENSION));
 
@@ -430,7 +440,22 @@ class sGalleryBuilder
                 $ext .= !empty($this->params['optimize']) ? '-opt' : '';
                 $imageName .= (trim($ext) ? '-' . $ext : '') . '.' . $format;
 
-                if (!file_exists(EVO_BASE_PATH . $chacheFile . $imageName)) {
+                $cachedPath = EVO_BASE_PATH . $chacheFile . $imageName;
+                clearstatcache();
+                if ($format === 'avif' && (!is_file($cachedPath) || filesize($cachedPath) < 100)) {
+                    $fallbackName = preg_replace('/\.avif$/i', '.webp', $imageName);
+                    $fallbackPath = EVO_BASE_PATH . $chacheFile . $fallbackName;
+                    if (is_file($fallbackPath) && filesize($fallbackPath) > 100) {
+                        return EVO_SITE_URL . $chacheFile . $fallbackName;
+                    }
+                }
+                if (!is_file($cachedPath) || filesize($cachedPath) === 0) {
+                    $this->optimizationJob = $this->optimizationDescriptor($format);
+                    if (!$this->backgroundOptimization && $this->optimizationJob !== [] &&
+                        (new ImageOptimizationQueue())->heavy($this->optimizationJob)) {
+                        (new ImageOptimizationQueue())->defer($this->optimizationJob);
+                        return $this->originalImageUrl();
+                    }
                     if (!file_exists(EVO_BASE_PATH . $chacheFile)) {
                         mkdir(EVO_BASE_PATH . $chacheFile, octdec(evo()->getConfig('new_folder_permissions', '0777')), true);
                         chmod(EVO_BASE_PATH . $chacheFile, octdec(evo()->getConfig('new_folder_permissions', '0777')));
@@ -514,6 +539,8 @@ class sGalleryBuilder
                             $image->optimize();
                         }
 
+                        $this->checkOptimizationBudget();
+
                         // Handle AVIF format with custom transparency support
                         if ($format === 'avif') {
                             $image->quality($this->quality);
@@ -567,6 +594,8 @@ class sGalleryBuilder
                             }
                         }
                         chmod(EVO_BASE_PATH . $chacheFile . $imageName, octdec(evo()->getConfig('new_file_permissions', '0666')));
+                    } catch (OptimizationDeferred $e) {
+                        return $this->originalImageUrl();
                     } catch (\Exception $e) {
                         Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
                     } finally {
@@ -578,7 +607,8 @@ class sGalleryBuilder
 
                 // Check if file exists and is valid
                 $finalPath = EVO_BASE_PATH . $chacheFile . $imageName;
-                if (file_exists($finalPath)) {
+                clearstatcache();
+                if (is_file($finalPath) && filesize($finalPath) > 0) {
                     // Check if AVIF file is valid (not empty or corrupted)
                     if ($format === 'avif') {
                         $fileSize = filesize($finalPath);
@@ -588,7 +618,8 @@ class sGalleryBuilder
                             $webpPath = EVO_BASE_PATH . $chacheFile . $webpImageName;
 
                             // Try to create WebP version
-                            if (!file_exists($webpPath)) {
+                            clearstatcache();
+                            if (!is_file($webpPath) || filesize($webpPath) === 0) {
                                 try {
                                     // Reload original and save as WebP
                                     $originalFile = sGallery::hasLink($this->file) ? $this->file : EVO_BASE_PATH . $this->file;
@@ -632,13 +663,16 @@ class sGalleryBuilder
                                     if (isset($temp) && is_resource($temp)) {
                                         fclose($temp);
                                     }
+                                } catch (OptimizationDeferred $e) {
+                                    return $this->originalImageUrl();
                                 } catch (\Exception $e) {
                                     // WebP creation failed, continue with AVIF
                                 }
                             }
 
                             // Use WebP if it exists and is valid
-                            if (file_exists($webpPath) && filesize($webpPath) > 100) {
+                            clearstatcache();
+                            if (is_file($webpPath) && filesize($webpPath) > 100) {
                                 $this->file = $chacheFile . $webpImageName;
                             } else {
                                 // Use AVIF even if small (might be valid for very small images)
@@ -659,6 +693,98 @@ class sGalleryBuilder
         }
 
         return sGalleryModel::NOIMAGE;
+    }
+
+    /**
+     * Build a scalar descriptor for a local source and the resolved output format.
+     *
+     * Source metadata separates replaced files from old pending jobs. Remote inputs
+     * are not queued because their identity and availability cannot be verified here.
+     * @param string $format Resolved cache format
+     * @return array<string, mixed> Replayable descriptor, or an empty array for remote sources
+     * @since 1.6.0
+     */
+    private function optimizationDescriptor(string $format): array
+    {
+        if ($this->file === null || sGallery::hasLink($this->file)) {
+            return [];
+        }
+        $params = $this->params ?? [];
+        $params['format'] = $format;
+        foreach ($params as &$value) {
+            if ($value instanceof \BackedEnum) {
+                $value = $value->value;
+            }
+        }
+        unset($value);
+        ksort($params);
+        clearstatcache();
+        return ['file' => $this->file, 'params' => $params, 'quality' => $this->quality,
+            'quality_explicit' => $this->qualityExplicit,
+            'source_version' => [@filesize(EVO_BASE_PATH . $this->file), @filemtime(EVO_BASE_PATH . $this->file)]];
+    }
+
+    /** Return the untouched source URL while optimization is pending. @since 1.6.0 */
+    private function originalImageUrl(): string
+    {
+        return sGallery::hasLink($this->file) ? $this->file : EVO_SITE_URL . $this->file;
+    }
+
+    /**
+     * Stop cooperative frontend processing after its configured time budget.
+     *
+     * Slow markers are remembered even without sTask, so later requests avoid
+     * repeating expensive attempts. Queue failures still return the original.
+     * @return void
+     * @since 1.6.0
+     */
+    private function checkOptimizationBudget(): void
+    {
+        if ($this->backgroundOptimization || microtime(true) - $this->optimizationStartedAt <
+            max(0.001, (float) config('seiger.settings.sGallery.optimizationBudgetSeconds', 5))) {
+            return;
+        }
+        if ($this->optimizationJob !== []) {
+            (new ImageOptimizationQueue())->defer($this->optimizationJob);
+        }
+        throw new OptimizationDeferred('Image optimization exceeded the frontend time budget.');
+    }
+
+    /**
+     * Replay a deferred local transformation without the web deadline.
+     *
+     * Reject path traversal and changed sources before work starts. A task succeeds
+     * only if the builder returns a derived image rather than the original or placeholder.
+     * @param array<string, mixed> $job Descriptor created by optimizationDescriptor()
+     * @return string Published derived image URL
+     * @since 1.6.0
+     */
+    public function processOptimization(array $job): string
+    {
+        $file = (string) ($job['file'] ?? '');
+        if ($file === '' || preg_match('~(^/|^[a-z]+:|(^|[\\\\/])\.\.([\\\\/]|$))~i', $file) ||
+            !is_file(EVO_BASE_PATH . $file)) {
+            throw new \RuntimeException('Invalid local image optimization source.');
+        }
+        clearstatcache();
+        if (($job['source_version'] ?? null) !== [filesize(EVO_BASE_PATH . $file), filemtime(EVO_BASE_PATH . $file)]) {
+            throw new \RuntimeException('Image optimization source changed while queued.');
+        }
+        $this->file($file);
+        $this->params = (array) ($job['params'] ?? []);
+        foreach (['fit' => Fit::class, 'crop' => CropPosition::class] as $key => $enum) {
+            if (isset($this->params[$key])) {
+                $this->params[$key] = $enum::from($this->params[$key]);
+            }
+        }
+        $this->quality = max(1, min(100, (int) ($job['quality'] ?? 100)));
+        $this->qualityExplicit = (bool) ($job['quality_explicit'] ?? false);
+        $this->backgroundOptimization = true;
+        $result = $this->getFile();
+        if ($result === EVO_SITE_URL . $file || $result === sGalleryModel::NOIMAGE) {
+            throw new \RuntimeException('Image optimization did not publish a derived image.');
+        }
+        return $result;
     }
 
     /**
@@ -858,6 +984,9 @@ class sGalleryBuilder
         $this->sourceHasAlpha = null;
         $this->qualityExplicit = false;
         $this->alphaDetectionCache = [];
+        $this->backgroundOptimization = false;
+        $this->optimizationStartedAt = 0;
+        $this->optimizationJob = [];
     }
 
     /**
@@ -877,8 +1006,10 @@ class sGalleryBuilder
     /**
      * Save the image as WebP with optional adaptive PageSpeed-friendly quality.
      *
-     * Explicit quality settings keep the requested value, while optimized images
-     * are saved with the highest tested quality that fits the estimated target size.
+     * Explicit quality settings keep the requested value. Adaptive output retains
+     * all 15 quality candidates; only its final nonempty file is atomically published.
+     * Front requests check their deadline between attempts and return the original
+     * if work is deferred. Background jobs complete the full quality search.
      *
      * @param \Spatie\Image\Image $image The image instance.
      * @param string $path The path where to save the WebP image.
@@ -887,23 +1018,37 @@ class sGalleryBuilder
      */
     private function saveWebpImage(Image $image, string $path): void
     {
-        if ($this->qualityExplicit || empty($this->params['optimize'])) {
-            $image->quality($this->getWebpOutputQuality())->format('webp')->save($path);
-            return;
-        }
-
         $targetBytes = $this->getPageSpeedImageTargetBytes($image);
-        $qualities = [99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80];
-
-        foreach ($qualities as $quality) {
-            $image->quality($quality)->format('webp')->save($path);
-
-            if (!file_exists($path)) {
-                continue;
+        $qualities = $this->qualityExplicit || empty($this->params['optimize'])
+            ? [$this->getWebpOutputQuality()]
+            : [99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80];
+        $temporaryPath = tempnam(dirname($path), '.sgallery-webp-');
+        if ($temporaryPath === false) {
+            throw new \RuntimeException('Unable to create a temporary WebP cache file.');
+        }
+        try {
+            foreach ($qualities as $index => $quality) {
+                $this->checkOptimizationBudget();
+                $image->quality($quality)->format('webp')->save($temporaryPath);
+                clearstatcache();
+                if (!is_file($temporaryPath) || filesize($temporaryPath) === 0) {
+                    throw new \RuntimeException('WebP generation produced an empty file.');
+                }
+                if (filesize($temporaryPath) <= $targetBytes || $index === count($qualities) - 1) {
+                    break;
+                }
             }
-
-            if (filesize($path) <= $targetBytes) {
-                break;
+            clearstatcache();
+            if ($this->optimizationJob !== [] && $this->optimizationJob['source_version'] !==
+                [@filesize(EVO_BASE_PATH . $this->optimizationJob['file']), @filemtime(EVO_BASE_PATH . $this->optimizationJob['file'])]) {
+                throw new \RuntimeException('Image source changed during optimization.');
+            }
+            if (!rename($temporaryPath, $path)) {
+                throw new \RuntimeException('Unable to publish the generated WebP cache file.');
+            }
+        } finally {
+            if (is_file($temporaryPath)) {
+                unlink($temporaryPath);
             }
         }
     }

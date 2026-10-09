@@ -20,6 +20,9 @@
       "Seiger\\sGallery\\": "src/"
     }
   },
+  "suggest": {
+    "seiger/stask": "Optional background image optimization; requires the heartbeat API and an active runner"
+  },
   "extra": {
     "laravel": {
       "providers": [
