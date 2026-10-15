@@ -8,8 +8,8 @@ permalink: /background-image-optimization/
 ## Fast and slow transformations
 
 sGallery first processes uncached images synchronously. The default cooperative
-budget is five seconds, configurable through
-`seiger.settings.sGallery.optimizationBudgetSeconds`. Cached nonempty images are
+budget is five seconds, defined by the package and exposed through
+`Seiger\sGallery\sGallery::optimizationBudgetSeconds()`. Cached nonempty images are
 returned immediately; empty caches are regenerated.
 
 Automatic WebP quality selection keeps the original 15 candidates:

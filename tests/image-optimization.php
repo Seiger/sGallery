@@ -18,12 +18,11 @@ namespace {
     define('EVO_SITE_URL', 'https://example.test/');
     $GLOBALS['clock'] = 1000.0;
     $GLOBALS['clock_step'] = 0.0;
-    $GLOBALS['budget'] = 5.0;
     function storage_path(string $path): string { return $GLOBALS['root'] . '/storage/' . $path; }
     function config($key, $default = null) {
         return match ($key) {
             'seiger.settings.sGallery.imageCacheDir' => 'derived/',
-            'seiger.settings.sGallery.optimizationBudgetSeconds' => $GLOBALS['budget'],
+            'seiger.settings.sGallery.optimizationBudgetSeconds' => throw new RuntimeException('Optimization budget must not be read from config'),
             default => $default,
         };
     }

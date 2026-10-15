@@ -8,21 +8,21 @@
             @endif
         </span>
     </h2>
-    @include('sGallery::partials.buttons', [
+    @include(\Seiger\sGallery\Services\GallerySettings::view('partials.buttons'), [
         'blockId' => $sGalleryController->getBlockNameId(),
     ])
     <ul class="grid-gallery" id="uploadBase{{$sGalleryController->getBlockNameId()}}">
         @foreach($galleries as $gallery)
-            @includeIf('sGallery::partials.'.$gallery->type)
+            @includeIf(\Seiger\sGallery\Services\GallerySettings::view('partials.'.$gallery->type))
         @endforeach
     </ul>
-    @include('sGallery::partials.slider', [
+    @include(\Seiger\sGallery\Services\GallerySettings::view('partials.slider'), [
         'blockId' => $sGalleryController->getBlockNameId(),
         'galleries' => $galleries,
     ])
 </div>
 @push('scripts.bot')
-    @include('sGallery::partials.scripts', [
+    @include(\Seiger\sGallery\Services\GallerySettings::view('partials.scripts'), [
         'typeId' => $sGalleryController->getIdType(),
         'itemType' => $sGalleryController->getItemType(),
         'blockId' => $sGalleryController->getBlockNameId(),

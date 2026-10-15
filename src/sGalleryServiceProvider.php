@@ -8,11 +8,16 @@ class sGalleryServiceProvider extends ServiceProvider
 {
     /**
      * Bootstrap the application services.
+     * Preserve configuration already loaded by Evolution; use package defaults when absent.
      *
      * @return void
      */
     public function boot()
     {
+        if (config('seiger.settings.sGallery') === null) {
+            config(['seiger.settings.sGallery' => \Seiger\sGallery\Services\GallerySettings::defaults()]);
+        }
+
         // Load the package routes
         $this->app->router->middlewareGroup('mgr', config('app.middleware.mgr', []));
         $this->loadRoutesFrom(__DIR__.'/Http/routes.php');

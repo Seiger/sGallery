@@ -17,6 +17,7 @@ class sGallery
 {
     protected const DEFAULT_WIDTH = 240;
     protected const DEFAULT_HEIGHT = 120;
+    protected const OPTIMIZATION_BUDGET_SECONDS = 5.0;
     protected const DEFAULT_FIT = 'crop';
     protected sGalleryBuilder $builder;
 
@@ -242,6 +243,17 @@ class sGallery
     public function defaultHeight(): int
     {
         return self::DEFAULT_HEIGHT;
+    }
+
+    /**
+     * Get the package time budget for synchronous frontend image processing.
+     *
+     * @return float The optimization budget in seconds.
+     * @since 1.7.0
+     */
+    public static function optimizationBudgetSeconds(): float
+    {
+        return self::OPTIMIZATION_BUDGET_SECONDS;
     }
 
     /**

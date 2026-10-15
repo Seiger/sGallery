@@ -173,17 +173,41 @@ class sGalleryBuilder
     }
 
     /**
-     * Set the format of the image output.
+     * Configure an explicit or default watermark; invocation alone enables it.
+     * @param string|array|null $file Local image path, options, or default configuration
+     * @param array $options Position, width, opacity and padding overrides
+     * @return $this
+     * @since 1.7.0
+     */
+    public function watermark(string|array|null $file = null, array $options = []): self
+    {
+        if (is_array($file)) { $options = $file; $file = null; }
+        $defaults = (array) config('seiger.settings.sGallery.watermark', []);
+        $file = $file ?? ($defaults['file'] ?? '');
+        unset($this->params['watermark']);
+        if ($file === '') return $this;
+        $path = \Seiger\sGallery\Services\Watermark::path($file);
+        unset($defaults['file']);
+        $this->params['watermark'] = ['file' => $file, 'hash' => hash_file('sha256', $path), 'options' => \Seiger\sGallery\Services\Watermark::options(array_replace($defaults, $options))];
+        return $this;
+    }
+
+    /**
+     * Select the output format for the processed image.
      *
-     * @param string $format Image format (e.g., 'jpg', 'webp').
+     * Accepts JPG/JPEG, PNG, WebP, AVIF and GIF, subject to driver support.
+     * The `original` mode preserves the source image extension.
+     * Values are case-insensitive; unsupported values leave the current format unchanged.
+     *
+     * @param string $format jpg, jpeg, png, webp, avif, gif or original.
      * @return $this
      */
     public function format(string $format): self
     {
-        $supportedFormats = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'];
-        $format = strtolower($format);
+        $supportedFormats = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'original'];
+        $format = strtolower(trim($format));
 
-        if (in_array($format, $supportedFormats)) {
+        if (in_array($format, $supportedFormats, true)) {
             $this->params['format'] = $format;
         }
 
@@ -410,6 +434,7 @@ class sGalleryBuilder
      */
     public function getFile(): string
     {
+        $sourceFile = $this->file;
         $this->optimizationStartedAt = microtime(true);
         if (($this->file !== null && file_exists(EVO_BASE_PATH . $this->file)) || sGallery::hasLink($this->file)) {
             $extension = strtolower(pathinfo(EVO_BASE_PATH . $this->file, PATHINFO_EXTENSION));
@@ -425,9 +450,14 @@ class sGalleryBuilder
 
                 $chacheFile .= '/';
                 $format = $this->params['format'] ?? $this->getSupportedImageFormat();
+                if ($format === 'original') {
+                    $format = $extension;
+                    if (!in_array($format, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'], true)) throw new \InvalidArgumentException('Original image format is not supported by the processing driver.');
+                }
 
                 // Ensure format is supported (if AVIF was requested but not supported, fallback to WebP)
                 if ($format === 'avif' && !$this->isAvifSupported()) {
+                    if (($this->params['format'] ?? '') === 'original') throw new \RuntimeException('AVIF encoding is unavailable for the original format.');
                     $format = 'webp';
                 }
 
@@ -438,6 +468,14 @@ class sGalleryBuilder
                 $ext .= isset($this->params['w']) ? $this->params['w'] . 'x' . $this->params['h'] : '';
                 $ext .= isset($this->params['sharpen']) && $this->params['sharpen'] > 0 ? '-sh' . $this->params['sharpen'] : '';
                 $ext .= !empty($this->params['optimize']) ? '-opt' : '';
+                $ext .= $this->quality !== 100 ? '-q' . $this->quality : '';
+                if (isset($this->params['watermark'])) {
+                    $sourceHash = is_file(EVO_BASE_PATH . $this->file) ? hash_file('sha256', EVO_BASE_PATH . $this->file) : $this->file;
+                    $cacheParams = $this->params;
+                    $cacheParams['format'] = $format;
+                    ksort($cacheParams);
+                    $ext .= '-wm' . substr(hash('sha256', $sourceHash . json_encode($cacheParams) . $this->quality), 0, 24);
+                }
                 $imageName .= (trim($ext) ? '-' . $ext : '') . '.' . $format;
 
                 $cachedPath = EVO_BASE_PATH . $chacheFile . $imageName;
@@ -446,6 +484,7 @@ class sGalleryBuilder
                     $fallbackName = preg_replace('/\.avif$/i', '.webp', $imageName);
                     $fallbackPath = EVO_BASE_PATH . $chacheFile . $fallbackName;
                     if (is_file($fallbackPath) && filesize($fallbackPath) > 100) {
+                        \Seiger\sGallery\Services\GalleryCache::remember($sourceFile, $chacheFile . $fallbackName);
                         return EVO_SITE_URL . $chacheFile . $fallbackName;
                     }
                 }
@@ -462,6 +501,7 @@ class sGalleryBuilder
                     }
 
                     $temp = null;
+                    $encodingPath = null;
 
                     try {
                         // Handle remote files vs local files
@@ -535,12 +575,18 @@ class sGalleryBuilder
                             $image->sharpen($this->params['sharpen']);
                         }
 
+                        if (isset($this->params['watermark'])) {
+                            \Seiger\sGallery\Services\Watermark::apply($image, $this->params['watermark']);
+                        }
+
                         if (!empty($this->params['optimize'])) {
                             $image->optimize();
                         }
 
                         $this->checkOptimizationBudget();
 
+                        $atomicSuffix = isset($this->params['watermark']) ? '.pending-' . bin2hex(random_bytes(6)) : '';
+                        $encodingPath = EVO_BASE_PATH . $chacheFile . $imageName . $atomicSuffix;
                         // Handle AVIF format with custom transparency support
                         if ($format === 'avif') {
                             $image->quality($this->quality);
@@ -549,7 +595,7 @@ class sGalleryBuilder
                             $originalExtension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
                             $hasTransparency = in_array($originalExtension, ['png', 'gif', 'webp']);
 
-                            $avifPath = EVO_BASE_PATH . $chacheFile . $imageName;
+                            $avifPath = $encodingPath;
                             $avifCreated = false;
 
                             try {
@@ -574,6 +620,7 @@ class sGalleryBuilder
                                     throw new \Exception('AVIF file creation failed or file is too small');
                                 }
                             } catch (\Exception $e) {
+                                if (($this->params['format'] ?? '') === 'original') throw $e;
                                 // AVIF creation failed, fallback to WebP
                                 Log::warning("AVIF creation failed, falling back to WebP: " . $e->getMessage());
 
@@ -584,13 +631,19 @@ class sGalleryBuilder
 
                                 $format = 'webp';
                                 $imageName = preg_replace('/\.avif$/i', '.webp', $imageName);
-                                $this->saveWebpImage($image, EVO_BASE_PATH . $chacheFile . $imageName);
+                                $encodingPath = EVO_BASE_PATH . $chacheFile . $imageName . $atomicSuffix;
+                                $this->saveWebpImage($image, $encodingPath);
                             }
                         } else {
                             if ($format === 'webp') {
-                                $this->saveWebpImage($image, EVO_BASE_PATH . $chacheFile . $imageName);
+                                $this->saveWebpImage($image, $encodingPath);
                             } else {
-                                $image->quality($this->quality)->format($format)->save(EVO_BASE_PATH . $chacheFile . $imageName);
+                                $image->quality($this->quality)->format($format)->save($encodingPath);
+                            }
+                        }
+                        if ($atomicSuffix !== '') {
+                            if (!is_file($encodingPath) || !getimagesize($encodingPath) || !rename($encodingPath, EVO_BASE_PATH . $chacheFile . $imageName)) {
+                                throw new \RuntimeException('Cannot publish watermarked image.');
                             }
                         }
                         chmod(EVO_BASE_PATH . $chacheFile . $imageName, octdec(evo()->getConfig('new_file_permissions', '0666')));
@@ -599,6 +652,7 @@ class sGalleryBuilder
                     } catch (\Exception $e) {
                         Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
                     } finally {
+                        if (isset($atomicSuffix) && $atomicSuffix !== '' && $encodingPath && is_file($encodingPath)) unlink($encodingPath);
                         if (is_resource($temp)) {
                             fclose($temp);
                         }
@@ -613,7 +667,7 @@ class sGalleryBuilder
                     if ($format === 'avif') {
                         $fileSize = filesize($finalPath);
                         // If AVIF file is too small (likely corrupted or empty), try WebP fallback
-                        if ($fileSize < 100) { // Less than 100 bytes is suspicious
+                        if ($fileSize < 100 && ($this->params['format'] ?? '') !== 'original') { // Less than 100 bytes is suspicious
                             $webpImageName = preg_replace('/\.avif$/i', '.webp', $imageName);
                             $webpPath = EVO_BASE_PATH . $chacheFile . $webpImageName;
 
@@ -652,6 +706,9 @@ class sGalleryBuilder
                                             $webpImage->sharpen($this->params['sharpen']);
                                         }
 
+                                        if (isset($this->params['watermark'])) {
+                                            \Seiger\sGallery\Services\Watermark::apply($webpImage, $this->params['watermark']);
+                                        }
                                         if (!empty($this->params['optimize'])) {
                                             $webpImage->optimize();
                                         }
@@ -689,7 +746,10 @@ class sGalleryBuilder
                 }
             }
 
-            return EVO_SITE_URL . $this->file;
+            $outputFile = $this->file;
+            \Seiger\sGallery\Services\GalleryCache::remember($sourceFile, $outputFile);
+            $this->file = $sourceFile;
+            return EVO_SITE_URL . $outputFile;
         }
 
         return sGalleryModel::NOIMAGE;
@@ -731,7 +791,7 @@ class sGalleryBuilder
     }
 
     /**
-     * Stop cooperative frontend processing after its configured time budget.
+     * Stop cooperative frontend processing after the package time budget.
      *
      * Slow markers are remembered even without sTask, so later requests avoid
      * repeating expensive attempts. Queue failures still return the original.
@@ -741,7 +801,7 @@ class sGalleryBuilder
     private function checkOptimizationBudget(): void
     {
         if ($this->backgroundOptimization || microtime(true) - $this->optimizationStartedAt <
-            max(0.001, (float) config('seiger.settings.sGallery.optimizationBudgetSeconds', 5))) {
+            sGallery::optimizationBudgetSeconds()) {
             return;
         }
         if ($this->optimizationJob !== []) {
@@ -823,8 +883,8 @@ class sGalleryBuilder
     public function file(string $input): self
     {
         $input = trim(str_replace([EVO_SITE_URL, EVO_BASE_PATH], '', $input), '/');
+        $this->resetBuilder();
         $this->file = $input;
-        $this->params = ['optimize' => true];
         return $this;
     }
 
@@ -983,6 +1043,11 @@ class sGalleryBuilder
         $this->type = null;
         $this->sourceHasAlpha = null;
         $this->qualityExplicit = false;
+        $this->quality = (int) config('seiger.settings.sGallery.quality', 100);
+        $this->params['sharpen'] = (float) config('seiger.settings.sGallery.sharpen', 0);
+        $this->params['optimize'] = (bool) config('seiger.settings.sGallery.optimize', true);
+        $defaultFormat = config('seiger.settings.sGallery.format', 'auto');
+        if ($defaultFormat !== 'auto') $this->format($defaultFormat);
         $this->alphaDetectionCache = [];
         $this->backgroundOptimization = false;
         $this->optimizationStartedAt = 0;
@@ -1121,7 +1186,7 @@ class sGalleryBuilder
         }
 
         // If Spatie Image lost transparency and original has transparency, try to reload original image directly
-        if (!$hasAlpha && $originalHasTransparency && $absoluteOriginalPath !== null) {
+        if (!isset($this->params['watermark']) && !$hasAlpha && $originalHasTransparency && $absoluteOriginalPath !== null) {
             $originalPath = $absoluteOriginalPath;
             $originalImage = null;
 

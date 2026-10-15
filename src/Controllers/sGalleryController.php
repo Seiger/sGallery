@@ -536,7 +536,7 @@ class sGalleryController
      */
     public function view(string $tpl, array $data = [])
     {
-        return \View::make('sGallery::'.$tpl, $data);
+        return \View::make(\Seiger\sGallery\Services\GallerySettings::view($tpl), $data);
     }
 
     /**

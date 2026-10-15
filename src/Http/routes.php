@@ -4,6 +4,9 @@ use Illuminate\Support\Facades\Route;
 use Seiger\sGallery\Controllers\sGalleryController;
 
 Route::middleware('mgr')->prefix('sgallery/')->name('sGallery.')->group(function () {
+    Route::post('settings-cache', [\Seiger\sGallery\Controllers\GallerySettingsController::class, 'clearCache'])->name('settings-cache');
+    Route::post('settings', [\Seiger\sGallery\Controllers\GallerySettingsController::class, 'save'])->name('settings-save');
+    Route::post('settings-watermark', [\Seiger\sGallery\Controllers\GallerySettingsController::class, 'upload'])->name('settings-watermark');
     Route::get('', [sGalleryController::class, 'index']);
     Route::post('upload-file', [sGalleryController::class, 'uploadFile'])->name('upload-file');
     Route::post('upload-download', [sGalleryController::class, 'uploadDownload'])->name('upload-download');

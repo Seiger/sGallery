@@ -8,13 +8,13 @@
 
     <ul id="uploadBase{{$sGalleryController->getBlockNameId()}}">
         @foreach($galleries as $gallery)
-            @includeIf('sGallery::partials.'.$gallery->type)
+            @includeIf(\Seiger\sGallery\Services\GallerySettings::view('partials.'.$gallery->type))
         @endforeach
     </ul>
 </section>
 
 @push('scripts.bot')
-    @include('sGallery::partials.scripts', [
+    @include(\Seiger\sGallery\Services\GallerySettings::view('partials.scripts'), [
         'typeId' => $sGalleryController->getIdType(),
         'itemType' => $sGalleryController->getItemType(),
         'blockId' => $sGalleryController->getBlockNameId(),

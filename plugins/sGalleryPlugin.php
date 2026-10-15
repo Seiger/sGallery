@@ -6,27 +6,24 @@ use Seiger\sGallery\Models\sGalleryModel;
 Event::listen('evolution.OnDocFormRender', function($params) {
     $currentTemplate = $params['template'];
     $configs = config('seiger.settings.sGallery', [0]);
-    $templateIDs = [];
-    $templates = [];
-
-    foreach ($configs as $config) {
-        if (is_array($config)) {
-            $id = array_key_first($config);
-            $templateIDs[] = $id;
-            $templates[$id] = $config;
-        } elseif (is_int($config)) {
-            $templateIDs[] = $config;
-            $templates[$config] = $config;
-        }
-    }
-
-    if (in_array($currentTemplate, $templateIDs) && $params['id'] > 0) {
-        if (is_array($templates[$currentTemplate]) && is_array($templates[$currentTemplate][$currentTemplate]) && count($templates[$currentTemplate][$currentTemplate]) > 0) {
-            foreach ($templates[$currentTemplate][$currentTemplate] as $block) {
+    $templates = \Seiger\sGallery\Services\GallerySettings::assignments($configs);
+    if (array_key_exists((int)$currentTemplate, $templates) && $params['id'] > 0) {
+        if ($templates[(int)$currentTemplate] !== []) {
+            foreach ($templates[(int)$currentTemplate] as $block) {
                 echo sGallery::initialiseView()->viewType(sGalleryModel::VIEW_TAB)->idType('id')->blockName($block);
             }
         } else {
             echo sGallery::initialiseView()->viewType(sGalleryModel::VIEW_TAB)->idType('id');
         }
     }
+});
+/** Render the package settings tab through the manager extension event. @since 1.7.0 */
+Event::listen('evolution.OnMiscSettingsRender', function () {
+    if (!evo()->hasPermission('settings')) return;
+    $_SESSION['sgallery_settings_token'] ??= bin2hex(random_bytes(32));
+    echo \View::make('sGallery::settings', [
+        'settings' => \Seiger\sGallery\Services\GallerySettings::read(),
+        'resourceTemplates' => \EvolutionCMS\Models\SiteTemplate::orderBy('templatename')->get(),
+        'token' => $_SESSION['sgallery_settings_token'],
+    ])->render();
 });
