@@ -427,7 +427,9 @@ class sGalleryBuilder
      * Get the URL of the processed file (resized, formatted).
      *
      * Slow web transformations return the original and optionally enqueue a versioned
-     * sTask job. Empty cache files are regenerated. The cooperative deadline cannot
+     * sTask job. Ready derivatives reuse one metadata check, including the AVIF size
+     * boundary. Generation and corrupt-file fallbacks keep their final validation.
+     * Empty cache files are regenerated. The cooperative deadline cannot
      * interrupt a native encoder already executing.
      *
      * @return string URL of the processed image or 'no image' placeholder.
@@ -479,16 +481,23 @@ class sGalleryBuilder
                 $imageName .= (trim($ext) ? '-' . $ext : '') . '.' . $format;
 
                 $cachedPath = EVO_BASE_PATH . $chacheFile . $imageName;
-                clearstatcache();
-                if ($format === 'avif' && (!is_file($cachedPath) || filesize($cachedPath) < 100)) {
+                clearstatcache(true, $cachedPath);
+                $cachedExists = is_file($cachedPath);
+                $cachedSize = $cachedExists ? filesize($cachedPath) : false;
+                if ($cachedExists && $cachedSize > 0 && ($format !== 'avif' || $cachedSize >= 100)) {
+                    $outputFile = $chacheFile . $imageName;
+                    \Seiger\sGallery\Services\GalleryCache::remember($sourceFile, $outputFile, true);
+                    return EVO_SITE_URL . $outputFile;
+                }
+                if ($format === 'avif' && (!$cachedExists || $cachedSize < 100)) {
                     $fallbackName = preg_replace('/\.avif$/i', '.webp', $imageName);
                     $fallbackPath = EVO_BASE_PATH . $chacheFile . $fallbackName;
                     if (is_file($fallbackPath) && filesize($fallbackPath) > 100) {
-                        \Seiger\sGallery\Services\GalleryCache::remember($sourceFile, $chacheFile . $fallbackName);
+                        \Seiger\sGallery\Services\GalleryCache::remember($sourceFile, $chacheFile . $fallbackName, true);
                         return EVO_SITE_URL . $chacheFile . $fallbackName;
                     }
                 }
-                if (!is_file($cachedPath) || filesize($cachedPath) === 0) {
+                if (!$cachedExists || $cachedSize === 0) {
                     $this->optimizationJob = $this->optimizationDescriptor($format);
                     if (!$this->backgroundOptimization && $this->optimizationJob !== [] &&
                         (new ImageOptimizationQueue())->heavy($this->optimizationJob)) {
@@ -1257,8 +1266,8 @@ class sGalleryBuilder
                 );
                 \imagealphablending($resizedImage, false);
 
-                \imagedestroy($originalImage);
-                \imagedestroy($gdImage);
+                if (PHP_VERSION_ID < 80500) \imagedestroy($originalImage);
+                if (PHP_VERSION_ID < 80500) \imagedestroy($gdImage);
                 $gdImage = $resizedImage;
             }
         }
@@ -1280,13 +1289,13 @@ class sGalleryBuilder
 
         // Check if AVIF encoding is actually supported before attempting
         if (!function_exists('imageavif')) {
-            \imagedestroy($gdImage);
+            if (PHP_VERSION_ID < 80500) \imagedestroy($gdImage);
             throw new \RuntimeException('imageavif() function is not available');
         }
 
         // Suppress warnings but check return value
         $result = @\imageavif($gdImage, $path, $quality);
-        \imagedestroy($gdImage);
+        if (PHP_VERSION_ID < 80500) \imagedestroy($gdImage);
 
         // Check if file was created and has content
         if ($result === false || !file_exists($path) || filesize($path) < 100) {
@@ -1318,7 +1327,8 @@ class sGalleryBuilder
         $finfo = function_exists('finfo_open') ? @finfo_open(FILEINFO_MIME_TYPE) : false;
         if ($finfo) {
             $mime = @finfo_file($finfo, $filePath);
-            finfo_close($finfo);
+            // PHP 8.5 automatically closes finfo objects; the legacy call is deprecated.
+            if (PHP_VERSION_ID < 80500) finfo_close($finfo);
             if (is_string($mime) && strpos(strtolower($mime), 'image/') === 0) {
                 return true;
             }
@@ -1441,7 +1451,7 @@ class sGalleryBuilder
                     \imagealphablending($resource, true);
                     \imagesavealpha($resource, true);
                     $result = $this->hasTransparentPixel($resource);
-                    \imagedestroy($resource);
+                    if (PHP_VERSION_ID < 80500) \imagedestroy($resource);
                 }
                 break;
             case 'gif':
@@ -1453,7 +1463,7 @@ class sGalleryBuilder
                     } else {
                         $result = $this->hasTransparentPixel($resource);
                     }
-                    \imagedestroy($resource);
+                    if (PHP_VERSION_ID < 80500) \imagedestroy($resource);
                 }
                 break;
             case 'webp':
@@ -1461,7 +1471,7 @@ class sGalleryBuilder
                     $resource = @imagecreatefromwebp($path);
                     if ($resource) {
                         $result = $this->hasTransparentPixel($resource);
-                        \imagedestroy($resource);
+                        if (PHP_VERSION_ID < 80500) \imagedestroy($resource);
                     }
                 }
                 break;
