@@ -1,0 +1,29 @@
+name: Runtime regressions
+on: [push, pull_request]
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: evolution-cms/evolution
+          ref: 3.6.x
+          path: .test-core
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, dom, xml, sqlite3, pdo_sqlite, gd, intl, zip
+          coverage: none
+      - run: composer install --working-dir=.test-core/core --no-interaction --no-scripts --prefer-dist
+      - name: Run package regression scripts
+        env:
+          SGALLERY_AUTOLOAD: ${{ github.workspace }}/.test-core/core/vendor/autoload.php
+          SCOMMERCE_TEST_AUTOLOAD: ${{ github.workspace }}/.test-core/core/vendor/autoload.php
+          PACKAGE_AUTOLOAD: ${{ github.workspace }}/.test-core/core/vendor/autoload.php
+        run: |
+          for test in tests/runtime/*-test.php; do php "$test"; done
+          for test in tests/config-bootstrap.php tests/image-optimization.php tests/optional-stask.php tests/settings.php tests/template-assignments.php tests/watermark.php; do php "$test"; done

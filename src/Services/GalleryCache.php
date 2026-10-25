@@ -5,20 +5,38 @@ use Seiger\sGallery\Models\sGalleryModel;
 /** Track owned image derivatives so cache clearing cannot remove original media. @since 1.7.0 */
 class GalleryCache
 {
-    /** Record generated or reused derivatives, without changing their source. @since 1.7.0 */
-    public static function remember(string $source, string $output): void
+    /** @var array<string, bool> Index directories verified in this process; cleared with owned derivatives. */
+    private static array $readyDirectories = [];
+    /**
+     * Record generated or reused derivatives without changing their source.
+     * Callers may reuse a just-completed file validation. Missing index directories are
+     * repaired after write failure, including external removal in a long-running process.
+     * @param string $source Original media path.
+     * @param string $output Owned derivative path inside the configured cache.
+     * @param bool $validated Whether this caller has just validated the derivative file.
+     * @return void
+     * @since 1.7.0
+     */
+    public static function remember(string $source, string $output, bool $validated = false): void
     {
         $cache = sGalleryModel::imageCacheDir();
-        if ($source === $output || !str_starts_with($output, $cache) || !is_file(EVO_BASE_PATH . $output)) return;
+        if ($source === $output || !str_starts_with($output, $cache) || (!$validated && !is_file(EVO_BASE_PATH . $output))) return;
         $directory = EVO_BASE_PATH . $cache . '.sgallery-index/';
-        if (!is_dir($directory) && !@mkdir($directory, 0755, true)) return;
+        if (!self::ensureDirectory($directory)) return;
         $marker = $directory . hash('sha256', $output) . '.json';
-        if (!is_file($marker)) @file_put_contents($marker, json_encode(['source' => $source, 'output' => $output], JSON_UNESCAPED_SLASHES), LOCK_EX);
+        if (!is_file($marker)) {
+            $entry = json_encode(['source' => $source, 'output' => $output], JSON_UNESCAPED_SLASHES);
+            if (@file_put_contents($marker, $entry, LOCK_EX) === false) {
+                unset(self::$readyDirectories[$directory]);
+                if (self::ensureDirectory($directory)) @file_put_contents($marker, $entry, LOCK_EX);
+            }
+        }
     }
 
     /** Remove only indexed derivatives within the active cache, excluding all recorded sources. @since 1.7.0 */
     public static function clear(): int
     {
+        self::$readyDirectories = [];
         $relative = sGalleryModel::imageCacheDir();
         $site = realpath(EVO_BASE_PATH);
         $root = realpath(EVO_BASE_PATH . $relative);
@@ -47,4 +65,17 @@ class GalleryCache
         }
         return $count;
     }
+    /**
+     * Avoid checking the same index directory once per card; failures remain retryable.
+     * @param string $directory Absolute index directory for the current cache root.
+     * @return bool Whether an existing or newly created directory is available.
+     * @since 1.8.0
+     */
+    private static function ensureDirectory(string $directory): bool
+    {
+        if (isset(self::$readyDirectories[$directory])) return true;
+        if (!is_dir($directory) && !@mkdir($directory, 0755, true)) return false;
+        return self::$readyDirectories[$directory] = true;
+    }
+
 }

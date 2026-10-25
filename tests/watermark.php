@@ -10,13 +10,17 @@ function storage_path($path) {return $GLOBALS['root'] . '/storage/' . $path;}
 function evo() { return new class { public function getConfig($key, $default = null) {return $default;} public function make($key) {throw new RuntimeException('No optional worker');} }; }
 $loader = require getenv('SGALLERY_AUTOLOAD');
 $loader->setPsr4('Seiger\\sGallery\\', dirname(__DIR__) . '/src');
+$loader->addClassMap([
+    \Seiger\sGallery\Builders\sGalleryBuilder::class => dirname(__DIR__) . '/src/Builders/sGalleryBuilder.php',
+    \Seiger\sGallery\Services\GalleryCache::class => dirname(__DIR__) . '/src/Services/GalleryCache.php',
+]);
 $container = new \Illuminate\Container\Container();
 \Illuminate\Support\Facades\Facade::setFacadeApplication($container);
 $container->instance('log', new class {public function warning($m) {} public function error($m) {throw new RuntimeException($m);} });
 $check = static function ($ok, $message) { if (!$ok) throw new RuntimeException($message); };
 try {
-    $source = imagecreatetruecolor(100, 100); imagefill($source, 0, 0, imagecolorallocate($source, 0, 0, 255)); imagepng($source, $root . '/assets/source.png'); imagedestroy($source);
-    $mark = imagecreatetruecolor(20, 20); imagefill($mark, 0, 0, imagecolorallocate($mark, 255, 0, 0)); imagepng($mark, $root . '/assets/mark.png'); imagedestroy($mark);
+    $source = imagecreatetruecolor(100, 100); imagefill($source, 0, 0, imagecolorallocate($source, 0, 0, 255)); imagepng($source, $root . '/assets/source.png'); if (PHP_VERSION_ID < 80500) imagedestroy($source);
+    $mark = imagecreatetruecolor(20, 20); imagefill($mark, 0, 0, imagecolorallocate($mark, 255, 0, 0)); imagepng($mark, $root . '/assets/mark.png'); if (PHP_VERSION_ID < 80500) imagedestroy($mark);
     $original = hash_file('sha256', $root . '/assets/source.png');
     $build = static fn() => (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/source.png')->fit('crop', 80, 80)->format('png')->optimize(false);
     $url = $build()->watermark()->getFile();
@@ -24,14 +28,14 @@ try {
     $check(is_file($path), 'Watermarked derivative exists');
     $result = imagecreatefrompng($path);
     $check(imagesx($result) === 80 && imagesy($result) === 80, 'Resize before watermark');
-    $pixel = imagecolorat($result, 70, 70); imagedestroy($result);
+    $pixel = imagecolorat($result, 70, 70); if (PHP_VERSION_ID < 80500) imagedestroy($result);
     $check((($pixel >> 16) & 255) > 200 && ($pixel & 255) < 50, 'Watermark pixels appear in bottom-right');
     $check($build()->watermark([])->getFile() === $url, 'Options-only call uses default watermark');
     $check($build()->watermark('assets/mark.png', [])->getFile() === $url, 'Explicit watermark call matches default');
     // Fractional percentage results previously raised PHP float-to-int deprecations in Spatie.
     $fractional = imagecreatetruecolor(306, 270);
     imagefill($fractional, 0, 0, imagecolorallocate($fractional, 0, 0, 255));
-    imagepng($fractional, $root . '/assets/fractional.png'); imagedestroy($fractional);
+    imagepng($fractional, $root . '/assets/fractional.png'); if (PHP_VERSION_ID < 80500) imagedestroy($fractional);
     $fractionalImage = \Spatie\Image\Image::load($root . '/assets/fractional.png');
     set_error_handler(static function ($severity, $message, $file, $line) {
         if ($severity === E_DEPRECATED) throw new ErrorException($message, 0, $severity, $file, $line);
@@ -48,10 +52,10 @@ try {
     $pixel = imagecolorsforindex($fractional, imagecolorat($fractional, 296, 261));
     $outside = imagecolorsforindex($fractional, imagecolorat($fractional, 297, 262));
     $check($pixel['red'] > 200 && $outside['blue'] > 200, 'Percentage watermark uses truncated width and separate horizontal/vertical padding without deprecations');
-    imagedestroy($fractional);
+    if (PHP_VERSION_ID < 80500) imagedestroy($fractional);
     $before = filemtime($path); $check($build()->watermark()->getFile() === $url && filemtime($path) === $before, 'Repeated call reuses cache');
     $check($build()->watermark(['position' => 'top-left'])->getFile() !== $url, 'Options affect cache');
-    $mark = imagecreatetruecolor(20, 20); imagefill($mark, 0, 0, imagecolorallocate($mark, 0, 255, 0)); imagepng($mark, $root . '/assets/mark.png'); imagedestroy($mark);
+    $mark = imagecreatetruecolor(20, 20); imagefill($mark, 0, 0, imagecolorallocate($mark, 0, 255, 0)); imagepng($mark, $root . '/assets/mark.png'); if (PHP_VERSION_ID < 80500) imagedestroy($mark);
     $check($build()->watermark()->getFile() !== $url, 'Replacement watermark under same name invalidates cache');
     $check(hash_file('sha256', $root . '/assets/source.png') === $original, 'Original unchanged');
     $reusable = $build()->format('original')->watermark('assets/mark.png');
@@ -72,7 +76,7 @@ try {
     $alpha = imagecreatetruecolor(100, 100);
     imagealphablending($alpha, false); imagesavealpha($alpha, true);
     imagefill($alpha, 0, 0, imagecolorallocatealpha($alpha, 0, 0, 255, 80));
-    imagepng($alpha, $root . '/assets/source.png'); imagedestroy($alpha);
+    imagepng($alpha, $root . '/assets/source.png'); if (PHP_VERSION_ID < 80500) imagedestroy($alpha);
     $url = $build()->format('original')->watermark('assets/mark.png')->getFile();
     $check(getimagesize($root . '/' . substr($url, strlen(EVO_SITE_URL)))['mime'] === 'image/png', 'Original format preserves transparent source as PNG');
     file_put_contents($root . '/cache/unrelated.txt', 'preserve');

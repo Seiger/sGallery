@@ -37,6 +37,10 @@ namespace {
     if (!$autoload || !is_file($autoload)) { throw new RuntimeException('Set SGALLERY_AUTOLOAD to the site Composer autoload.php'); }
     $loader = require $autoload;
     $loader->setPsr4('Seiger\\sGallery\\', dirname(__DIR__) . '/src');
+$loader->addClassMap([
+    \Seiger\sGallery\Builders\sGalleryBuilder::class => dirname(__DIR__) . '/src/Builders/sGalleryBuilder.php',
+    \Seiger\sGallery\Services\GalleryCache::class => dirname(__DIR__) . '/src/Services/GalleryCache.php',
+]);
     $loader->addClassMap([\Seiger\sGallery\Builders\sGalleryBuilder::class => dirname(__DIR__) . '/src/Builders/sGalleryBuilder.php']);
     $container = new \Illuminate\Container\Container();
     \Illuminate\Container\Container::setInstance($container);
@@ -88,7 +92,7 @@ namespace {
     try {
         $source = EVO_BASE_PATH . 'assets/images/test.jpg';
         $gd = imagecreatetruecolor(32, 32);
-        imagejpeg($gd, $source); imagedestroy($gd);
+        imagejpeg($gd, $source); if (PHP_VERSION_ID < 80500) imagedestroy($gd);
         $builder = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/images/test.jpg')->format('webp')->optimize(false);
         $url = $builder->getFile();
         $output = EVO_BASE_PATH . substr($url, strlen(EVO_SITE_URL));
