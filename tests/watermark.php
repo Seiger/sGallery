@@ -28,8 +28,9 @@ try {
     $check(is_file($path), 'Watermarked derivative exists');
     $result = imagecreatefrompng($path);
     $check(imagesx($result) === 80 && imagesy($result) === 80, 'Resize before watermark');
-    $pixel = imagecolorat($result, 70, 70); if (PHP_VERSION_ID < 80500) imagedestroy($result);
-    $check((($pixel >> 16) & 255) > 200 && ($pixel & 255) < 50, 'Watermark pixels appear in bottom-right');
+    // Imagick may emit an indexed PNG; resolve both palette indexes and true-color values.
+    $pixel = imagecolorsforindex($result, imagecolorat($result, 70, 70)); if (PHP_VERSION_ID < 80500) imagedestroy($result);
+    $check($pixel['red'] > 200 && $pixel['blue'] < 50, 'Watermark pixels appear in bottom-right');
     $check($build()->watermark([])->getFile() === $url, 'Options-only call uses default watermark');
     $check($build()->watermark('assets/mark.png', [])->getFile() === $url, 'Explicit watermark call matches default');
     // Fractional percentage results previously raised PHP float-to-int deprecations in Spatie.
