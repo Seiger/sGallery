@@ -181,6 +181,9 @@ class sGalleryBuilder
      */
     public function watermark(string|array|null $file = null, array $options = []): self
     {
+        if (!class_exists(Image::class)) {
+            return $this;
+        }
         if (is_array($file)) { $options = $file; $file = null; }
         $defaults = (array) config('seiger.settings.sGallery.watermark', []);
         $file = $file ?? ($defaults['file'] ?? '');
@@ -276,6 +279,9 @@ class sGalleryBuilder
      */
     public function fit(string $method, int $width, int|null $height = null): self
     {
+        if (!class_exists(Image::class)) {
+            return $this->resize($width, $height);
+        }
         $height = $height ?: $width;
 
         $fitMethods = [
@@ -304,6 +310,9 @@ class sGalleryBuilder
      */
     public function crop(string $method, int $width, int|null $height = null): self
     {
+        if (!class_exists(Image::class)) {
+            return $this->resize($width, $height);
+        }
         $height = $height ?: $width;
 
         $cropMethods = [
@@ -439,6 +448,9 @@ class sGalleryBuilder
         $sourceFile = $this->file;
         $this->optimizationStartedAt = microtime(true);
         if (($this->file !== null && file_exists(EVO_BASE_PATH . $this->file)) || sGallery::hasLink($this->file)) {
+            if (!class_exists(Image::class)) {
+                return $this->originalImageUrl();
+            }
             $extension = strtolower(pathinfo(EVO_BASE_PATH . $this->file, PATHINFO_EXTENSION));
 
             if ($this->params !== null && !in_array($extension, ['svg'])) {
@@ -830,6 +842,9 @@ class sGalleryBuilder
      */
     public function processOptimization(array $job): string
     {
+        if (!class_exists(Image::class)) {
+            throw new \RuntimeException('Image optimization requires the optional spatie/image package (^3).');
+        }
         $file = (string) ($job['file'] ?? '');
         if ($file === '' || preg_match('~(^/|^[a-z]+:|(^|[\\\\/])\.\.([\\\\/]|$))~i', $file) ||
             !is_file(EVO_BASE_PATH . $file)) {

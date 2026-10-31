@@ -26,7 +26,14 @@ class Watermark
         $defaults = ['position' => 'bottom-right', 'width' => '20%', 'opacity' => 100, 'padding' => '3%'];
         $options = array_replace($defaults, $options);
         if (array_diff(array_keys($options), array_keys($defaults))) throw new \InvalidArgumentException('Unknown watermark option.');
-        AlignPosition::from($options['position']);
+        $positions = ['top', 'top-center', 'top-middle', 'center-top', 'middle-top',
+            'top-right', 'right-top', 'left', 'left-center', 'left-middle', 'center-left',
+            'middle-left', 'right', 'right-center', 'right-middle', 'center-right',
+            'middle-right', 'bottom-left', 'left-bottom', 'bottom', 'bottomCenter',
+            'bottom-middle', 'center-bottom', 'middle-bottom', 'bottom-right',
+            'right-bottom', 'center', 'middle', 'centerCenter', 'middleMiddle',
+            'top-left', 'left-top'];
+        if (!in_array($options['position'], $positions, true)) throw new \ValueError('Invalid watermark position.');
         foreach (['width', 'padding'] as $key) {
             if (!preg_match('/^\d+(?:%|px)?$/D', (string)$options[$key])) throw new \InvalidArgumentException('Watermark dimensions require integer pixels or percentages.');
             $n = (int)$options[$key];

@@ -53,6 +53,30 @@ a format that is not listed you are probably fine to use it but your mileage may
 - Composer **2.2+**
 - One of: **MySQL 8.0+** / **MariaDB 10.5+** / **PostgreSQL 10+** / **SQLite 3.25+**
 
+### Optional image processing
+
+`spatie/image` is optional. Without it, the gallery serves original files. Calls to
+resize, fit, crop, convert, optimize or watermark images safely return the original
+URL, and background image optimization is unavailable. Missing files still use the
+normal placeholder. Gallery uploads, collections and settings remain available.
+
+To enable image transformations, install version 3 from the site's `core/` directory:
+
+```console
+composer require spatie/image:^3
+```
+
+The gallery itself does not require EXIF. If you choose to install `spatie/image`
+without EXIF, its Composer requirement needs an explicit opt-out:
+
+```console
+composer require spatie/image:^3 --ignore-platform-req=ext-exif
+```
+
+Include that flag in subsequent Composer install/update commands on that server.
+With GD, automatic camera-photo rotation requires EXIF; without it, transformations
+preserve stored pixel orientation.
+
 ## Install by artisan package installer
 
 Go to You /core/ folder:
