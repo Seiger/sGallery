@@ -3,9 +3,7 @@
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Seiger\sGallery\Builders\sGalleryBuilder;
-use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
-use Spatie\Image\Enums\Fit;
 
 /**
  * Class sGallery
