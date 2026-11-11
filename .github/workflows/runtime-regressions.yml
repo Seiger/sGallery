@@ -29,11 +29,11 @@ jobs:
         run: |
           for test in tests/runtime/*-test.php; do php "$test"; done
           for test in tests/config-bootstrap.php tests/image-optimization.php tests/optional-stask.php tests/settings.php tests/template-assignments.php tests/watermark.php; do php "$test"; done
-      - name: Disable optional EXIF extension
+      - name: Select GD without EXIF
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: ':exif'
+          extensions: "gd, :exif, :imagick"
           coverage: none
       - name: Run without EXIF
         env:

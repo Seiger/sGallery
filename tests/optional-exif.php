@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-if (extension_loaded('exif')) {
-    throw new RuntimeException('Run this regression with the EXIF extension disabled');
+if (extension_loaded('exif') || extension_loaded('imagick') || !extension_loaded('gd')) {
+    throw new RuntimeException('Run this regression with GD enabled and EXIF and Imagick disabled');
 }
 
 require __DIR__ . '/runtime/thumbnail-test.php';
