@@ -132,15 +132,22 @@ function runReady($class, $format, $file = 'media/photo.jpg')
 {
     return (string) (new $class())->file($file)->fit('max', 768, 504)->quality(85)->format($format);
 }
-$cases = [['avif', ['avif' => 150], 'ready AVIF'], ['avif', ['avif' => 100], 'AVIF 100-byte boundary'], ['avif', ['avif' => 99, 'webp' => 150], 'small AVIF uses WebP'], ['avif', ['webp' => 150], 'missing AVIF uses WebP'], ['avif', ['avif' => 0, 'webp' => 150], 'empty AVIF uses WebP'], ['avif', ['avif' => 99, 'webp' => 100], 'small AVIF/WebP boundary'], ['avif', ['avif' => 99], 'small AVIF generates WebP fallback'], ['webp', ['webp' => 150], 'ready WebP'], ['original', ['jpg' => 150], 'ready original JPEG'], ['webp', ['webp' => 0], 'empty WebP regenerated'], ['webp', [], 'missing WebP generated']];
-foreach ($cases as [$format, $files, $label]) {
+$cases = [
+    ['avif', ['avif' => 150, 'webp' => 150], 'webp', 'mislabeled AVIF uses cached WebP'],
+    ['avif', ['webp' => 150], 'webp', 'missing AVIF uses cached WebP'],
+    ['avif', ['avif' => 0, 'webp' => 150], 'webp', 'empty AVIF uses cached WebP'],
+    ['webp', ['webp' => 150], 'webp', 'ready WebP'],
+    ['original', ['jpg' => 150], 'jpg', 'ready original JPEG'],
+    ['webp', ['webp' => 0], 'webp', 'empty WebP regenerated'],
+    ['webp', [], 'webp', 'missing WebP generated'],
+];
+foreach ($cases as [$format, $files, $ext, $label]) {
     seedReady($files);
     $b = runReady(NewReady::class, $format);
-    $ext = $format === 'original' ? 'jpg' : ($format === 'avif' && (($files['avif'] ?? 0) >= 100 || ($files['avif'] ?? 0) > 0 && ($files['webp'] ?? 0) === 100) ? 'avif' : 'webp');
     ckReady($b === EVO_SITE_URL . 'assets/cache/m/photo-max-768x504-q85.' . $ext, 'expected URL: ' . $label);
-    if (in_array($label, ['empty WebP regenerated', 'missing WebP generated', 'small AVIF generates WebP fallback'])) {
+    if (in_array($label, ['empty WebP regenerated', 'missing WebP generated'])) {
         $path = str_replace(EVO_SITE_URL, EVO_BASE_PATH, $b);
-        ckReady(is_file($path) && filesize($path) > 100 && getimagesize($path) !== false, 'generated output validated: ' . $label);
+        ckReady(is_file($path) && (getimagesize($path)[2] ?? null) === IMAGETYPE_WEBP, 'generated output validated: ' . $label);
     }
 }
 foreach (['media/icon.svg', 'absent.jpg'] as $f) {
