@@ -5,11 +5,21 @@ use Seiger\sGallery\Models\sGalleryModel;
 /** Track owned image derivatives so cache clearing cannot remove original media. @since 1.7.0 */
 class GalleryCache
 {
-    /** Record generated or reused derivatives, without changing their source. @since 1.7.0 */
-    public static function remember(string $source, string $output): void
+    /**
+     * Record generated or reused derivatives without changing their source.
+     * Callers may reuse a just-completed file validation. Missing index directories are
+     * repaired after write failure, including external removal in a long-running process.
+     * @param string $source Original media path.
+     * @param string $output Owned derivative path inside the configured cache.
+     * @param bool $validated Whether this caller has just validated the derivative file.
+     * @return void
+     * @since 1.7.0
+     */
+    public static function remember(string $source, string $output, bool $validated = false): void
     {
         $cache = sGalleryModel::imageCacheDir();
-        if ($source === $output || !str_starts_with($output, $cache) || !is_file(EVO_BASE_PATH . $output)) return;
+        if ($source === $output || !str_starts_with($output, $cache) ||
+            (!$validated && GalleryFiles::local($output) === null)) return;
         $directory = GalleryFiles::directory($cache . '.sgallery-index', true);
         if ($directory === null) return;
         $marker = $directory . DIRECTORY_SEPARATOR . hash('sha256', $output) . '.json';

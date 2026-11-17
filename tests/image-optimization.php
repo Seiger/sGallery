@@ -8,6 +8,12 @@ namespace Seiger\sGallery\Builders {
         $GLOBALS['clock'] += $GLOBALS['clock_step'];
         return $GLOBALS['clock'];
     }
+
+    /** Simulate an encoder reporting success while writing JPEG during the AVIF probe. @since 1.9.0 */
+    function imageavif(\GdImage $image, $file): bool
+    {
+        return !empty($GLOBALS['mislabel_avif_probe']) ? \imagejpeg($image, $file) : \imageavif($image, $file);
+    }
 }
 
 namespace {
@@ -37,7 +43,10 @@ namespace {
     if (!$autoload || !is_file($autoload)) { throw new RuntimeException('Set SGALLERY_AUTOLOAD to the site Composer autoload.php'); }
     $loader = require $autoload;
     $loader->setPsr4('Seiger\\sGallery\\', dirname(__DIR__) . '/src');
-    $loader->addClassMap([\Seiger\sGallery\Builders\sGalleryBuilder::class => dirname(__DIR__) . '/src/Builders/sGalleryBuilder.php']);
+    $loader->addClassMap([
+        \Seiger\sGallery\Builders\sGalleryBuilder::class => dirname(__DIR__) . '/src/Builders/sGalleryBuilder.php',
+        \Seiger\sGallery\Services\GalleryCache::class => dirname(__DIR__) . '/src/Services/GalleryCache.php',
+    ]);
     $container = new \Illuminate\Container\Container();
     \Illuminate\Container\Container::setInstance($container);
     \Illuminate\Support\Facades\Facade::setFacadeApplication($container);
@@ -98,6 +107,33 @@ namespace {
         $url = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/images/test.jpg')->format('webp')->optimize(false)->getFile();
         clearstatcache();
         $check(filesize($output) > 0, 'Empty cache must regenerate');
+
+        if (function_exists('imageavif') && (imagetypes() & IMG_AVIF) !== 0) {
+            $requestAvif = static fn (): string => (new \Seiger\sGallery\Builders\sGalleryBuilder())
+                ->file('assets/images/test.jpg')->resize(24, 24)->format('avif')->optimize(false)->getFile();
+            $avifUrl = $requestAvif();
+            $avifPath = EVO_BASE_PATH . substr($avifUrl, strlen(EVO_SITE_URL));
+            $check(str_ends_with($avifUrl, '.avif') && (getimagesize($avifPath)[2] ?? null) === IMAGETYPE_AVIF,
+                'Explicit AVIF must write actual AVIF when an encoder works');
+            copy($source, $avifPath);
+            $check($requestAvif() === $avifUrl && (getimagesize($avifPath)[2] ?? null) === IMAGETYPE_AVIF,
+                'A cached JPEG with an AVIF filename must be regenerated');
+
+            if (!extension_loaded('imagick')) {
+                $driver = new \ReflectionProperty(\Seiger\sGallery\Builders\sGalleryBuilder::class, 'avifSupportDriver');
+                $driver->setValue(null, null);
+                $GLOBALS['mislabel_avif_probe'] = true;
+                try {
+                    $fallbackUrl = $requestAvif();
+                    $fallbackPath = EVO_BASE_PATH . substr($fallbackUrl, strlen(EVO_SITE_URL));
+                    $check(str_ends_with($fallbackUrl, '.webp') && (getimagesize($fallbackPath)[2] ?? null) === IMAGETYPE_WEBP,
+                        'An encoder that reports success but emits JPEG must fall back to actual WebP');
+                } finally {
+                    $GLOBALS['mislabel_avif_probe'] = false;
+                    $driver->setValue(null, null);
+                }
+            }
+        }
 
         $save = new \ReflectionMethod(\Seiger\sGallery\Builders\sGalleryBuilder::class, 'saveWebpImage');
         $background = new \ReflectionProperty(\Seiger\sGallery\Builders\sGalleryBuilder::class, 'backgroundOptimization');

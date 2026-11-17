@@ -10,6 +10,10 @@ function storage_path($path) {return $GLOBALS['root'] . '/storage/' . $path;}
 function evo() { return new class { public function getConfig($key, $default = null) {return $default;} public function make($key) {throw new RuntimeException('No optional worker');} }; }
 $loader = require getenv('SGALLERY_AUTOLOAD');
 $loader->setPsr4('Seiger\\sGallery\\', dirname(__DIR__) . '/src');
+$loader->addClassMap([
+    \Seiger\sGallery\Builders\sGalleryBuilder::class => dirname(__DIR__) . '/src/Builders/sGalleryBuilder.php',
+    \Seiger\sGallery\Services\GalleryCache::class => dirname(__DIR__) . '/src/Services/GalleryCache.php',
+]);
 $container = new \Illuminate\Container\Container();
 \Illuminate\Support\Facades\Facade::setFacadeApplication($container);
 $container->instance('log', new class {public function warning($m) {} public function error($m) {throw new RuntimeException($m);} });
@@ -24,8 +28,9 @@ try {
     $check(is_file($path), 'Watermarked derivative exists');
     $result = imagecreatefrompng($path);
     $check(imagesx($result) === 80 && imagesy($result) === 80, 'Resize before watermark');
-    $pixel = imagecolorat($result, 70, 70); unset($result);
-    $check((($pixel >> 16) & 255) > 200 && ($pixel & 255) < 50, 'Watermark pixels appear in bottom-right');
+    // Imagick may emit an indexed PNG; resolve both palette indexes and true-color values.
+    $pixel = imagecolorsforindex($result, imagecolorat($result, 70, 70)); unset($result);
+    $check($pixel['red'] > 200 && $pixel['blue'] < 50, 'Watermark pixels appear in bottom-right');
     $check($build()->watermark([])->getFile() === $url, 'Options-only call uses default watermark');
     $check($build()->watermark('assets/mark.png', [])->getFile() === $url, 'Explicit watermark call matches default');
     // Fractional percentage results previously raised PHP float-to-int deprecations in Spatie.

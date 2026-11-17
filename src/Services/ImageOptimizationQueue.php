@@ -17,6 +17,9 @@ class ImageOptimizationQueue
     /** Check required runtime contracts and recent runner invocation. @since 1.6.0 */
     public function available(): bool
     {
+        if (!class_exists(\Spatie\Image\Image::class)) {
+            return false;
+        }
         foreach ([\Seiger\sTask\Facades\sTask::class, \Seiger\sTask\sTask::class,
             \Seiger\sTask\Workers\BaseWorker::class, \Seiger\sTask\Models\sTaskModel::class,
             \Seiger\sTask\Models\sWorker::class] as $class) {
@@ -59,6 +62,9 @@ class ImageOptimizationQueue
      */
     public function defer(array $job): bool
     {
+        if (!class_exists(\Spatie\Image\Image::class)) {
+            return false;
+        }
         $lock = null;
         try {
             $prefix = $this->prefix($job);

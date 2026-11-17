@@ -188,6 +188,9 @@ class sGalleryBuilder
      */
     public function watermark(string|array|null $file = null, array $options = []): self
     {
+        if (!class_exists(Image::class)) {
+            return $this;
+        }
         if (is_array($file)) { $options = $file; $file = null; }
         $defaults = (array) config('seiger.settings.sGallery.watermark', []);
         $file = $file ?? ($defaults['file'] ?? '');
@@ -280,6 +283,9 @@ class sGalleryBuilder
      */
     public function fit(string $method, int $width, int|null $height = null): self
     {
+        if (!class_exists(Image::class)) {
+            return $this->resize($width, $height);
+        }
         $this->setDimensions($width, $height ?: $width);
 
         $fitMethods = [
@@ -306,6 +312,9 @@ class sGalleryBuilder
      */
     public function crop(string $method, int $width, int|null $height = null): self
     {
+        if (!class_exists(Image::class)) {
+            return $this->resize($width, $height);
+        }
         $this->setDimensions($width, $height ?: $width);
 
         $cropMethods = [
@@ -459,6 +468,9 @@ class sGalleryBuilder
         $this->optimizationStartedAt = microtime(true);
         $localPath = $sourceFile === null ? null : GalleryFiles::local($sourceFile);
         if ($localPath !== null) {
+            if (!class_exists(Image::class)) {
+                return $this->originalImageUrl();
+            }
             $extension = strtolower(pathinfo($localPath, PATHINFO_EXTENSION));
 
             if ($this->params !== null && !in_array($extension, ['svg'])) {
@@ -518,222 +530,145 @@ class sGalleryBuilder
                 if (is_link($cachedPath)) {
                     return sGalleryModel::NOIMAGE;
                 }
-                if ($format === 'avif' && (!is_file($cachedPath) || filesize($cachedPath) < 100)) {
+                $cachedSize = is_file($cachedPath) ? filesize($cachedPath) : false;
+                if ($cachedSize > 0 && ($format !== 'avif' || $this->isAvifFile($cachedPath))) {
+                    $output = $chacheFile . $imageName;
+                    \Seiger\sGallery\Services\GalleryCache::remember($sourceFile, $output, true);
+                    return GalleryFiles::url($output);
+                }
+                if ($format === 'avif') {
                     $fallbackName = preg_replace('/\.avif$/i', '.webp', $imageName);
-                    $fallbackPath = EVO_BASE_PATH . $chacheFile . $fallbackName;
+                    $fallbackPath = $cacheDirectory . DIRECTORY_SEPARATOR . $fallbackName;
                     if (!is_link($fallbackPath) && is_file($fallbackPath) && filesize($fallbackPath) > 100) {
-                        \Seiger\sGallery\Services\GalleryCache::remember($sourceFile, $chacheFile . $fallbackName);
-                        return GalleryFiles::url($chacheFile . $fallbackName);
+                        $output = $chacheFile . $fallbackName;
+                        \Seiger\sGallery\Services\GalleryCache::remember($sourceFile, $output, true);
+                        return GalleryFiles::url($output);
                     }
                 }
-                if (!is_file($cachedPath) || filesize($cachedPath) === 0) {
-                    $this->optimizationJob = $this->optimizationDescriptor($format);
-                    if (!$this->backgroundOptimization && $this->optimizationJob !== [] &&
-                        (new ImageOptimizationQueue())->heavy($this->optimizationJob)) {
-                        (new ImageOptimizationQueue())->defer($this->optimizationJob);
-                        return $this->originalImageUrl();
-                    }
-                    $encodingPath = null;
+                // The cache is missing, empty or mislabeled.
+                $this->optimizationJob = $this->optimizationDescriptor($format);
+                if (!$this->backgroundOptimization && $this->optimizationJob !== [] &&
+                    (new ImageOptimizationQueue())->heavy($this->optimizationJob)) {
+                    (new ImageOptimizationQueue())->defer($this->optimizationJob);
+                    return $this->originalImageUrl();
+                }
+                $encodingPath = null;
 
-                    try {
-                        $file = $localPath;
-                        $this->sourceHasAlpha = $this->detectAlphaChannelFromPath($file);
-                        // Use appropriate driver based on format and AVIF support
-                        if ($format === 'avif') {
-                            // Ensure AVIF support is checked and driver is determined
-                            if (self::$avifSupportDriver === null) {
-                                $this->isAvifSupported();
-                            }
+                try {
+                    $file = $localPath;
+                    $this->sourceHasAlpha = $this->detectAlphaChannelFromPath($file);
+                    // Use appropriate driver based on format and AVIF support
+                    if ($format === 'avif') {
+                        // Ensure AVIF support is checked and driver is determined
+                        if (self::$avifSupportDriver === null) {
+                            $this->isAvifSupported();
+                        }
 
-                            // Use the driver that supports AVIF
-                            if (self::$avifSupportDriver === 'imagick') {
-                                $image = Image::useImageDriver(ImageDriver::Imagick)->loadFile($file);
-                            } elseif (self::$avifSupportDriver === 'gd') {
-                                $image = Image::useImageDriver(ImageDriver::Gd)->loadFile($file);
-                            } else {
-                                // AVIF not supported, fallback to WebP
-                                $format = 'webp';
-                                $imageName = preg_replace('/\.avif$/i', '.webp', $imageName);
-                                $image = Image::load($file);
-                            }
+                        // Use the driver that supports AVIF
+                        if (self::$avifSupportDriver === 'imagick') {
+                            $image = Image::useImageDriver(ImageDriver::Imagick)->loadFile($file);
+                        } elseif (self::$avifSupportDriver === 'gd') {
+                            $image = Image::useImageDriver(ImageDriver::Gd)->loadFile($file);
                         } else {
+                            // AVIF not supported, fallback to WebP
+                            $format = 'webp';
+                            $imageName = preg_replace('/\.avif$/i', '.webp', $imageName);
                             $image = Image::load($file);
                         }
-
-                        // Apply image transformations based on parameters
-                        if (isset($this->params['fit']) && isset($this->params['w']) && isset($this->params['h'])) {
-                            $image->fit($this->params['fit'], $this->params['w'], $this->params['h']);
-                        } elseif (isset($this->params['crop']) && isset($this->params['w']) && isset($this->params['h'])) {
-                            $image->crop($this->params['w'], $this->params['h'], $this->params['crop']);
-                        } elseif (isset($this->params['focalCenterX']) && isset($this->params['focalCenterY']) && isset($this->params['w']) && isset($this->params['h'])) {
-                            $image->focalCrop($this->params['w'], $this->params['h'], $this->params['focalCenterX'], $this->params['focalCenterY']);
-                        } elseif (isset($this->params['startX']) && isset($this->params['startY']) && isset($this->params['w']) && isset($this->params['h'])) {
-                            $image->manualCrop($this->params['w'], $this->params['h'], $this->params['startX'], $this->params['startY']);
-                        } elseif (isset($this->params['w']) && isset($this->params['h'])) {
-                            $image->width($this->params['w'])->height($this->params['h']);
-                        }
-
-                        if (isset($this->params['sharpen']) && $this->params['sharpen'] > 0) {
-                            $image->sharpen($this->params['sharpen']);
-                        }
-
-                        if (isset($this->params['watermark'])) {
-                            \Seiger\sGallery\Services\Watermark::apply($image, $this->params['watermark']);
-                        }
-
-                        if (!empty($this->params['optimize'])) {
-                            $image->optimize();
-                        }
-
-                        $this->checkOptimizationBudget();
-
-                        $atomicSuffix = isset($this->params['watermark']) ? '.pending-' . bin2hex(random_bytes(6)) : '';
-                        $encodingPath = EVO_BASE_PATH . $chacheFile . $imageName . $atomicSuffix;
-                        // Handle AVIF format with custom transparency support
-                        if ($format === 'avif') {
-                            $image->quality($this->quality);
-
-                            // Check if original file has transparency (PNG, GIF, WebP)
-                            $originalExtension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-                            $hasTransparency = in_array($originalExtension, ['png', 'gif', 'webp']);
-
-                            $avifPath = $encodingPath;
-                            $avifCreated = false;
-
-                            try {
-                                if ($hasTransparency) {
-                                    $this->saveAvifWithTransparency($image, $avifPath);
-                                } else {
-                                    $image->format($format)->save($avifPath);
-                                }
-
-                                // Verify AVIF file was created and is valid
-                                if (file_exists($avifPath)) {
-                                    $fileSize = filesize($avifPath);
-                                    if ($fileSize > 100) {
-                                        $avifCreated = true;
-                                    } else {
-                                        // File exists but is too small, likely failed
-                                        @unlink($avifPath);
-                                    }
-                                }
-
-                                if (!$avifCreated) {
-                                    throw new \Exception('AVIF file creation failed or file is too small');
-                                }
-                            } catch (\Exception $e) {
-                                if (($this->params['format'] ?? '') === 'original') throw $e;
-                                // AVIF creation failed, fallback to WebP
-                                Log::warning("AVIF creation failed, falling back to WebP: " . $e->getMessage());
-
-                                // Clean up failed AVIF file if exists
-                                if (file_exists($avifPath)) {
-                                    @unlink($avifPath);
-                                }
-
-                                $format = 'webp';
-                                $imageName = preg_replace('/\.avif$/i', '.webp', $imageName);
-                                $encodingPath = EVO_BASE_PATH . $chacheFile . $imageName . $atomicSuffix;
-                                $this->saveWebpImage($image, $encodingPath);
-                            }
-                        } else {
-                            if ($format === 'webp') {
-                                $this->saveWebpImage($image, $encodingPath);
-                            } else {
-                                $image->quality($this->quality)->format($format)->save($encodingPath);
-                            }
-                        }
-                        if ($atomicSuffix !== '') {
-                            if (!is_file($encodingPath) || !getimagesize($encodingPath) || !rename($encodingPath, EVO_BASE_PATH . $chacheFile . $imageName)) {
-                                throw new \RuntimeException('Cannot publish watermarked image.');
-                            }
-                        }
-                        chmod(EVO_BASE_PATH . $chacheFile . $imageName, 0644 & ~umask());
-                    } catch (OptimizationDeferred $e) {
-                        return $this->originalImageUrl();
-                    } catch (\Exception $e) {
-                        Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
-                    } finally {
-                        if (isset($atomicSuffix) && $atomicSuffix !== '' && $encodingPath && is_file($encodingPath)) unlink($encodingPath);
+                    } else {
+                        $image = Image::load($file);
                     }
-                }
 
-                // Check if file exists and is valid
-                $finalPath = EVO_BASE_PATH . $chacheFile . $imageName;
-                clearstatcache();
-                if (is_file($finalPath) && filesize($finalPath) > 0) {
-                    // Check if AVIF file is valid (not empty or corrupted)
+                    // Apply image transformations based on parameters
+                    if (isset($this->params['fit']) && isset($this->params['w']) && isset($this->params['h'])) {
+                        $image->fit($this->params['fit'], $this->params['w'], $this->params['h']);
+                    } elseif (isset($this->params['crop']) && isset($this->params['w']) && isset($this->params['h'])) {
+                        $image->crop($this->params['w'], $this->params['h'], $this->params['crop']);
+                    } elseif (isset($this->params['focalCenterX']) && isset($this->params['focalCenterY']) && isset($this->params['w']) && isset($this->params['h'])) {
+                        $image->focalCrop($this->params['w'], $this->params['h'], $this->params['focalCenterX'], $this->params['focalCenterY']);
+                    } elseif (isset($this->params['startX']) && isset($this->params['startY']) && isset($this->params['w']) && isset($this->params['h'])) {
+                        $image->manualCrop($this->params['w'], $this->params['h'], $this->params['startX'], $this->params['startY']);
+                    } elseif (isset($this->params['w']) && isset($this->params['h'])) {
+                        $image->width($this->params['w'])->height($this->params['h']);
+                    }
+
+                    if (isset($this->params['sharpen']) && $this->params['sharpen'] > 0) {
+                        $image->sharpen($this->params['sharpen']);
+                    }
+
+                    if (isset($this->params['watermark'])) {
+                        \Seiger\sGallery\Services\Watermark::apply($image, $this->params['watermark']);
+                    }
+
+                    if (!empty($this->params['optimize'])) {
+                        $image->optimize();
+                    }
+
+                    $this->checkOptimizationBudget();
+
+                    $atomicSuffix = '.pending-' . bin2hex(random_bytes(6));
+                    $encodingPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName . $atomicSuffix . '.' . $format;
+                    // Handle AVIF format with custom transparency support
                     if ($format === 'avif') {
-                        $fileSize = filesize($finalPath);
-                        // If AVIF file is too small (likely corrupted or empty), try WebP fallback
-                        if ($fileSize < 100 && ($this->params['format'] ?? '') !== 'original') { // Less than 100 bytes is suspicious
-                            $webpImageName = preg_replace('/\.avif$/i', '.webp', $imageName);
-                            $webpPath = EVO_BASE_PATH . $chacheFile . $webpImageName;
+                        $image->quality($this->quality);
 
-                            // Try to create WebP version
-                            clearstatcache();
-                            if (is_link($webpPath)) {
-                                return sGalleryModel::NOIMAGE;
-                            }
-                            if (!is_file($webpPath) || filesize($webpPath) === 0) {
-                                try {
-                                    $originalFile = $localPath;
+                        // Check if original file has transparency (PNG, GIF, WebP)
+                        $originalExtension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+                        $hasTransparency = in_array($originalExtension, ['png', 'gif', 'webp']);
 
-                                    if (is_file($originalFile)) {
-                                        $webpImage = Image::load($originalFile);
-
-                                        // Apply same transformations
-                                        if (isset($this->params['fit']) && isset($this->params['w']) && isset($this->params['h'])) {
-                                            $webpImage->fit($this->params['fit'], $this->params['w'], $this->params['h']);
-                                        } elseif (isset($this->params['crop']) && isset($this->params['w']) && isset($this->params['h'])) {
-                                            $webpImage->crop($this->params['w'], $this->params['h'], $this->params['crop']);
-                                        } elseif (isset($this->params['focalCenterX']) && isset($this->params['focalCenterY']) && isset($this->params['w']) && isset($this->params['h'])) {
-                                            $webpImage->focalCrop($this->params['w'], $this->params['h'], $this->params['focalCenterX'], $this->params['focalCenterY']);
-                                        } elseif (isset($this->params['startX']) && isset($this->params['startY']) && isset($this->params['w']) && isset($this->params['h'])) {
-                                            $webpImage->manualCrop($this->params['w'], $this->params['h'], $this->params['startX'], $this->params['startY']);
-                                        } elseif (isset($this->params['w']) && isset($this->params['h'])) {
-                                            $webpImage->width($this->params['w'])->height($this->params['h']);
-                                        }
-
-                                        if (isset($this->params['sharpen']) && $this->params['sharpen'] > 0) {
-                                            $webpImage->sharpen($this->params['sharpen']);
-                                        }
-
-                                        if (isset($this->params['watermark'])) {
-                                            \Seiger\sGallery\Services\Watermark::apply($webpImage, $this->params['watermark']);
-                                        }
-                                        if (!empty($this->params['optimize'])) {
-                                            $webpImage->optimize();
-                                        }
-
-                                        $this->saveWebpImage($webpImage, $webpPath);
-                                        chmod($webpPath, 0644 & ~umask());
-                                    }
-
-                                } catch (OptimizationDeferred $e) {
-                                    return $this->originalImageUrl();
-                                } catch (\Exception $e) {
-                                    // WebP creation failed, continue with AVIF
-                                }
-                            }
-
-                            // Use WebP if it exists and is valid
-                            clearstatcache();
-                            if (is_file($webpPath) && filesize($webpPath) > 100) {
-                                $this->file = $chacheFile . $webpImageName;
+                        $avifPath = $encodingPath;
+                        try {
+                            if ($hasTransparency) {
+                                $this->saveAvifWithTransparency($image, $avifPath);
                             } else {
-                                // Use AVIF even if small (might be valid for very small images)
-                                $this->file = $chacheFile . $imageName;
+                                $image->format($format)->save($avifPath);
                             }
-                        } else {
-                            $this->file = $chacheFile . $imageName;
+
+                            if (!$this->isAvifFile($avifPath)) {
+                                throw new \RuntimeException('Encoder did not produce an AVIF image.');
+                            }
+                        } catch (\Exception $e) {
+                            if (is_file($avifPath)) {
+                                @unlink($avifPath);
+                            }
+                            if (($this->params['format'] ?? '') === 'original') throw $e;
+                            Log::warning("AVIF creation failed, falling back to WebP: " . $e->getMessage());
+
+                            $format = 'webp';
+                            $imageName = preg_replace('/\.avif$/i', '.webp', $imageName);
+                            $encodingPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName . $atomicSuffix;
+                            $this->saveWebpImage($image, $encodingPath);
                         }
                     } else {
-                        $this->file = $chacheFile . $imageName;
+                        if ($format === 'webp') {
+                            $this->saveWebpImage($image, $encodingPath);
+                        } else {
+                            $image->quality($this->quality)->format($format)->save($encodingPath);
+                        }
                     }
-                } else {
+                    if ($atomicSuffix !== '') {
+                        if (!is_file($encodingPath) || !getimagesize($encodingPath) || !rename($encodingPath, $cacheDirectory . DIRECTORY_SEPARATOR . $imageName)) {
+                            throw new \RuntimeException('Cannot publish generated image.');
+                        }
+                    }
+                    chmod($cacheDirectory . DIRECTORY_SEPARATOR . $imageName, 0644 & ~umask());
+                } catch (OptimizationDeferred $e) {
+                    return $this->originalImageUrl();
+                } catch (\Exception $e) {
+                    Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+                } finally {
+                    if (isset($atomicSuffix) && $atomicSuffix !== '' && $encodingPath && is_file($encodingPath)) unlink($encodingPath);
+                }
+
+                $finalPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName;
+                clearstatcache(true, $finalPath);
+                if (is_link($finalPath) || !is_file($finalPath) || !filesize($finalPath) ||
+                    ($format === 'avif' && !$this->isAvifFile($finalPath))) {
                     return sGalleryModel::NOIMAGE;
                 }
+                $output = $chacheFile . $imageName;
+                \Seiger\sGallery\Services\GalleryCache::remember($sourceFile, $output, true);
+                return GalleryFiles::url($output);
             }
 
             $outputFile = $this->file;
@@ -811,6 +746,9 @@ class sGalleryBuilder
      */
     public function processOptimization(array $job): string
     {
+        if (!class_exists(Image::class)) {
+            throw new \RuntimeException('Image optimization requires the optional spatie/image package (^3).');
+        }
         $file = $job['file'] ?? null;
         $params = $job['params'] ?? [];
         if (!is_string($file) || !is_array($params) ||
@@ -1002,50 +940,66 @@ class sGalleryBuilder
     }
 
     /**
-     * Check if AVIF is actually supported by the server
-     * Checks both ImageMagick and GD, as either can be compiled without AVIF support
-     * Also determines which driver supports AVIF and caches it
+     * Select and cache the first driver that can encode a real AVIF image.
      *
-     * @return bool
+     * @return bool Whether Imagick or GD produced an AVIF probe.
      */
     protected function isAvifSupported(): bool
     {
-        // Use cached result if available
         if (self::$avifSupportDriver !== null) {
             return self::$avifSupportDriver !== false;
         }
 
-        // Check ImageMagick first (if available)
         if (extension_loaded('imagick')) {
             try {
-                $imagick = new \Imagick();
-                $formats = $imagick->queryFormats();
-                // Check if AVIF is in the list of supported formats
-                // Even if ImageMagick is installed, it might not support AVIF
-                if (in_array('AVIF', $formats) || in_array('avif', $formats)) {
+                $probe = new \Imagick();
+                $probe->newImage(1, 1, 'black');
+                $probe->setImageFormat('AVIF');
+                $blob = $probe->getImageBlob();
+                $info = $blob !== '' ? @getimagesizefromstring($blob) : false;
+                if (($info[2] ?? null) === IMAGETYPE_AVIF) {
                     self::$avifSupportDriver = 'imagick';
                     return true;
                 }
             } catch (\Exception $e) {
-                // ImageMagick available but query failed, continue to GD check
+                // A decode-only ImageMagick build may list AVIF but reject encoding.
             }
         }
 
-        // Fallback to GD check
-        if (function_exists('imageavif')) {
-            if (function_exists('imagetypes')) {
-                // Check if GD was compiled with AVIF support
-                if ((imagetypes() & IMG_AVIF) !== 0) {
-                    self::$avifSupportDriver = 'gd';
-                    return true;
+        if (function_exists('imageavif') && function_exists('imagetypes') && (imagetypes() & IMG_AVIF) !== 0) {
+            $stream = tmpfile();
+            if ($stream !== false) {
+                try {
+                    $probe = imagecreatetruecolor(1, 1);
+                    if ($probe !== false && @imageavif($probe, $stream) && rewind($stream)) {
+                        $blob = stream_get_contents($stream);
+                        $info = $blob !== false ? @getimagesizefromstring($blob) : false;
+                        if (($info[2] ?? null) === IMAGETYPE_AVIF) {
+                            self::$avifSupportDriver = 'gd';
+                            return true;
+                        }
+                    }
+                } finally {
+                    fclose($stream);
                 }
             }
-            // If imagetypes() not available, function exists but might not work
         }
 
-        // No AVIF support found
         self::$avifSupportDriver = false;
         return false;
+    }
+
+    /**
+     * Check the image type in the file contents before publishing or serving an AVIF derivative.
+     *
+     * @param string $path Local path to a newly encoded or cached derivative.
+     * @return bool Whether PHP identifies the image as AVIF.
+     * @since 1.9.0
+     */
+    private function isAvifFile(string $path): bool
+    {
+        $info = @getimagesize($path);
+        return ($info[2] ?? null) === IMAGETYPE_AVIF;
     }
 
     /**
