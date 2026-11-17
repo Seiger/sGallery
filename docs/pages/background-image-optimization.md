@@ -44,6 +44,10 @@ or already displayed image is not updated in place. After a successful task,
 the worker clears Evolution page/view caches so later requests use the completed
 derived image. It does not clear the derived-image cache.
 
+## Image limits
+
+Local source and requested output dimensions are limited to 8192 pixels per side and 24 million pixels per image. The builder rejects oversized transformations before encoding or queuing work. Unsupported or oversized local sources display the placeholder. An external HTTP(S) image keeps its original browser URL.
+
 ## Job identity and recovery
 
 Jobs preserve the source path, source size and modification time, resolved output

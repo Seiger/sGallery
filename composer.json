@@ -1,7 +1,7 @@
 {
   "name": "seiger/sgallery",
-  "license": "GPL-3.0",
-  "type": "EvolutionCMS-Plugin",
+  "license": "GPL-3.0-or-later",
+  "type": "evolutioncms-plugin",
   "description": "Evocms package for work with Gallery for Resource in Evolution CMS and manipulate images with an expressive API",
   "keywords": ["evocms", "evolution-cms", "gallery"],
   "authors": [
@@ -11,8 +11,8 @@
     }
   ],
   "require": {
-    "php": "^8.3",
-    "evolution-cms/evolution": "^3.3",
+    "php": "^8.4",
+    "evolution-cms/evolution": "^3.5",
     "spatie/image": "3.*"
   },
   "autoload": {
@@ -32,10 +32,5 @@
         "sGallery": "Seiger\\sGallery\\Facades\\sGallery"
       }
     }
-  },
-  "scripts": {
-    "post-autoload-dump": [
-      "php artisan migrate"
-    ]
   }
 }

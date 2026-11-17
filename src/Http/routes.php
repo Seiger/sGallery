@@ -2,12 +2,13 @@
 
 use Illuminate\Support\Facades\Route;
 use Seiger\sGallery\Controllers\sGalleryController;
+use Seiger\sGallery\Http\GalleryResponses;
 
-Route::middleware('mgr')->prefix('sgallery/')->name('sGallery.')->group(function () {
+Route::middleware(['mgr', GalleryResponses::class])->prefix('sgallery/')->name('sGallery.')->group(function () {
     Route::post('settings-cache', [\Seiger\sGallery\Controllers\GallerySettingsController::class, 'clearCache'])->name('settings-cache');
     Route::post('settings', [\Seiger\sGallery\Controllers\GallerySettingsController::class, 'save'])->name('settings-save');
     Route::post('settings-watermark', [\Seiger\sGallery\Controllers\GallerySettingsController::class, 'upload'])->name('settings-watermark');
-    Route::get('', [sGalleryController::class, 'index']);
+    Route::get('', [sGalleryController::class, 'show']);
     Route::post('upload-file', [sGalleryController::class, 'uploadFile'])->name('upload-file');
     Route::post('upload-download', [sGalleryController::class, 'uploadDownload'])->name('upload-download');
     Route::post('upload-evo-library', [sGalleryController::class, 'uploadEvoLibrary'])->name('upload-evo-library');

@@ -1,474 +1,349 @@
 <?php namespace Seiger\sGallery\Controllers;
 
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rules\File;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use RuntimeException;
 use Seiger\sGallery\Models\sGalleryField;
 use Seiger\sGallery\Models\sGalleryModel;
-use sGallery;
-use function Laravel\Prompts\info;
+use Seiger\sGallery\Services\GalleryAccess;
+use Seiger\sGallery\Services\GalleryFiles;
+use Seiger\sGallery\Services\GalleryMedia;
 
+/** Handle manager gallery actions using the authorized parent and persisted media location. */
 class sGalleryController
 {
-    protected $viewType;
-    protected $itemType;
-    protected $idType;
-    protected $blockName;
+    protected string $viewType;
+    protected string $itemType;
+    protected string $idType;
+    protected string $blockName;
 
     /**
-     * @param string $viewType tab or section or sectionFiles
-     * @param string $itemType resource
-     * @param string $idType id
-     * @param string $blockName block name
+     * Set the view binding supplied by PHP. HTTP gallery routes resolve scope from
+     * their request separately, so an embedded gallery keeps its configured scope.
      */
     public function __construct(string $viewType = sGalleryModel::VIEW_SECTION, string $itemType = 'resource', string $idType = 'id', string $blockName = '1')
     {
-        // Wiev type
-        $viewTypeDef = sGalleryModel::VIEW_TAB;
-        if (in_array($viewType, [
-            sGalleryModel::VIEW_TAB,
-            sGalleryModel::VIEW_SECTION,
-            sGalleryModel::VIEW_SECTION_DOWNLOADS
-        ])) {
-            $viewTypeDef = $viewType;
-        }
-        $this->viewType = $viewTypeDef;
-
-        // Block name
-        if (request()->has('amp;block')) {
-            $blockName = request()->get('amp;block');
-        } else {
-            $blockName = request()->block ?? $blockName;
-        }
-        $this->blockName = trim($blockName);
-
-        // ID type
+        $this->viewType = in_array($viewType, [
+            sGalleryModel::VIEW_TAB, sGalleryModel::VIEW_SECTION, sGalleryModel::VIEW_SECTION_DOWNLOADS,
+        ], true) ? $viewType : sGalleryModel::VIEW_TAB;
+        GalleryAccess::require(GalleryFiles::identifier($itemType) && GalleryFiles::identifier($blockName) &&
+            preg_match('/\A[A-Za-z_][A-Za-z0-9_-]{0,63}\z/', $idType), 422);
+        $this->itemType = $itemType;
         $this->idType = $idType;
-
-        // Resource type
-        if (request()->has('amp;itemType')) {
-            $itemType = request()->get('amp;itemType');
-        } else {
-            $itemType = request()->itemType ?? $itemType;
-        }
-        $this->itemType = trim($itemType, '/');
+        $this->blockName = $blockName;
     }
 
-    /**
-     * Show tab page with Gallery files
-     *
-     * @return \Symfony\Component\HttpFoundation\Response The response
-     */
-    public function index(): View
+    /** Render a manager gallery after checking access to the selected parent and block. */
+    public function index(?Request $request = null): View
     {
-        $cat = request()->{$this->idType} ?? 0;
-        $galleries = sGalleryModel::whereParent($cat)
-            ->whereBlock($this->blockName)
-            ->whereItemType($this->itemType)
-            ->orderBy('position')
-            ->get();
+        if ($request !== null) {
+            $this->requestScope($request);
+        }
+        $input = ($request ?? request())->input($this->idType);
+        $parent = GalleryFiles::id($input);
+        if ($parent === null) {
+            // The embedded gallery may be rendered while a parent is still unsaved.
+            GalleryAccess::require($request === null && in_array($input, [null, '', 0, '0'], true), 422);
+            $galleries = collect();
+        } else {
+            GalleryAccess::authorize('read', $this->itemType, $parent, $this->blockName);
+            $galleries = sGalleryModel::whereParent($parent)->whereBlock($this->blockName)
+                ->whereItemType($this->itemType)->orderBy('position')->get();
+        }
         return $this->view($this->viewType, ['galleries' => $galleries, 'sGalleryController' => $this]);
     }
 
-    /**
-     * Upload and save Image file
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function uploadFile(Request $request)
+    /** Render a gallery selected by the manager route's request. @since 1.8.0 */
+    public function show(Request $request): View
     {
-        $data = [];
+        return $this->index($request);
+    }
 
-        $validator = Validator::make($request->all(), [
-            'cat' => [
-                'required',
-                'integer',
-                'min:1'
-            ],
-            'file' => [
-                'required',
-                File::types(explode(',', evo()->getConfig('upload_images', 'png,jpg,jpeg,mp4') . ',' . evo()->getConfig('upload_media', 'mp3,mp4')))
-                    ->max($this->maxsize()),
-            ]
-        ]);
+    /** Store an approved image, audio or video file in the selected gallery. */
+    public function uploadFile(Request $request): JsonResponse
+    {
+        return $this->storeUpload($request, 'media');
+    }
 
-        if ($validator->fails()) {
-            $data['success'] = 0;
-            $data['error'] = $validator->errors()->first('file'); // Error response
-            if ($_FILES['file']['error'] == 1) { // The uploaded file exceeds the upload_max_filesize directive
-                $data['error'] = __('validation.max.file', ['attribute' => 'file', 'max' => $this->maxsize()]);
+    /** Store an approved downloadable document using the CMS document formats. */
+    public function uploadDownload(Request $request): JsonResponse
+    {
+        return $this->storeUpload($request, 'download');
+    }
+
+    /** Read the manager route's logical type and block, including older encoded parameter names. @since 1.8.0 */
+    private function requestScope(Request $request): void
+    {
+        $type = $request->input('amp;itemType', $request->input('itemType', 'resource'));
+        $block = $request->input('amp;block', $request->input('block', '1'));
+        GalleryAccess::require(GalleryFiles::identifier($type) && GalleryFiles::identifier($block), 422);
+        $this->itemType = $type;
+        $this->blockName = $block;
+    }
+
+    /** Resolve and authorize the parent for actions whose scope arrives in the request. @since 1.8.0 */
+    private function authorizeParent(Request $request, string $action): int
+    {
+        $this->requestScope($request);
+        $parent = GalleryFiles::id($request->input('cat'));
+        GalleryAccess::require($parent !== null, 422);
+        GalleryAccess::authorize($action, $this->itemType, $parent, $this->blockName);
+        return $parent;
+    }
+
+    /** Load an item by ID and authorize its persisted parent, type and block. @since 1.8.0 */
+    private function authorizeItem(mixed $input, string $action): sGalleryModel
+    {
+        $id = GalleryFiles::id($input);
+        GalleryAccess::require($id !== null, 422);
+        $gallery = sGalleryModel::findOrFail($id);
+        $parent = GalleryFiles::id($gallery->parent);
+        GalleryAccess::require($parent !== null && GalleryFiles::identifier($gallery->item_type) && GalleryFiles::identifier($gallery->block), 403);
+        GalleryAccess::authorize($action, $gallery->item_type, $parent, $gallery->block);
+        return $gallery;
+    }
+
+    /**
+     * Publish under a fresh name after validation. If record creation fails, remove
+     * the new file so a retry starts from a clean state.
+     *
+     * @since 1.8.0
+     */
+    private function storeUpload(Request $request, string $group): JsonResponse
+    {
+        $parent = $this->authorizeParent($request, $group === 'media' ? 'upload' : 'uploadDownload');
+        $file = $request->file('file');
+        if (!$file instanceof \Illuminate\Http\UploadedFile || !$file->isValid() || !$file->getSize() ||
+            $file->getSize() > (int) evo()->getConfig('upload_maxsize', 2097152)) {
+            return response()->json(['success' => 0, 'error' => __('validation.uploaded', ['attribute' => 'file'])], 422);
+        }
+        try {
+            $media = GalleryMedia::classify($file->getPathname(), $file->getClientOriginalExtension(), $group);
+        } catch (RuntimeException $error) {
+            return response()->json(['success' => 0, 'error' => $error->getMessage()], 422);
+        }
+
+        $relative = GalleryFiles::uploadDirectory($this->itemType, $parent);
+        $directory = GalleryFiles::directory($relative, true);
+        if ($directory === null) {
+            return response()->json(['success' => 0, 'error' => __('sGallery::manager.file_upload_error')], 422);
+        }
+
+        $slug = substr(Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)), 0, 120);
+        $filename = ($slug ?: 'file') . '-' . bin2hex(random_bytes(16)) . '.' . $media['extension'];
+        $path = $directory . DIRECTORY_SEPARATOR . $filename;
+        $reserved = @fopen($path, 'x');
+        if ($reserved === false) {
+            return response()->json(['success' => 0, 'error' => __('sGallery::manager.file_upload_error')], 500);
+        }
+        fclose($reserved);
+        try {
+            $file->move($directory, $filename);
+            if (!chmod($path, 0644 & ~umask())) {
+                throw new RuntimeException('Could not set gallery file permissions.');
             }
-        } else {
-            if ($request->file('file')) {
-                $file = $request->file('file');
-                $filename = $file->getClientOriginalName();
-                $filetype = explode('/', $file->getMimeType())[0];
-                if (in_array($filetype, ['application'])) {
-                    $filetype = explode('/', $file->getMimeType())[1];
+            return DB::transaction(fn () => $this->previewResponse(
+                $this->saveGalleryFile($parent, $filename, $media['type']), 'Uploaded Successfully!'
+            ));
+        } catch (\Throwable $error) {
+            if (is_file($path) && !@unlink($path)) {
+                Log::error('Could not clean up a failed gallery upload.');
+            }
+            Log::error('Could not save a gallery upload.', ['exception' => $error]);
+            return response()->json(['success' => 0, 'error' => __('sGallery::manager.file_upload_error')], 500);
+        }
+    }
+
+    /** Attach a parsed YouTube video ID to an authorized gallery without a network lookup. */
+    public function addYoutube(Request $request): JsonResponse
+    {
+        $parent = $this->authorizeParent($request, 'addYoutube');
+        $link = $request->input('youtubeLink');
+        $url = is_string($link) ? parse_url($link) : false;
+        $host = strtolower($url['host'] ?? '');
+        $path = $url['path'] ?? '';
+        $id = null;
+        if (in_array($url['scheme'] ?? '', ['https', 'http'], true)) {
+            if ($host === 'youtu.be') {
+                $id = ltrim($path, '/');
+            } elseif (in_array($host, ['youtube.com', 'www.youtube.com', 'm.youtube.com'], true)) {
+                if ($path === '/watch') {
+                    parse_str($url['query'] ?? '', $query);
+                    $id = $query['v'] ?? null;
+                } elseif (preg_match('~\A/(?:embed|shorts|live)/([^/]+)\z~', $path, $match)) {
+                    $id = $match[1];
                 }
-
-                $ext  = pathinfo($filename, PATHINFO_EXTENSION);
-                $name = pathinfo($filename, PATHINFO_FILENAME);
-                $filename = Str::slug($name) . '.' . strtolower($ext);
-
-                // Upload file
-                $file->move(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat, $filename);
-
-                $newFolderAccessMode = evo()->getConfig('new_folder_permissions', '');
-                $newFolderAccessMode = empty($newFolderAccessMode) ? 0777 : octdec($newFolderAccessMode);
-                chmod(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat, $newFolderAccessMode);
-
-                $newFileAccessMode = evo()->getConfig('new_file_permissions', '');
-                $newFileAccessMode = empty($newFileAccessMode) ? 0666 : octdec($newFileAccessMode);
-                chmod(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat.'/'.$filename, $newFileAccessMode);
-
-                // Save in DB
-                $thisFile = $this->saveGalleryFile((int)$request->cat, $filename, $filetype);
-
-                // Create default texts
-                $translate = new sGalleryField();
-                $translate->key = $thisFile->id;
-                $translate->lang = evo()->getConfig('lang', 'base');
-                $translate->save();
-
-                // Response
-                $data['success'] = 1;
-                $data['message'] = 'Uploaded Successfully!';
-                $data['preview'] = $this->view('partials.'.$filetype, ['gallery' => $thisFile, 'sGalleryController' => $this])->render();
-            } else {
-                // Response
-                $data['success'] = 2;
-                $data['message'] = 'File not uploaded.';
             }
         }
+        if (!is_string($id) || !preg_match('/\A[A-Za-z0-9_-]{11}\z/', $id)) {
+            return response()->json(['success' => 0, 'error' => 'Invalid YouTube link.'], 422);
+        }
 
-        return response()->json($data);
+        return $this->previewResponse($this->saveGalleryFile($parent, $id, 'youtube'), 'Add Successfully!');
     }
 
-    /**
-     * Upload and save Download file
-     *
-     * @param Request $request The HTTP request object
-     *
-     * @return \Illuminate\Http\JsonResponse The JSON response containing success status, error message (if any) and uploaded file details
-     */
-    public function uploadDownload(Request $request)
+    /** Register an existing browser file as a shared reference, without taking ownership of it. */
+    public function uploadEvoLibrary(Request $request): JsonResponse
     {
-        $data = [];
-
-        $validator = Validator::make($request->all(), [
-            'cat' => 'required|integer|min:1',
-            'file' => 'required|mimes:'.evo()->getConfig('upload_files', 'odp,odt,pdf,ppt,pptx,doc,docx').'|max:'.$this->maxsize()
-        ]);
-
-        if ($validator->fails()) {
-            $data['success'] = 0;
-            $data['error'] = $validator->errors()->first('file'); // Error response
-        } else {
-            if ($request->file('file')) {
-                $file = $request->file('file');
-                $filename = $file->getClientOriginalName();
-                $filetype = explode('/', $file->getMimeType())[0];
-                if (in_array($filetype, ['application'])) {
-                    $filetype = explode('/', $file->getMimeType())[1];
-                }
-
-                $ext  = pathinfo($filename, PATHINFO_EXTENSION);
-                $name = pathinfo($filename, PATHINFO_FILENAME);
-                $filename = Str::slug($name) . '.' . strtolower($ext);
-
-                // Upload file
-                $file->move(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat, $filename);
-
-                $newFolderAccessMode = evo()->getConfig('new_folder_permissions', '');
-                $newFolderAccessMode = empty($newFolderAccessMode) ? 0777 : octdec($newFolderAccessMode);
-                chmod(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat, $newFolderAccessMode);
-
-                $newFileAccessMode = evo()->getConfig('new_file_permissions', '');
-                $newFileAccessMode = empty($newFileAccessMode) ? 0666 : octdec($newFileAccessMode);
-                chmod(sGalleryModel::UPLOAD.$this->itemType.'/'.$request->cat.'/'.$filename, $newFileAccessMode);
-
-                // Save in DB
-                $thisFile = $this->saveGalleryFile((int)$request->cat, $filename, $filetype);
-
-                // Create default texts
-                $translate = new sGalleryField();
-                $translate->key = $thisFile->id;
-                $translate->lang = evo()->getConfig('lang', 'base');
-                $translate->save();
-
-                // Response
-                $data['success'] = 1;
-                $data['message'] = 'Uploaded Successfully!';
-                $data['preview'] = $this->view('partials.'.$filetype, ['gallery' => $thisFile, 'sGalleryController' => $this])->render();
-            } else {
-                // Response
-                $data['success'] = 2;
-                $data['message'] = 'File not uploaded.';
-            }
+        $parent = $this->authorizeParent($request, 'register');
+        GalleryAccess::authorizeLibrary();
+        $input = $request->input('file');
+        GalleryAccess::require(is_string($input), 422);
+        if (str_starts_with($input, EVO_SITE_URL)) {
+            $input = substr($input, strlen(EVO_SITE_URL));
         }
+        $input = rawurldecode(ltrim($input, '/'));
+        $name = GalleryFiles::library($input, true);
+        $path = $name === null ? null : GalleryFiles::local($name);
+        if ($path === null || strlen($name) > 256) {
+            return response()->json(['success' => 0, 'error' => 'File not added.'], 422);
+        }
+        try {
+            $media = GalleryMedia::classify($path, pathinfo($name, PATHINFO_EXTENSION), 'library');
+        } catch (RuntimeException $error) {
+            return response()->json(['success' => 0, 'error' => $error->getMessage()], 422);
+        }
+        GalleryAccess::authorizeLibrary($media['type']);
 
-        return response()->json($data);
+        return $this->previewResponse($this->saveGalleryFile($parent, $name, $media['type']), 'Add Successfully!');
     }
 
-    /**
-     * Add a YouTube video
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function addYoutube(Request $request)
-    {
-        $data = [];
-
-        $validator = Validator::make($request->all(), [
-            'cat' => 'required|integer|min:1',
-            'youtubeLink' => 'required|active_url'
-        ]);
-
-        if ($validator->fails()) {
-            $data['success'] = 0;
-            $data['error'] = $validator->errors()->first(); // Error response
-        } else {
-            $r = '/(?im)\b(?:https?:\/\/)?(?:w{3}\.)?youtu(?:be)?\.(?:com|be)\/(?:(?:\??v=?i?=?\/?)|watch\?vi?=|watch\?.*?&v=|embed\/|)([A-Z0-9_-]{11})\S*(?=\s|$)/';
-            preg_match_all($r, $request->input('youtubeLink'), $matches, PREG_SET_ORDER, 0);
-            if (isset($matches[0][1])) {
-                // Save in DB
-                $thisFile = $this->saveGalleryFile((int)$request->cat, $matches[0][1], 'youtube');
-
-                // Create default texts
-                $translate = new sGalleryField();
-                $translate->key = $thisFile->id;
-                $translate->lang = evo()->getConfig('lang', 'base');
-                $translate->save();
-
-                // Response
-                $data['success'] = 1;
-                $data['message'] = 'Add Successfully!';
-                $data['preview'] = $this->view('partials.youtube', ['gallery' => $thisFile, 'sGalleryController' => $this])->render();
-            } else {
-                // Response
-                $data['success'] = 2;
-                $data['message'] = 'Video not added.';
-            }
-        }
-        return response()->json($data);
-    }
-
-    /**
-     * Add a EVO library file
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function uploadEvoLibrary(Request $request)
-    {
-        $data = [];
-
-        $validator = Validator::make($request->all(), [
-            'cat' => 'required|integer|min:1',
-            'file' => 'required|string'
-        ]);
-
-        if ($validator->fails()) {
-            $data['success'] = 0;
-            $data['error'] = $validator->errors()->first(); // Error response
-        } else {
-            $filename = trim($request->input('file'), '/');
-            $file = EVO_BASE_PATH . $filename;
-            if (file_exists($file)) {
-                $finfo = new \finfo(FILEINFO_MIME_TYPE);
-                $mimeType = (string)$finfo->file($file);
-                [$type, $subtype] = array_pad(explode('/', $mimeType, 2), 2, '');
-                $filetype = $type;
-
-                if ($filetype === 'application' && $subtype !== '') {
-                    $filetype = $subtype;
-                }
-
-                // Save in DB
-                $thisFile = $this->saveGalleryFile((int)$request->cat, $filename, $filetype);
-
-                // Create default texts
-                $translate = new sGalleryField();
-                $translate->key = $thisFile->id;
-                $translate->lang = evo()->getConfig('lang', 'base');
-                $translate->save();
-
-                // Response
-                $data['success'] = 1;
-                $data['message'] = 'Add Successfully!';
-                $data['preview'] = $this->view('partials.'.$filetype, ['gallery' => $thisFile, 'sGalleryController' => $this])->render();
-            } else {
-                // Response
-                $data['success'] = 2;
-                $data['message'] = 'File not added.';
-            }
-        }
-        return response()->json($data);
-    }
-
-    /**
-     * Sort the galleries based on the request data
-     *
-     * @param Request $request The current HTTP request
-     * @return void
-     */
+    /** Update positions only for the supplied items in one authorized gallery. */
     public function resortGallery(Request $request): void
     {
-        $validator = Validator::make($request->all(), [
-            'cat' => 'required|integer|min:1',
-            'item' => 'required|array'
-        ]);
+        $parent = $this->authorizeParent($request, 'reorder');
+        $items = $request->input('item');
+        GalleryAccess::require(is_array($items) && array_is_list($items) && $items !== [] && count($items) <= 2000, 422);
+        $ids = array_map(GalleryFiles::id(...), $items);
+        GalleryAccess::require(!in_array(null, $ids, true) && count(array_unique($ids)) === count($ids), 422);
 
-        if ($validator->fails()) {
-            Log::error('sGallery->resortGallery(): ' . $validator->errors()->first());
-        } else {
-            $ids = array_map('intval', $request->item);
-            if ($ids === []) {
-                return;
+        DB::transaction(function () use ($parent, $ids) {
+            $galleries = sGalleryModel::whereParent($parent)->whereBlock($this->blockName)
+                ->whereItemType($this->itemType)->orderBy('position')->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $existing = $galleries->keys()->all();
+            GalleryAccess::require(!array_diff($ids, $existing), 422);
+            $ordered = array_merge($ids, array_diff($existing, $ids));
+            foreach ($ordered as $position => $id) {
+                $galleries[$id]->update(['position' => $position]);
             }
-
-            $idColumn = DB::connection()->getQueryGrammar()->wrap('id');
-            $orderSql = 'CASE ' . $idColumn . ' ' . implode(' ', array_map(
-                fn($id, $position) => 'WHEN ' . $id . ' THEN ' . $position,
-                $ids,
-                array_keys($ids)
-            )) . ' ELSE ' . count($ids) . ' END';
-            $galleries = sGalleryModel::whereParent($request->cat)
-                ->whereBlock($this->blockName)
-                ->whereItemType($this->itemType)
-                ->orderByRaw($orderSql)
-                ->get();
-            foreach ($galleries as $position => $gallery) {
-                $gallery->position = $position;
-                $gallery->update();
-            }
-        }
+        });
     }
 
-    /**
-     * Get fields from file
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function getTranslate(Request $request)
+    /** Read the translation form for an authorized gallery item. */
+    public function getTranslate(Request $request): JsonResponse
     {
-        $data = array();
-
-        $validator = Validator::make($request->all(), [
-            'item' => 'required|integer|min:1'
+        $gallery = $this->authorizeItem($request->input('item'), 'read');
+        $items = sGalleryField::where('key', $gallery->id)->get()->keyBy('lang');
+        return response()->json([
+            'success' => 1,
+            'message' => 'Get Successfully!',
+            'tabs' => $this->view('partials.tabs', ['items' => $items, 'key' => $gallery->id])->render(),
         ]);
-
-        if ($validator->fails()) {
-            $data['success'] = 0;
-            $data['error'] = $validator->errors()->first(); // Error response
-        } else {
-            $items = sGalleryField::where('key', $request->item)->get()->mapWithKeys(function ($item, $key) {
-                return [$item->lang => $item];
-            });
-
-            $data['success'] = 1;
-            $data['message'] = 'Get Successfully!';
-            $data['tabs'] = $this->view('partials.tabs', ['items' => $items, 'key' => $request->item])->render();
-        }
-        return response()->json($data);
     }
 
-    /**
-     * Save fields from file
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function setTranslate(Request $request)
+    /** Save one authorized item's configured language fields as one transaction. */
+    public function setTranslate(Request $request): JsonResponse
     {
-        $data = array();
-
-        $validator = Validator::make($request->all(), [
-            'list' => 'required|array'
-        ]);
-
-        if ($validator->fails()) {
-            $data['success'] = 0;
-            $data['error'] = $validator->errors()->first(); // Error response
-        } else {
-            $key = array_key_first($request->list);
-            $items = $request->list[$key];
-
-            foreach ($items as $lang => $item) {
-                sGalleryField::updateOrCreate(
-                    ['key' => $key, 'lang' => $lang],
-                    [
-                        'alt' => $item['alt'] ?? '',
-                        'title' => $item['title'] ?? '',
-                        'description' => $item['description'] ?? '',
-                        'link_text' => $item['link_text'] ?? '',
-                        'link' => $item['link'] ?? '',
-                    ]
-                );
+        $list = $request->input('list');
+        GalleryAccess::require(is_array($list) && count($list) === 1, 422);
+        $gallery = $this->authorizeItem(array_key_first($list), 'translate');
+        $languages = reset($list);
+        GalleryAccess::require(is_array($languages) && $languages !== [], 422);
+        $allowed = array_map('trim', explode(',', (string) evo()->getConfig('s_lang_config', 'base')));
+        $fields = ['alt' => 100, 'title' => 100, 'description' => 1024, 'link_text' => 100, 'link' => 1024];
+        $translations = [];
+        foreach ($languages as $lang => $item) {
+            GalleryAccess::require(is_string($lang) && preg_match('/\A[A-Za-z0-9_-]{1,4}\z/', $lang) &&
+                in_array($lang, $allowed, true) && is_array($item) && !array_diff_key($item, $fields), 422);
+            foreach ($fields as $field => $limit) {
+                $value = $item[$field] ?? '';
+                GalleryAccess::require(is_string($value) && mb_strlen($value) <= $limit, 422);
+                $translations[$lang][$field] = $value;
             }
-
-            $data['success'] = 1;
-            $data['message'] = __('sGallery::manager.saved_successfully');
+            $link = trim($translations[$lang]['link']);
+            GalleryAccess::require($link === '' || GalleryMedia::link($link), 422);
+            $translations[$lang]['link'] = $link;
         }
-        return response()->json($data);
+
+        DB::transaction(function () use ($gallery, $translations) {
+            sGalleryModel::query()->lockForUpdate()->findOrFail($gallery->id);
+            foreach ($translations as $lang => $fields) {
+                sGalleryField::updateOrCreate(['key' => $gallery->id, 'lang' => $lang], $fields);
+            }
+        });
+
+        return response()->json(['success' => 1, 'message' => __('sGallery::manager.saved_successfully')]);
     }
 
-    /**
-     * Find or create a gallery file row with all required SQLite fields populated before insert.
-     *
-     * @param int $parent Gallery parent identifier.
-     * @param string $filename Stored file or external media identifier.
-     * @param string $filetype Gallery item type.
-     * @return sGalleryModel The persisted gallery model.
-     *
-     * @since 1.6.0
-     */
+    /** Persist the gallery entry and ensure its default translation exists without replacing edits. */
     protected function saveGalleryFile(int $parent, string $filename, string $filetype): sGalleryModel
     {
-        return sGalleryModel::updateOrCreate(
-            [
-                'parent' => $parent,
-                'block' => $this->blockName,
-                'item_type' => $this->itemType,
-                'file' => $filename,
-            ],
-            ['type' => $filetype]
-        );
+        return DB::transaction(function () use ($parent, $filename, $filetype) {
+            $gallery = sGalleryModel::updateOrCreate(
+                ['parent' => $parent, 'block' => $this->blockName, 'item_type' => $this->itemType, 'file' => $filename],
+                ['type' => $filetype]
+            );
+            sGalleryField::firstOrCreate(['key' => $gallery->id, 'lang' => evo()->getConfig('lang', 'base')]);
+            return $gallery;
+        });
+    }
+
+    /** Render one of the registered media previews after saving the entry. @since 1.8.0 */
+    private function previewResponse(sGalleryModel $gallery, string $message): JsonResponse
+    {
+        return response()->json(['success' => 1, 'message' => $message,
+            'preview' => $this->view(GalleryMedia::preview($gallery->type), [
+                'gallery' => $gallery, 'sGalleryController' => $this,
+            ])->render()]);
     }
 
     /**
-     * Delete item and fields
-     *
-     * @param Request $request
-     * @return void
+     * Detach shared media and delete owned media only after the final reference.
+     * Move the owned file aside first so a failed DB deletion can restore it.
      */
-    public function delete(Request $request)
+    public function delete(Request $request): JsonResponse
     {
-        $gallery = sGalleryModel::find((int)$request->item);
-        if ($gallery) {
-            sGalleryField::where('key', $gallery->id)->delete();
-            $file = sGalleryModel::UPLOAD . $this->itemType . '/' . $gallery->parent . '/' . $gallery->file;
-            if (file_exists($file)) {
-                unlink($file);
+        $gallery = $this->authorizeItem($request->input('item'), 'delete');
+        $pending = $path = null;
+        try {
+            DB::transaction(function () use ($gallery, &$pending, &$path) {
+                $gallery = sGalleryModel::query()->lockForUpdate()->findOrFail($gallery->id);
+                $relative = GalleryFiles::owned($gallery);
+                if ($relative !== null && !sGalleryModel::whereKeyNot($gallery->id)->where(function ($query) use ($gallery, $relative) {
+                    $query->where('file', $relative)->orWhere(function ($query) use ($gallery) {
+                        $query->where('file', $gallery->file)->where('item_type', $gallery->item_type)->where('parent', $gallery->parent);
+                    });
+                })->exists()) {
+                    $path = GalleryFiles::local($relative);
+                    if ($path === null) {
+                        throw new RuntimeException('Gallery file changed during deletion.');
+                    }
+                    $target = dirname($path) . DIRECTORY_SEPARATOR . '.sgallery-' . bin2hex(random_bytes(16)) . '.pending';
+                    if (!@rename($path, $target)) {
+                        throw new RuntimeException('Could not remove gallery file.');
+                    }
+                    $pending = $target;
+                }
+                sGalleryField::where('key', $gallery->id)->delete();
+                if (!$gallery->delete()) {
+                    throw new RuntimeException('Could not remove gallery entry.');
+                }
+            });
+        } catch (\Throwable $error) {
+            if ($pending !== null && !@rename($pending, $path)) {
+                Log::error('Could not restore gallery file after database failure.');
             }
-            $gallery->delete();
-            $data['success'] = 1;
-            $data['message'] = __('sGallery::manager.deleted_successfully');
-        } else {
-            $data['success'] = 0;
-            $data['message'] = 'Item not found';
+            throw $error;
+        }
+        if ($pending !== null && !@unlink($pending)) {
+            Log::error('Could not clean up a detached gallery file.');
         }
 
-        return response()->json($data);
+        return response()->json(['success' => 1, 'message' => __('sGallery::manager.deleted_successfully')]);
     }
 
     /**
@@ -539,22 +414,4 @@ class sGalleryController
         return \View::make(\Seiger\sGallery\Services\GallerySettings::view($tpl), $data);
     }
 
-    /**
-     * Get the maximum allowed file size for uploads
-     *
-     * This method calculates the maximum file size allowed for uploads based on two factors:
-     * 1. The value of the 'upload_max_filesize' PHP configuration directive, converted from Megabytes to kilobytes.
-     * 2. The value of the 'upload_maxsize' configuration option in the application's configuration, converted from bytes to kilobytes.
-     *
-     * If the calculated maximum file size based on these factors is less than the value of 'upload_maxsize',
-     * then it returns the calculated value, otherwise it returns the value of 'upload_maxsize'.
-     *
-     * @return int The maximum allowed file size for uploads in kilobytes
-     */
-    protected function maxsize()
-    {
-        $upload_max_filesize = intval(ini_get('upload_max_filesize')) * 1024;
-        $upload_maxsize = evo()->getConfig('upload_maxsize', (intval('2M') * 1024 * 1024)) / 1024;
-        return $upload_max_filesize < $upload_maxsize ? $upload_max_filesize : $upload_maxsize;
-    }
 }

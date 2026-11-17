@@ -10,10 +10,12 @@ class GalleryCache
     {
         $cache = sGalleryModel::imageCacheDir();
         if ($source === $output || !str_starts_with($output, $cache) || !is_file(EVO_BASE_PATH . $output)) return;
-        $directory = EVO_BASE_PATH . $cache . '.sgallery-index/';
-        if (!is_dir($directory) && !@mkdir($directory, 0755, true)) return;
-        $marker = $directory . hash('sha256', $output) . '.json';
-        if (!is_file($marker)) @file_put_contents($marker, json_encode(['source' => $source, 'output' => $output], JSON_UNESCAPED_SLASHES), LOCK_EX);
+        $directory = GalleryFiles::directory($cache . '.sgallery-index', true);
+        if ($directory === null) return;
+        $marker = $directory . DIRECTORY_SEPARATOR . hash('sha256', $output) . '.json';
+        if (!is_link($marker) && !is_file($marker)) {
+            @file_put_contents($marker, json_encode(['source' => $source, 'output' => $output], JSON_UNESCAPED_SLASHES), LOCK_EX);
+        }
     }
 
     /** Remove only indexed derivatives within the active cache, excluding all recorded sources. @since 1.7.0 */

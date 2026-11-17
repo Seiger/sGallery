@@ -1,0 +1,38 @@
+name: PHP compatibility
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  regressions:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5', '8.6']
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: fileinfo, mbstring, pdo_sqlite, gd, exif
+          coverage: none
+      - name: Validate package metadata
+        run: composer validate --strict --no-check-publish --no-plugins --no-scripts
+      - name: Install standalone test dependencies
+        run: |
+          mkdir "$RUNNER_TEMP/sgallery-tests"
+          composer --working-dir="$RUNNER_TEMP/sgallery-tests" require --no-interaction --no-plugins --no-scripts \
+            'illuminate/database:^12' 'illuminate/http:^12' 'symfony/http-kernel:^7' 'symfony/mime:^7' 'spatie/image:^3'
+      - name: Check syntax and run gallery regressions
+        run: |
+          php -v
+          find src lang database tests -name '*.php' -print0 | xargs -0 -n1 php -l
+          export SGALLERY_AUTOLOAD="$RUNNER_TEMP/sgallery-tests/vendor/autoload.php"
+          php tests/gallery-audit.php
+          php tests/watermark.php

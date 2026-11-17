@@ -160,9 +160,11 @@ class sGallery
     public function langTabs(): array
     {
         $tabs = [];
-        $lang = explode(',', evo()->getConfig('s_lang_config', 'base'));
+        $lang = array_map('trim', explode(',', (string) evo()->getConfig('s_lang_config', 'base')));
         foreach ($lang as $item) {
-            $tabs[$item] = '<span class="badge bg-seigerit-gallery">' . $item . '</span>';
+            if (preg_match('/\A[A-Za-z0-9_-]{1,4}\z/', $item)) {
+                $tabs[$item] = '<span class="badge bg-seigerit-gallery">' . $item . '</span>';
+            }
         }
         return $tabs;
     }

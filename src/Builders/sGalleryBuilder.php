@@ -6,7 +6,10 @@ use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
 use Seiger\sGallery\sGallery;
 use Seiger\sGallery\Exceptions\OptimizationDeferred;
+use Seiger\sGallery\Services\GalleryFiles;
+use Seiger\sGallery\Services\GalleryMedia;
 use Seiger\sGallery\Services\ImageOptimizationQueue;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Spatie\Image\Enums\CropPosition;
 use Spatie\Image\Enums\Fit;
 use Spatie\Image\Enums\ImageDriver;
@@ -26,6 +29,10 @@ use Spatie\Image\Image;
  */
 class sGalleryBuilder
 {
+    private const MAX_IMAGE_SIDE = 8192;
+    private const MAX_IMAGE_PIXELS = 24000000;
+    private const OUTPUT_FORMATS = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'original'];
+
     protected string $mode = 'view';
     protected string $viewType = sGalleryModel::VIEW_SECTION;
     protected string $itemType = 'resource';
@@ -204,10 +211,9 @@ class sGalleryBuilder
      */
     public function format(string $format): self
     {
-        $supportedFormats = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'original'];
         $format = strtolower(trim($format));
 
-        if (in_array($format, $supportedFormats, true)) {
+        if (in_array($format, self::OUTPUT_FORMATS, true)) {
             $this->params['format'] = $format;
         }
 
@@ -260,9 +266,7 @@ class sGalleryBuilder
      */
     public function resize(int $width, int|null $height = null): self
     {
-        $height = $height ?: $width;
-        $this->params['w'] = max(1, $width);
-        $this->params['h'] = max(1, $height);
+        $this->setDimensions($width, $height ?: $width);
         return $this;
     }
 
@@ -276,7 +280,7 @@ class sGalleryBuilder
      */
     public function fit(string $method, int $width, int|null $height = null): self
     {
-        $height = $height ?: $width;
+        $this->setDimensions($width, $height ?: $width);
 
         $fitMethods = [
             'crop' => Fit::Crop,
@@ -288,8 +292,6 @@ class sGalleryBuilder
         ];
 
         $this->params['fit'] = $fitMethods[$method] ?? Fit::Crop;
-        $this->params['w'] = max(1, $width);
-        $this->params['h'] = max(1, $height);
 
         return $this;
     }
@@ -304,7 +306,7 @@ class sGalleryBuilder
      */
     public function crop(string $method, int $width, int|null $height = null): self
     {
-        $height = $height ?: $width;
+        $this->setDimensions($width, $height ?: $width);
 
         $cropMethods = [
             'topLeft' => CropPosition::TopLeft,
@@ -319,8 +321,6 @@ class sGalleryBuilder
         ];
 
         $this->params['crop'] = $cropMethods[$method] ?? CropPosition::Center;
-        $this->params['w'] = max(1, $width);
-        $this->params['h'] = max(1, $height);
         return $this;
     }
 
@@ -338,12 +338,10 @@ class sGalleryBuilder
      */
     public function focalCrop(int $centerX, int $centerY, int $width, int|null $height = null): self
     {
-        $height = $height ?: $width;
+        $this->setDimensions($width, $height ?: $width);
 
         $this->params['focalCenterX'] = max(0, $centerX);
         $this->params['focalCenterY'] = max(0, $centerY);
-        $this->params['w'] = max(1, $width);
-        $this->params['h'] = max(1, $height);
         return $this;
     }
 
@@ -361,13 +359,31 @@ class sGalleryBuilder
      */
     public function manualCrop(int $startX, int $startY, int $width, int|null $height = null): self
     {
-        $height = $height ?: $width;
+        $this->setDimensions($width, $height ?: $width);
 
         $this->params['startX'] = max(0, $startX);
         $this->params['startY'] = max(0, $startY);
-        $this->params['w'] = max(1, $width);
-        $this->params['h'] = max(1, $height);
         return $this;
+    }
+
+    /** Set output dimensions after validating the combined pixel count. @since 1.8.0 */
+    private function setDimensions(int $width, int $height): void
+    {
+        $width = max(1, $width);
+        $height = max(1, $height);
+        if (!self::withinImageLimits($width, $height)) {
+            throw new \InvalidArgumentException('Gallery image dimensions exceed the allowed size.');
+        }
+        $this->params['w'] = $width;
+        $this->params['h'] = $height;
+    }
+
+    /** Check dimensions using division so the pixel count cannot overflow. @since 1.8.0 */
+    private static function withinImageLimits(mixed $width, mixed $height): bool
+    {
+        return is_int($width) && is_int($height) && $width > 0 && $height > 0 &&
+            $width <= self::MAX_IMAGE_SIDE && $height <= self::MAX_IMAGE_SIDE &&
+            $width <= intdiv(self::MAX_IMAGE_PIXELS, $height);
     }
 
     /**
@@ -428,24 +444,36 @@ class sGalleryBuilder
      *
      * Slow web transformations return the original and optionally enqueue a versioned
      * sTask job. Empty cache files are regenerated. The cooperative deadline cannot
-     * interrupt a native encoder already executing.
+     * interrupt a native encoder already executing. Remote URLs are returned to
+     * the browser without fetching them. Local images must fit the decode limits.
      *
      * @return string URL of the processed image or 'no image' placeholder.
      */
     public function getFile(): string
     {
         $sourceFile = $this->file;
+        if (sGallery::hasLink($sourceFile)) {
+            return GalleryMedia::link($sourceFile) ? $sourceFile : sGalleryModel::NOIMAGE;
+        }
+
         $this->optimizationStartedAt = microtime(true);
-        if (($this->file !== null && file_exists(EVO_BASE_PATH . $this->file)) || sGallery::hasLink($this->file)) {
-            $extension = strtolower(pathinfo(EVO_BASE_PATH . $this->file, PATHINFO_EXTENSION));
+        $localPath = $sourceFile === null ? null : GalleryFiles::local($sourceFile);
+        if ($localPath !== null) {
+            $extension = strtolower(pathinfo($localPath, PATHINFO_EXTENSION));
 
             if ($this->params !== null && !in_array($extension, ['svg'])) {
+                if (!$this->isProcessableImage($localPath)) {
+                    return sGalleryModel::NOIMAGE;
+                }
+
                 $imageName = str_replace('.' . pathinfo($this->file, PATHINFO_EXTENSION), '', pathinfo($this->file, PATHINFO_BASENAME));
                 $imagePath = explode('/', str_replace('\\', '/', pathinfo($this->file, PATHINFO_DIRNAME)));
                 $chacheFile = sGalleryModel::imageCacheDir();
 
                 foreach ($imagePath as $path) {
-                    $chacheFile .= is_numeric($path) ? $path : ($path[0] ?? '');
+                    if ($path !== '.') {
+                        $chacheFile .= is_numeric($path) ? $path : ($path[0] ?? '');
+                    }
                 }
 
                 $chacheFile .= '/';
@@ -470,7 +498,7 @@ class sGalleryBuilder
                 $ext .= !empty($this->params['optimize']) ? '-opt' : '';
                 $ext .= $this->quality !== 100 ? '-q' . $this->quality : '';
                 if (isset($this->params['watermark'])) {
-                    $sourceHash = is_file(EVO_BASE_PATH . $this->file) ? hash_file('sha256', EVO_BASE_PATH . $this->file) : $this->file;
+                    $sourceHash = hash_file('sha256', $localPath);
                     $cacheParams = $this->params;
                     $cacheParams['format'] = $format;
                     ksort($cacheParams);
@@ -478,14 +506,24 @@ class sGalleryBuilder
                 }
                 $imageName .= (trim($ext) ? '-' . $ext : '') . '.' . $format;
 
-                $cachedPath = EVO_BASE_PATH . $chacheFile . $imageName;
+                if (str_contains($imageName, '/') || !GalleryFiles::relative($chacheFile . $imageName)) {
+                    return sGalleryModel::NOIMAGE;
+                }
                 clearstatcache();
+                $cacheDirectory = GalleryFiles::directory($chacheFile, true);
+                if ($cacheDirectory === null) {
+                    return sGalleryModel::NOIMAGE;
+                }
+                $cachedPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName;
+                if (is_link($cachedPath)) {
+                    return sGalleryModel::NOIMAGE;
+                }
                 if ($format === 'avif' && (!is_file($cachedPath) || filesize($cachedPath) < 100)) {
                     $fallbackName = preg_replace('/\.avif$/i', '.webp', $imageName);
                     $fallbackPath = EVO_BASE_PATH . $chacheFile . $fallbackName;
-                    if (is_file($fallbackPath) && filesize($fallbackPath) > 100) {
+                    if (!is_link($fallbackPath) && is_file($fallbackPath) && filesize($fallbackPath) > 100) {
                         \Seiger\sGallery\Services\GalleryCache::remember($sourceFile, $chacheFile . $fallbackName);
-                        return EVO_SITE_URL . $chacheFile . $fallbackName;
+                        return GalleryFiles::url($chacheFile . $fallbackName);
                     }
                 }
                 if (!is_file($cachedPath) || filesize($cachedPath) === 0) {
@@ -495,47 +533,11 @@ class sGalleryBuilder
                         (new ImageOptimizationQueue())->defer($this->optimizationJob);
                         return $this->originalImageUrl();
                     }
-                    if (!file_exists(EVO_BASE_PATH . $chacheFile)) {
-                        mkdir(EVO_BASE_PATH . $chacheFile, octdec(evo()->getConfig('new_folder_permissions', '0777')), true);
-                        chmod(EVO_BASE_PATH . $chacheFile, octdec(evo()->getConfig('new_folder_permissions', '0777')));
-                    }
-
-                    $temp = null;
                     $encodingPath = null;
 
                     try {
-                        // Handle remote files vs local files
-                        if (sGallery::hasLink($this->file)) {
-                            try {
-                                // Download remote file to temporary location
-                                $fileContents = @file_get_contents($this->file);
-                                if ($fileContents === false) {
-                                    throw new \Exception("Failed to fetch remote file: " . $this->file);
-                                }
-
-                                $temp = tmpfile();
-                                if (!$temp) {
-                                    throw new \Exception("Failed to create temporary file.");
-                                }
-
-                                fwrite($temp, $fileContents);
-                                $file = stream_get_meta_data($temp)['uri'];
-                            } catch (\Exception $e) {
-                                return sGalleryModel::NOIMAGE;
-                            }
-                        } else {
-                            // Use local file path
-                            $file = EVO_BASE_PATH . $this->file;
-                        }
-
-                        if (is_file($file)) {
-                            $this->sourceHasAlpha = $this->detectAlphaChannelFromPath($file);
-                        }
-
-                        if (!$this->isProcessableImage($file)) {
-                            throw new \RuntimeException("Unsupported or corrupted image data: " . $this->file);
-                        }
-
+                        $file = $localPath;
+                        $this->sourceHasAlpha = $this->detectAlphaChannelFromPath($file);
                         // Use appropriate driver based on format and AVIF support
                         if ($format === 'avif') {
                             // Ensure AVIF support is checked and driver is determined
@@ -646,16 +648,13 @@ class sGalleryBuilder
                                 throw new \RuntimeException('Cannot publish watermarked image.');
                             }
                         }
-                        chmod(EVO_BASE_PATH . $chacheFile . $imageName, octdec(evo()->getConfig('new_file_permissions', '0666')));
+                        chmod(EVO_BASE_PATH . $chacheFile . $imageName, 0644 & ~umask());
                     } catch (OptimizationDeferred $e) {
                         return $this->originalImageUrl();
                     } catch (\Exception $e) {
                         Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
                     } finally {
                         if (isset($atomicSuffix) && $atomicSuffix !== '' && $encodingPath && is_file($encodingPath)) unlink($encodingPath);
-                        if (is_resource($temp)) {
-                            fclose($temp);
-                        }
                     }
                 }
 
@@ -673,18 +672,12 @@ class sGalleryBuilder
 
                             // Try to create WebP version
                             clearstatcache();
+                            if (is_link($webpPath)) {
+                                return sGalleryModel::NOIMAGE;
+                            }
                             if (!is_file($webpPath) || filesize($webpPath) === 0) {
                                 try {
-                                    // Reload original and save as WebP
-                                    $originalFile = sGallery::hasLink($this->file) ? $this->file : EVO_BASE_PATH . $this->file;
-                                    if (sGallery::hasLink($this->file)) {
-                                        $fileContents = @file_get_contents($this->file);
-                                        if ($fileContents !== false) {
-                                            $temp = tmpfile();
-                                            fwrite($temp, $fileContents);
-                                            $originalFile = stream_get_meta_data($temp)['uri'];
-                                        }
-                                    }
+                                    $originalFile = $localPath;
 
                                     if (is_file($originalFile)) {
                                         $webpImage = Image::load($originalFile);
@@ -714,12 +707,9 @@ class sGalleryBuilder
                                         }
 
                                         $this->saveWebpImage($webpImage, $webpPath);
-                                        chmod($webpPath, octdec(evo()->getConfig('new_file_permissions', '0666')));
+                                        chmod($webpPath, 0644 & ~umask());
                                     }
 
-                                    if (isset($temp) && is_resource($temp)) {
-                                        fclose($temp);
-                                    }
                                 } catch (OptimizationDeferred $e) {
                                     return $this->originalImageUrl();
                                 } catch (\Exception $e) {
@@ -749,7 +739,7 @@ class sGalleryBuilder
             $outputFile = $this->file;
             \Seiger\sGallery\Services\GalleryCache::remember($sourceFile, $outputFile);
             $this->file = $sourceFile;
-            return EVO_SITE_URL . $outputFile;
+            return GalleryFiles::url($outputFile);
         }
 
         return sGalleryModel::NOIMAGE;
@@ -787,7 +777,7 @@ class sGalleryBuilder
     /** Return the untouched source URL while optimization is pending. @since 1.6.0 */
     private function originalImageUrl(): string
     {
-        return sGallery::hasLink($this->file) ? $this->file : EVO_SITE_URL . $this->file;
+        return GalleryFiles::url($this->file);
     }
 
     /**
@@ -813,25 +803,41 @@ class sGalleryBuilder
     /**
      * Replay a deferred local transformation without the web deadline.
      *
-     * Reject path traversal and changed sources before work starts. A task succeeds
-     * only if the builder returns a derived image rather than the original or placeholder.
+     * Validate the dimensions, format and cached filename parameters before touching
+     * the source. Only a published derivative counts as a completed task.
      * @param array<string, mixed> $job Descriptor created by optimizationDescriptor()
      * @return string Published derived image URL
      * @since 1.6.0
      */
     public function processOptimization(array $job): string
     {
-        $file = (string) ($job['file'] ?? '');
-        if ($file === '' || preg_match('~(^/|^[a-z]+:|(^|[\\\\/])\.\.([\\\\/]|$))~i', $file) ||
-            !is_file(EVO_BASE_PATH . $file)) {
+        $file = $job['file'] ?? null;
+        $params = $job['params'] ?? [];
+        if (!is_string($file) || !is_array($params) ||
+            ((array_key_exists('w', $params) || array_key_exists('h', $params)) &&
+                !self::withinImageLimits($params['w'] ?? null, $params['h'] ?? null)) ||
+            !in_array($params['format'] ?? 'webp', self::OUTPUT_FORMATS, true)) {
+            throw new \RuntimeException('Invalid gallery optimization parameters.');
+        }
+        foreach (['focalCenterX', 'focalCenterY', 'startX', 'startY'] as $coordinate) {
+            if (array_key_exists($coordinate, $params) && (!is_int($params[$coordinate]) || $params[$coordinate] < 0)) {
+                throw new \RuntimeException('Invalid gallery optimization coordinate.');
+            }
+        }
+        $sharpen = $params['sharpen'] ?? 0;
+        if ((!is_int($sharpen) && !is_float($sharpen)) || !is_finite($sharpen) || $sharpen < 0 || $sharpen > 100) {
+            throw new \RuntimeException('Invalid gallery optimization sharpening value.');
+        }
+        $path = GalleryFiles::local($file);
+        if ($path === null) {
             throw new \RuntimeException('Invalid local image optimization source.');
         }
         clearstatcache();
-        if (($job['source_version'] ?? null) !== [filesize(EVO_BASE_PATH . $file), filemtime(EVO_BASE_PATH . $file)]) {
+        if (($job['source_version'] ?? null) !== [filesize($path), filemtime($path)]) {
             throw new \RuntimeException('Image optimization source changed while queued.');
         }
         $this->file($file);
-        $this->params = (array) ($job['params'] ?? []);
+        $this->params = $params;
         foreach (['fit' => Fit::class, 'crop' => CropPosition::class] as $key => $enum) {
             if (isset($this->params[$key])) {
                 $this->params[$key] = $enum::from($this->params[$key]);
@@ -841,7 +847,7 @@ class sGalleryBuilder
         $this->qualityExplicit = (bool) ($job['quality_explicit'] ?? false);
         $this->backgroundOptimization = true;
         $result = $this->getFile();
-        if ($result === EVO_SITE_URL . $file || $result === sGalleryModel::NOIMAGE) {
+        if ($result === GalleryFiles::url($file) || $result === sGalleryModel::NOIMAGE) {
             throw new \RuntimeException('Image optimization did not publish a derived image.');
         }
         return $result;
@@ -877,12 +883,22 @@ class sGalleryBuilder
     /**
      * Set the file path for the builder.
      *
-     * @param string $input File path relative to the base path.
+     * @param string $input Site path or public HTTP(S) image URL.
      * @return $this
      */
     public function file(string $input): self
     {
-        $input = trim(str_replace([EVO_SITE_URL, EVO_BASE_PATH], '', $input), '/');
+        if (str_starts_with($input, EVO_SITE_URL)) {
+            $input = rawurldecode(substr($input, strlen(EVO_SITE_URL)));
+        } elseif (!sGallery::hasLink($input)) {
+            $base = rtrim(str_replace('\\', '/', EVO_BASE_PATH), '/') . '/';
+            $input = str_replace('\\', '/', $input);
+            if (str_starts_with($input, $base)) {
+                $input = substr($input, strlen($base));
+            } else {
+                $input = ltrim($input, '/');
+            }
+        }
         $this->resetBuilder();
         $this->file = $input;
         return $this;
@@ -911,6 +927,9 @@ class sGalleryBuilder
             $result = $this->file !== null ? $this->getFile() : $this->getView();
             $this->resetBuilder();
             return $result;
+        } catch (HttpExceptionInterface $error) {
+            $this->resetBuilder();
+            return '';
         } catch (\Exception $e) {
             return "Error sGallery: " . $e->getMessage();
         }
@@ -1257,8 +1276,7 @@ class sGalleryBuilder
                 );
                 \imagealphablending($resizedImage, false);
 
-                \imagedestroy($originalImage);
-                \imagedestroy($gdImage);
+                unset($originalImage, $gdImage);
                 $gdImage = $resizedImage;
             }
         }
@@ -1280,13 +1298,13 @@ class sGalleryBuilder
 
         // Check if AVIF encoding is actually supported before attempting
         if (!function_exists('imageavif')) {
-            \imagedestroy($gdImage);
+            unset($gdImage);
             throw new \RuntimeException('imageavif() function is not available');
         }
 
         // Suppress warnings but check return value
         $result = @\imageavif($gdImage, $path, $quality);
-        \imagedestroy($gdImage);
+        unset($gdImage);
 
         // Check if file was created and has content
         if ($result === false || !file_exists($path) || filesize($path) < 100) {
@@ -1306,33 +1324,21 @@ class sGalleryBuilder
      */
     private function isProcessableImage(string $filePath): bool
     {
-        if (!is_file($filePath)) {
-            return false;
-        }
-
-        $size = @filesize($filePath);
-        if ($size === false || $size === 0) {
-            return false;
-        }
-
-        $finfo = function_exists('finfo_open') ? @finfo_open(FILEINFO_MIME_TYPE) : false;
-        if ($finfo) {
-            $mime = @finfo_file($finfo, $filePath);
-            finfo_close($finfo);
-            if (is_string($mime) && strpos(strtolower($mime), 'image/') === 0) {
-                return true;
+        $dimensions = @getimagesize($filePath);
+        if ($dimensions === false && class_exists(\Imagick::class) &&
+            in_array(strtolower(pathinfo($filePath, PATHINFO_EXTENSION)), ['heic', 'heif'], true)) {
+            $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($filePath);
+            if (in_array($mime, ['image/heic', 'image/heif'], true)) {
+                try {
+                    $metadata = new \Imagick();
+                    $metadata->pingImage($filePath);
+                    $dimensions = [$metadata->getImageWidth(), $metadata->getImageHeight()];
+                } catch (\ImagickException $error) {
+                    return false;
+                }
             }
         }
-
-        $imageInfo = @getimagesize($filePath);
-        if ($imageInfo !== false) {
-            $mime = strtolower($imageInfo['mime'] ?? '');
-            if ($mime !== '' && strpos($mime, 'image/') === 0) {
-                return true;
-            }
-        }
-
-        return false;
+        return $dimensions !== false && self::withinImageLimits($dimensions[0], $dimensions[1]);
     }
 
     /**
@@ -1385,7 +1391,7 @@ class sGalleryBuilder
     /**
      * Resolve absolute path for current or given relative file.
      *
-     * @param string|null $relative
+     * @param string|null $relative Site-relative local path
      * @return string|null
      */
     private function getAbsoluteSourcePath(?string $relative = null): ?string
@@ -1396,20 +1402,7 @@ class sGalleryBuilder
             return null;
         }
 
-        $target = ltrim($target, '/');
-
-        $candidates = [
-            EVO_BASE_PATH . $target,
-            sGalleryModel::UPLOAD . $target,
-        ];
-
-        foreach ($candidates as $candidate) {
-            if (is_file($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return null;
+        return GalleryFiles::local($target) ?? GalleryFiles::local('assets/sgallery/' . $target);
     }
 
     /**
@@ -1436,16 +1429,25 @@ class sGalleryBuilder
 
         switch ($extension) {
             case 'png':
+                if (!\function_exists('imagecreatefrompng')) {
+                    break;
+                }
                 $resource = @imagecreatefrompng($path);
                 if ($resource) {
                     \imagealphablending($resource, true);
                     \imagesavealpha($resource, true);
                     $result = $this->hasTransparentPixel($resource);
-                    \imagedestroy($resource);
+                    unset($resource);
                 }
                 break;
             case 'gif':
+                if (!\function_exists('imagecreatefromgif')) {
+                    break;
+                }
                 $resource = @imagecreatefromgif($path);
+                if (!$resource) {
+                    break;
+                }
                 if ($resource) {
                     $transparentIndex = \imagecolortransparent($resource);
                     if ($transparentIndex >= 0) {
@@ -1453,7 +1455,7 @@ class sGalleryBuilder
                     } else {
                         $result = $this->hasTransparentPixel($resource);
                     }
-                    \imagedestroy($resource);
+                    unset($resource);
                 }
                 break;
             case 'webp':
@@ -1461,7 +1463,7 @@ class sGalleryBuilder
                     $resource = @imagecreatefromwebp($path);
                     if ($resource) {
                         $result = $this->hasTransparentPixel($resource);
-                        \imagedestroy($resource);
+                        unset($resource);
                     }
                 }
                 break;

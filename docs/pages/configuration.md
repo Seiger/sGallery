@@ -53,6 +53,31 @@ The following format is deprecated since 1.7.0, but remains readable for backwar
 
 The manager shows a deprecation notice when this format is present. Changing gallery settings and saving converts assignments to the flat format. Merely opening the page or saving unrelated system settings does not rewrite the gallery configuration. Older package versions still support the simple ID list, but require the nested format for named tabs.
 
+## Manager gallery permissions
+
+Resource galleries require a manager session and access to the parent resource. Reading requires `view_document` or `edit_document`. Adding media, reordering and editing translations require both `edit_document` and `save_document`. Deleting also requires `delete_document`. For named blocks, assign the block to the resource template. The default block is `1`.
+
+Integrations with their own parent types can register an action and resource check in `itemPolicies`:
+
+```php
+<?php return [
+    1,
+    'itemPolicies' => [
+        'product' => [\App\Gallery\ProductPolicy::class, 'allows'],
+    ],
+];
+```
+
+The callable receives `(string $action, int $parentId, string $block, $evolution)` and must return `true` for the authorized action. The action is `read`, `upload`, `uploadDownload`, `register`, `addYoutube`, `reorder`, `translate` or `delete`. Set a policy for custom types used by non-administrators. Without one, custom galleries are available to administrators. A configured `resource` policy can allow additional block names after the normal CMS checks pass.
+
+Adding a file from the browser requires `file_manager` or the corresponding `assets_images` / `assets_files` permission. The browser directory must be inside the site and the file must be within `rb_base_dir`. When `image_base_upload_dir` is set, new registrations must be within that directory too. Removing a shared library entry leaves its original file in the library.
+
+## Uploads and links
+
+The package checks uploads against the configured CMS extensions and a supported server MIME type. New files receive a unique name and a canonical extension. On POSIX systems, new upload directories and files start from modes `0755` and `0644`, reduced by the process umask. Existing upload locations and shared library files are retained.
+
+Gallery links accept HTTP(S) URLs and relative links. Use Blade's escaped echo syntax for the link attribute in your templates. Entries with older links outside the current policy display with an empty link.
+
 ## Generated image cache
 
 Use the `imageCacheDir` key to choose the project-relative public directory for generated image derivatives.

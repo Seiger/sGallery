@@ -3,6 +3,8 @@
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Seiger\sGallery\Services\GalleryFiles;
+use Seiger\sGallery\Services\GalleryMedia;
 use Seiger\sGallery\sGallery;
 
 /**
@@ -79,7 +81,6 @@ class sGalleryModel extends Model
      */
     protected $fillable = ['parent', 'block', 'position', 'file', 'type', 'item_type'];
 
-    private $cachedFilePath;
 
     /**
      * Get the file item fields with lang
@@ -97,16 +98,9 @@ class sGalleryModel extends Model
         $langOrderSql = 'CASE WHEN ' . $langColumn . ' = ' . $quotedLocale
             . ' THEN 0 WHEN ' . $langColumn . ' = ' . $quotedBase
             . ' THEN 1 ELSE 2 END';
-        $typeColumn = $grammar->wrap('type');
-        $itemTypeColumn = $grammar->wrap('item_type');
-        $parentColumn = $grammar->wrap('parent');
-        $fileColumn = $grammar->wrap('file');
-        $srcSql = DB::connection()->getDriverName() === 'sqlite'
-            ? '(CASE WHEN ' . $typeColumn . ' = \'image\' AND ' . $fileColumn . ' LIKE \'assets/%\' THEN \'/\' || ' . $fileColumn
-                . ' WHEN ' . $typeColumn . ' = \'image\' THEN \'/assets/sgallery/\' || ' . $itemTypeColumn . ' || \'/\' || ' . $parentColumn . ' || \'/\' || ' . $fileColumn . ' ELSE \'\' END) as src'
-            : '(CASE WHEN ' . $typeColumn . ' = \'image\' AND ' . $fileColumn . ' LIKE \'assets/%\' THEN CONCAT(\'/\', ' . $fileColumn
-                . ') WHEN ' . $typeColumn . ' = \'image\' THEN CONCAT(\'/assets/sgallery/\', ' . $itemTypeColumn . ', \'/\', ' . $parentColumn . ', \'/\', ' . $fileColumn . ') ELSE \'\' END) as src';
-        return $this->select('*')->leftJoin('s_gallery_fields', function ($leftJoin) use ($locale, $langOrderSql) {
+        return $query->select('s_galleries.*', 's_gallery_fields.lang', 's_gallery_fields.alt',
+            's_gallery_fields.title', 's_gallery_fields.description', 's_gallery_fields.link_text', 's_gallery_fields.link')
+            ->leftJoin('s_gallery_fields', function ($leftJoin) use ($locale, $langOrderSql) {
             $leftJoin->on('s_galleries.id', '=', 's_gallery_fields.key')
                 ->where('lang', function ($leftJoin) use ($locale, $langOrderSql) {
                     $leftJoin->select('lang')
@@ -116,65 +110,58 @@ class sGalleryModel extends Model
                         ->orderByRaw($langOrderSql)
                         ->limit(1);
                 });
-        })->addSelect(DB::Raw($srcSql));
+        });
     }
 
-    /**
-     * Retrieves the source attribute for an image.
-     *
-     * If the file property is not empty and a valid file exists at the specified path, the source attribute will be set to
-     * the path to the file. Otherwise, the source attribute will be set to the path to the default image (noimage.png).
-     *
-     * @return string The source attribute value for the image.
-     */
+    /** Return the image source or media placeholder for existing frontend templates. */
     protected function getSrcAttribute(): string
     {
-        switch ($this->type) {
-            case self::TYPE_IMAGE:
-                $src = self::NOIMAGE;
-                if (!empty($this->file) && is_file(self::UPLOAD . $this->item_type . '/' . $this->parent . '/' . $this->file)) {
-                    $src = self::UPLOADED . $this->item_type . '/' . $this->parent . '/' . $this->file;
-                } elseif (!empty($this->file) && is_file(EVO_BASE_PATH . $this->file)) {
-                    $src = EVO_SITE_URL . $this->file;
-                } elseif (!empty($this->file) && sGallery::hasLink($this->file)) {
-                    $src = $this->file;
-                }
-                break;
-            case self::TYPE_VIDEO:
-                $src = self::UPLOADED . 'video_placeholder.png';
-                break;
-            case self::TYPE_PDF:
-                $src = self::UPLOADED . 'pdf_icon.png';
-                break;
-            default:
-                $src = self::NOIMAGE;
-                break;
-        }
-        return $src;
+        return match ($this->type) {
+            self::TYPE_IMAGE => $this->mediaUrl() ?? self::NOIMAGE,
+            self::TYPE_VIDEO => self::UPLOADED . 'video_placeholder.png',
+            self::TYPE_PDF => self::UPLOADED . 'pdf_icon.png',
+            default => self::NOIMAGE,
+        };
     }
 
-    /**
-     * Get the full path to the file on the server.
-     *
-     * This method constructs the full file path on the server for the gallery item.
-     * If the file exists, it returns the full path; otherwise, it returns the path to a default "noimage.png" file.
-     *
-     * @return string The full path to the file on the server.
-     */
+    /** Omit invalid legacy links from gallery templates while leaving the stored value intact. @since 1.8.0 */
+    protected function getLinkAttribute(?string $value): string
+    {
+        return $value !== null && GalleryMedia::link($value) ? $value : '';
+    }
+
+    /** Resolve the stored media for rendering, with a placeholder for missing or unsafe paths. */
     public function getPathAttribute(): string
     {
-        if ($this->cachedFilePath) {
-            return $this->cachedFilePath;
+        $relative = $this->localMedia();
+        if ($relative !== null) {
+            return GalleryFiles::local($relative) ?? EVO_BASE_PATH . 'assets/site/noimage.png';
         }
 
-        if (!empty($this->file) && is_file(self::UPLOAD . $this->item_type . '/' . $this->parent . '/' . $this->file)) {
-            $this->cachedFilePath = self::UPLOAD . $this->item_type . '/' . $this->parent . '/' . $this->file;
-        } elseif (!empty($this->file) && is_file(EVO_BASE_PATH . $this->file)) {
-            $this->cachedFilePath = EVO_BASE_PATH . $this->file;
-        } elseif (!empty($this->file) && sGallery::hasLink($this->file)) {
-            $this->cachedFilePath = $this->file;
+        return $this->remoteImage() ?? EVO_BASE_PATH . 'assets/site/noimage.png';
+    }
+
+    /** Expose only a resolved media URL to Blade previews. @since 1.8.0 */
+    public function mediaUrl(): ?string
+    {
+        $relative = $this->localMedia();
+        return $relative !== null ? GalleryFiles::url($relative) : $this->remoteImage();
+    }
+
+    /** Distinguish owned filenames from shared library paths. @since 1.8.0 */
+    private function localMedia(): ?string
+    {
+        if ($this->type === self::TYPE_YOUTUBE) {
+            return null;
         }
 
-        return $this->cachedFilePath ?? EVO_BASE_PATH . 'assets/site/noimage.png';
+        return GalleryFiles::owned($this) ?? GalleryFiles::library((string) $this->file);
+    }
+
+    /** Keep existing external image URLs usable as browser sources. @since 1.8.0 */
+    private function remoteImage(): ?string
+    {
+        $file = (string) $this->file;
+        return $this->type === self::TYPE_IMAGE && sGallery::hasLink($file) && GalleryMedia::link($file) ? $file : null;
     }
 }

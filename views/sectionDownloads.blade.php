@@ -8,7 +8,7 @@
 
     <ul id="uploadBase{{$sGalleryController->getBlockNameId()}}">
         @foreach($galleries as $gallery)
-            @includeIf(\Seiger\sGallery\Services\GallerySettings::view('partials.'.$gallery->type))
+            @include(\Seiger\sGallery\Services\GallerySettings::view(\Seiger\sGallery\Services\GalleryMedia::preview($gallery->type)))
         @endforeach
     </ul>
 </section>

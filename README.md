@@ -1,12 +1,13 @@
 # sGallery for Evolution CMS
 ![sGallery](https://user-images.githubusercontent.com/12029039/169609394-08ea36d6-2393-4261-aff2-348f73a6103c.png)
 [![Latest Stable Version](https://img.shields.io/packagist/v/seiger/sgallery?label=version)](https://packagist.org/packages/seiger/sgallery)
-[![CMS Evolution](https://img.shields.io/badge/CMS-Evolution-brightgreen.svg)](https://github.com/evolution-cms/evolution)
-![PHP version](https://img.shields.io/packagist/php-v/seiger/sgallery)
+[![Evolution CMS version requirement](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FSeiger%2FsGallery%2Fmain%2Fcomposer.json&query=%24.require%5B%27evolution-cms%2Fevolution%27%5D&label=CMS&prefix=Evolution%20&color=brightgreen)](https://github.com/evolution-cms/evolution)
+[![PHP: 8.4, 8.5 and 8.6](https://img.shields.io/badge/PHP-8.4_%7C_8.5_%7C_8.6-777BB4?logo=php&logoColor=white)](#compatibility)
 [![License](https://img.shields.io/packagist/l/seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
 [![Issues](https://img.shields.io/github/issues/Seiger/sgallery)](https://github.com/Seiger/sgallery/issues)
 [![Stars](https://img.shields.io/packagist/stars/Seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
 [![Total Downloads](https://img.shields.io/packagist/dt/seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
+![Made in Ukraine](https://img.shields.io/badge/made_in-Ukraine-ffd700.svg?labelColor=0057b7)
 
 **sGallery** emerges as a versatile and indispensable plugin tailor-made for Evolution CMS,
 revolutionizing the way you manage media assets within your website. Specifically
@@ -47,9 +48,9 @@ a format that is not listed you are probably fine to use it but your mileage may
 | heic   | ❌  | ✅ |
 | tiff   | ❌  | ✅ |
 
-### Requirements
-- Evolution CMS **3.3+**
-- PHP **8.3+**
+### Compatibility
+- Evolution CMS **3.5 or later in the 3.x series**
+- PHP **8.4, 8.5 and 8.6** (minimum 8.4)
 - Composer **2.2+**
 - One of: **MySQL 8.0+** / **MariaDB 10.5+** / **PostgreSQL 10+** / **SQLite 3.25+**
 

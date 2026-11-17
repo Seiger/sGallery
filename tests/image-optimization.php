@@ -88,7 +88,7 @@ namespace {
     try {
         $source = EVO_BASE_PATH . 'assets/images/test.jpg';
         $gd = imagecreatetruecolor(32, 32);
-        imagejpeg($gd, $source); imagedestroy($gd);
+        imagejpeg($gd, $source); unset($gd);
         $builder = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/images/test.jpg')->format('webp')->optimize(false);
         $url = $builder->getFile();
         $output = EVO_BASE_PATH . substr($url, strlen(EVO_SITE_URL));

@@ -11,6 +11,8 @@
     'error_code_413' => 'The file being downloaded is too large. Check the server configuration.',
     'file_upload' => 'Upload File',
     'file_upload_error' => 'Error',
+    'access_denied' => 'You do not have permission to use this gallery.',
+    'invalid_request' => 'Check the gallery data and try again.',
     'gallery' => 'Gallery',
     'image_delete' => 'Delete image',
     'image_library' => 'Image library',
