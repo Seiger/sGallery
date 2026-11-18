@@ -10,6 +10,8 @@ With the EXIF extension disabled, also run `PACKAGE_AUTOLOAD=/path/to/core/vendo
 
 `crop-test.php` checks the nine crop positions, manual and focal coordinates, edge clipping and pixel transparency. It also checks that equal-sized native manual crops from different coordinates have separate cache entries.
 
+`orientation-test.php` checks all eight JPEG orientations, crop coordinates after rotation, and the cache transition from stored to corrected orientation. Run it with and without Spatie, and with EXIF disabled to check the GD fallback or Imagick metadata reading.
+
 ## Image compatibility baseline
 
 `image-compatibility-test.php` runs the Evolution `HelperProcessor::phpThumb()` and the sGallery Builder against the same generated inputs in a private temporary directory. It requires the phpThumb and Spatie packages from the supplied Composer runtime and GD with JPEG, PNG and WebP support. It checks AVIF when GD can encode it.

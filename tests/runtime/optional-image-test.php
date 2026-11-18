@@ -138,7 +138,15 @@ try {
         $cropPath = $root . rawurldecode(substr($cropUrl, strlen(EVO_SITE_URL)));
         checkOptionalImage(array_slice(getimagesize($cropPath), 0, 3) === [24, 24, IMAGETYPE_WEBP], "$method renders without Spatie");
     }
-    checkOptionalImage(GalleryCache::clear() === 6 && file_get_contents($root . 'photo.png') === $png &&
+    $exif = "Exif\0\0II" . pack('vVv', 42, 8, 1) . pack('vvVVV', 0x0112, 3, 1, 6, 0);
+    file_put_contents($root . 'oriented.jpg', substr($jpeg, 0, 2) . "\xff\xe1"
+        . pack('n', strlen($exif) + 2) . $exif . substr($jpeg, 2));
+    $orientedUrl = (new sGalleryBuilder())->file('oriented.jpg')->fit('max', 48)->format('webp')->getFile();
+    $orientedPath = $root . rawurldecode(substr($orientedUrl, strlen(EVO_SITE_URL)));
+    $expected = function_exists('exif_read_data') || class_exists(Imagick::class) ? [24, 48] : [48, 24];
+    checkOptionalImage(array_slice(getimagesize($orientedPath), 0, 3) === [...$expected, IMAGETYPE_WEBP],
+        'JPEG orientation without Spatie follows the available metadata reader');
+    checkOptionalImage(GalleryCache::clear() === 7 && file_get_contents($root . 'photo.png') === $png &&
         file_get_contents($jpegPath) === $jpeg, 'Cache clearing removes the derivatives and preserves their sources');
 } finally {
     $files = new RecursiveIteratorIterator(

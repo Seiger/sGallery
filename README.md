@@ -71,7 +71,10 @@ images and produce JPEG, PNG or WebP. For example,
 `sGallery::file('assets/photo.jpg')->fit('crop', 320, 240)->format('webp')->getFile()`.
 The native fit supports `crop`, `contain`, `max`, `fill`, `stretch` and `fill-max`.
 `resize()` also supports explicit or configured WebP output. The native path uses
-stored pixel orientation, a separate cache key and the built-in WebP quality selection.
+a separate cache key and the built-in WebP quality selection. For JPEG files it
+applies EXIF orientation before fitting, resizing or cropping. GD can read the
+orientation through PHP EXIF, and Imagick can read it without that extension.
+When neither is available to read the tag, the stored pixel orientation is used.
 
 When Spatie is installed, the Builder continues to use it for transformations.
 Operations such as watermarks, sharpening and background image

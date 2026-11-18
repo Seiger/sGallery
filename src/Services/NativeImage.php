@@ -152,6 +152,74 @@ final class NativeImage
         return self::dimensionsOf($this->image);
     }
 
+    /** Read the orientation of a validated local JPEG without decoding its pixels. @since 1.9.0 */
+    public static function readJpegOrientation(string $path): int
+    {
+        if (function_exists('exif_read_data')) {
+            $orientation = @exif_read_data($path, 'IFD0')['Orientation'] ?? 1;
+        } elseif (class_exists(Imagick::class) && ($stream = @fopen($path, 'rb')) !== false) {
+            try {
+                $orientation = self::pingImagick($stream, 'JPEG')?->getImageOrientation() ?? 1;
+            } catch (ImagickException) {
+                return 1;
+            } finally {
+                fclose($stream);
+            }
+        } else {
+            return 1;
+        }
+
+        return is_int($orientation) && $orientation >= 2 && $orientation <= 8 ? $orientation : 1;
+    }
+
+    /** Rotate or mirror a JPEG frame before applying geometry in displayed coordinates. @since 1.9.0 */
+    public function orientFromExif(int $orientation): self
+    {
+        if ($orientation < 2 || $orientation > 8) {
+            return $this;
+        }
+
+        [$width, $height] = $this->dimensions();
+        if (!self::hasMemoryFor($width, $height)) {
+            throw new RuntimeException('Insufficient memory budget to orient the gallery image.');
+        }
+
+        if ($this->image instanceof Imagick) {
+            $image = clone $this->image;
+            if (!$image->setImageOrientation($orientation)) {
+                throw new RuntimeException('Imagick could not set the gallery image orientation.');
+            }
+            $image->autoOrient();
+            if (!$image->setImagePage(0, 0, 0, 0)) {
+                throw new RuntimeException('Imagick could not reset the oriented gallery image canvas.');
+            }
+            // Do not carry the source orientation into a derivative with rotated pixels.
+            if ($image->getImageProfiles('exif', false) !== []) {
+                $image->removeImageProfile('exif');
+            }
+        } else {
+            $rotation = match ($orientation) {
+                3 => 180,
+                5, 6, 7 => -90,
+                8 => 90,
+                default => 0,
+            };
+            $flip = match ($orientation) {
+                2, 5 => IMG_FLIP_HORIZONTAL,
+                4, 7 => IMG_FLIP_VERTICAL,
+                default => null,
+            };
+            $image = $rotation === 0
+                ? self::cropFrame($this->image, 0, 0, $width, $height)
+                : imagerotate($this->image, $rotation, 0);
+            if ($image === false || ($flip !== null && !imageflip($image, $flip))) {
+                throw new RuntimeException('GD could not orient the gallery image.');
+            }
+        }
+
+        return new self($image, $this->outputType, $this->source);
+    }
+
     /**
      * Resize a still frame using Builder's width-then-height behavior and rounding.
      *
@@ -547,9 +615,9 @@ final class NativeImage
         }
 
         try {
-            $metadata = new Imagick();
+            $metadata = self::pingImagick($stream, $format);
             $fileBytes = (int) (fstat($stream)['size'] ?? 0);
-            if (!$metadata->setFormat($format) || !$metadata->pingImageFile($stream) || $metadata->getNumberImages() !== 1
+            if ($metadata === null
                 || !self::hasMemoryFor($metadata->getImageWidth(), $metadata->getImageHeight(), $fileBytes) || !rewind($stream)) {
                 return null;
             }
@@ -564,6 +632,13 @@ final class NativeImage
         } finally {
             fclose($stream);
         }
+    }
+
+    /** Read a single frame header through the selected ImageMagick coder. @since 1.9.0 */
+    private static function pingImagick($stream, string $format): ?Imagick
+    {
+        $image = new Imagick();
+        return $image->setFormat($format) && $image->pingImageFile($stream) && $image->getNumberImages() === 1 ? $image : null;
     }
 
     /** Normalize explicit image formats and the JPEG extension alias. @since 1.9.0 */

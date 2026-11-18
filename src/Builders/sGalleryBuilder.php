@@ -484,6 +484,10 @@ class sGalleryBuilder
                     $format = 'webp';
                 }
 
+                $nativeOrientation = !$withSpatie && $dimensions[2] === IMAGETYPE_JPEG
+                    ? NativeImage::readJpegOrientation($localPath)
+                    : 1;
+
                 // Build cache filename with transformation parameters
                 $fit = $this->params['fit'] ?? null;
                 $ext = $fit === null ? '' : ($fit instanceof Fit ? $fit->value : $fit) . '-';
@@ -497,6 +501,7 @@ class sGalleryBuilder
                 $ext .= isset($this->params['sharpen']) && $this->params['sharpen'] > 0 ? '-sh' . $this->params['sharpen'] : '';
                 $ext .= !empty($this->params['optimize']) ? '-opt' : '';
                 $ext .= $this->quality !== 100 ? '-q' . $this->quality : '';
+                $ext .= $nativeOrientation > 1 ? '-exif' . $nativeOrientation : '';
                 $ext .= $withSpatie ? '' : '-native';
                 if (isset($this->params['watermark'])) {
                     $sourceHash = hash_file('sha256', $localPath);
@@ -539,7 +544,8 @@ class sGalleryBuilder
                 $this->optimizationJob = $this->optimizationDescriptor($format);
                 $queue = new ImageOptimizationQueue();
                 if (!$this->backgroundOptimization && ($dimensions === false ||
-                    !$this->fitsMemoryBudget($localPath, $dimensions, $withSpatie) || ($withSpatie && $queue->heavy($this->optimizationJob)))) {
+                    !$this->fitsMemoryBudget($localPath, $dimensions, $withSpatie, $nativeOrientation) ||
+                    ($withSpatie && $queue->heavy($this->optimizationJob)))) {
                     if ($withSpatie) $queue->defer($this->optimizationJob);
                     return $this->originalImageUrl();
                 }
@@ -547,7 +553,7 @@ class sGalleryBuilder
                     if ($dimensions === false && ImageMemoryBudget::allows(0, (int) @filesize($localPath), true)) {
                         $dimensions = $this->heifDimensions($localPath);
                     }
-                    if ($dimensions === false || !$this->fitsMemoryBudget($localPath, $dimensions, $withSpatie)) {
+                    if ($dimensions === false || !$this->fitsMemoryBudget($localPath, $dimensions, $withSpatie, $nativeOrientation)) {
                         throw new \RuntimeException('Image optimization exceeds the worker memory budget or has unreadable dimensions.');
                     }
                 }
@@ -557,7 +563,7 @@ class sGalleryBuilder
                 try {
                     $this->sourceHasAlpha = $withSpatie && !$animated && $this->detectAlphaChannelFromPath($localPath);
                     try {
-                        $this->renderWithDrivers($sourceFile, $localPath, $format, $encodingPath, $animated, $withSpatie);
+                        $this->renderWithDrivers($sourceFile, $localPath, $format, $encodingPath, $animated, $withSpatie, $nativeOrientation);
                     } catch (OptimizationDeferred $e) {
                         throw $e;
                     } catch (\Exception $e) {
@@ -621,7 +627,15 @@ class sGalleryBuilder
      * neither native reader can open the file. A failed write never bypasses native verification.
      * @since 1.9.0
      */
-    private function renderWithDrivers(string $source, string $path, string $format, string $output, bool $animated, bool $withSpatie = true): void
+    private function renderWithDrivers(
+        string $source,
+        string $path,
+        string $format,
+        string $output,
+        bool $animated,
+        bool $withSpatie = true,
+        int $nativeOrientation = 1,
+    ): void
     {
         $drivers = $animated ? ['imagick'] : ['imagick', 'gd'];
         if ($format === 'avif' && self::$avifSupportDriver === 'gd') {
@@ -635,7 +649,7 @@ class sGalleryBuilder
                 $this->checkOptimizationBudget();
                 try {
                     if (!$withSpatie) {
-                        $image = NativeImage::open($source, $format, $driver);
+                        $image = NativeImage::open($source, $format, $driver)->orientFromExif($nativeOrientation);
                         $image = $this->transformNative($image);
                         if ($format === 'webp') {
                             $this->saveWebpImage($image, $output);
@@ -1388,10 +1402,13 @@ class sGalleryBuilder
     }
 
     /** Include the source, output and intermediate resize in the estimate. @since 1.9.0 */
-    private function fitsMemoryBudget(string $path, array $dimensions, bool $withSpatie): bool
+    private function fitsMemoryBudget(string $path, array $dimensions, bool $withSpatie, int $nativeOrientation): bool
     {
         [$width, $height] = $dimensions;
-        $sourcePixels = (float) $width * $height;
+        if ($nativeOrientation >= 5) {
+            [$width, $height] = [$height, $width];
+        }
+        $sourcePixels = (float) $width * $height * ($nativeOrientation > 1 ? 2 : 1);
         $targetWidth = $this->params['w'] ?? $width;
         $targetHeight = $this->params['h'] ?? $height;
         $outputPixels = (float) $targetWidth * $targetHeight;
@@ -1400,10 +1417,10 @@ class sGalleryBuilder
             $outputPixels = (float) min($width, $targetWidth) * min($height, $targetHeight);
         } elseif (($fit instanceof Fit && $fit === Fit::Crop) || ($fit === null && !$this->hasCrop() && isset($this->params['w']))) {
             // A width- or height-driven resize can exceed the requested rectangle,
-            // including when the decoder rotates the source before resizing.
+            // including when Spatie rotates the source before resizing.
             $aspect = $width / $height;
             $type = $dimensions[2] ?? null;
-            if (function_exists('exif_read_data') && in_array($type, [IMAGETYPE_JPEG, IMAGETYPE_TIFF_II, IMAGETYPE_TIFF_MM], true)) {
+            if ($withSpatie && function_exists('exif_read_data') && in_array($type, [IMAGETYPE_JPEG, IMAGETYPE_TIFF_II, IMAGETYPE_TIFF_MM], true)) {
                 $orientation = (int) (@exif_read_data($path, 'IFD0')['Orientation'] ?? 1);
                 if ($orientation >= 5 && $orientation <= 8) {
                     $aspect = 1 / $aspect;
