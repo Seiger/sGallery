@@ -73,8 +73,13 @@ The native fit supports `crop`, `contain`, `max`, `fill`, `stretch` and `fill-ma
 `resize()` also supports explicit or configured WebP output. For still AVIF and
 GIF, call `format('avif')` or `format('gif')` with or without a transform on a
 local still JPEG or PNG. If AVIF encoding fails or is unavailable, the Builder
-tries WebP. GIF uses a palette with binary transparency. Animated sources keep
-their original URL in the native path.
+tries WebP. GIF uses a palette with binary transparency.
+
+With Imagick, native GIF and WebP animations keep their frames, delays and loop
+count. A geometry request uses the source format by default. You can also request
+GIF or WebP explicitly. The Builder returns the original URL if the encoder is
+unavailable, the request exceeds the processing budget, or the selected output
+cannot preserve the timing or color profile. GIF delays use 10 ms units.
 
 The native path uses a separate cache key and the built-in WebP quality
 selection. For JPEG files it

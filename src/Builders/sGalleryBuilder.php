@@ -14,6 +14,7 @@ use Seiger\sGallery\Services\ImageAnimation;
 use Seiger\sGallery\Services\ImageColor;
 use Seiger\sGallery\Services\ImageMemoryBudget;
 use Seiger\sGallery\Services\ImageOptimizationQueue;
+use Seiger\sGallery\Services\NativeAnimation;
 use Seiger\sGallery\Services\NativeImage;
 use Seiger\sGallery\Services\Watermark;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -442,14 +443,13 @@ class sGalleryBuilder
         $localPath = $sourceFile === null ? null : GalleryFiles::local($sourceFile);
         if ($localPath !== null) {
             $withSpatie = class_exists(Image::class);
-            if (!$withSpatie && !$this->canTransformWithoutSpatie()) {
-                return $this->originalImageUrl();
-            }
             $extension = strtolower(pathinfo($localPath, PATHINFO_EXTENSION));
 
             if ($this->params !== null && !in_array($extension, ['svg'])) {
                 $dimensions = @getimagesize($localPath);
-                if (!$withSpatie && !in_array($dimensions[2] ?? null, [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)) {
+                $animated = ImageAnimation::isAnimated($localPath, $dimensions[2] ?? 0);
+                if (!$withSpatie && (!$this->canTransformWithoutSpatie($animated) ||
+                    (!$animated && !in_array($dimensions[2] ?? null, [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)))) {
                     return $this->originalImageUrl();
                 }
                 if ($dimensions === false && !$this->isHeifImage($localPath, $extension)) {
@@ -458,13 +458,16 @@ class sGalleryBuilder
                 if ($dimensions !== false && !self::validDimensions($dimensions[0], $dimensions[1])) {
                     return sGalleryModel::NOIMAGE;
                 }
-                $animated = ImageAnimation::isAnimated($localPath, $dimensions[2] ?? 0);
-
                 $imageName = str_replace('.' . pathinfo($this->file, PATHINFO_EXTENSION), '', pathinfo($this->file, PATHINFO_BASENAME));
                 $chacheFile = GalleryCache::directoryFor($this->file);
                 $nativeAlpha = false;
                 $nativeIcc = false;
-                if (!$withSpatie) {
+                $nativeTiming = null;
+                $nativeAnimationVersion = null;
+                $nativeAnimationFormat = null;
+                if (!$withSpatie && $animated) {
+                    $nativeAnimationFormat = $dimensions[2] === IMAGETYPE_GIF ? 'gif' : 'webp';
+                } elseif (!$withSpatie) {
                     [$nativeAlpha, $color] = $dimensions[2] === IMAGETYPE_PNG
                         ? ImageColor::fromPng($localPath)
                         : [false, ImageColor::fromJpeg($localPath, (int) ($dimensions['channels'] ?? 0))];
@@ -474,16 +477,25 @@ class sGalleryBuilder
                     $nativeIcc = $color === ImageColor::ICC;
                     $this->sourceHasAlpha = $nativeAlpha;
                 }
-                $format = $this->params['format'] ?? $this->getSupportedImageFormat();
-                if (!$withSpatie && !in_array($format === 'original' ? $extension : $format, ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'], true)) {
+                $format = $this->params['format'] ?? $nativeAnimationFormat ?? $this->getSupportedImageFormat();
+                $originalFormat = $nativeAnimationFormat ?? $extension;
+                if (!$withSpatie && !in_array($format === 'original' ? $originalFormat : $format, ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'], true)) {
                     return $this->originalImageUrl();
                 }
                 if ($format === 'original') {
-                    $format = $extension;
+                    $format = $originalFormat;
                     if (!in_array($format, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'], true)) throw new \InvalidArgumentException('Original image format is not supported by the processing driver.');
                 }
                 if ($animated && !in_array($format, ['gif', 'webp'], true)) {
                     return $this->originalImageUrl();
+                }
+                if ($nativeAnimationFormat !== null) {
+                    clearstatcache(true, $localPath);
+                    $nativeAnimationVersion = [@filesize($localPath), @filemtime($localPath)];
+                    $nativeTiming = ImageAnimation::timing($localPath, $dimensions[2]);
+                    if ($nativeTiming === null) {
+                        return $this->originalImageUrl();
+                    }
                 }
 
                 // Ensure format is supported (if AVIF was requested but not supported, fallback to WebP)
@@ -512,6 +524,7 @@ class sGalleryBuilder
                 $ext .= $nativeOrientation > 1 ? '-exif' . $nativeOrientation : '';
                 $ext .= $nativeAlpha ? '-alpha' : '';
                 $ext .= $nativeIcc ? '-srgb' : '';
+                $ext .= $nativeTiming !== null ? '-animated' : '';
                 $ext .= $withSpatie ? '' : '-native';
                 if (isset($this->params['watermark'])) {
                     $sourceHash = hash_file('sha256', $localPath);
@@ -535,9 +548,12 @@ class sGalleryBuilder
                     return $withSpatie ? sGalleryModel::NOIMAGE : $this->originalImageUrl();
                 }
                 $cachedSize = is_file($cachedPath) ? filesize($cachedPath) : false;
+                $animationType = $format === 'gif' ? IMAGETYPE_GIF : IMAGETYPE_WEBP;
                 if ($cachedSize > 0 && ($format !== 'avif' || $this->isAvifFile($cachedPath)) &&
                     ($withSpatie || (@getimagesize($cachedPath)['mime'] ?? null) === 'image/' . ($format === 'jpg' ? 'jpeg' : $format)) &&
-                    (!$animated || ImageAnimation::isAnimated($cachedPath, $format === 'gif' ? IMAGETYPE_GIF : IMAGETYPE_WEBP))) {
+                    (!$animated || ($nativeTiming === null
+                        ? ImageAnimation::isAnimated($cachedPath, $animationType)
+                        : ImageAnimation::timing($cachedPath, $animationType) === $nativeTiming))) {
                     return $this->derivativeUrl($sourceFile, $chacheFile . $imageName);
                 }
                 if ($format === 'avif' && ($withSpatie || ($this->params['format'] ?? null) !== 'original')) {
@@ -575,9 +591,22 @@ class sGalleryBuilder
                 try {
                     $this->sourceHasAlpha = $withSpatie ? !$animated && $this->detectAlphaChannelFromPath($localPath) : $nativeAlpha;
                     try {
-                        $this->renderWithDrivers(
-                            $sourceFile, $localPath, $format, $encodingPath, $animated, $withSpatie, $nativeOrientation, $nativeAlpha, $nativeIcc,
-                        );
+                        if ($nativeTiming !== null) {
+                            NativeAnimation::render(
+                                $localPath, $dimensions, $nativeTiming, $format, $encodingPath,
+                                $format === 'webp' ? $this->getWebpOutputQuality() : $this->quality,
+                                fn (\Imagick $frame) => $this->transformNative(NativeImage::fromFrame($frame, $sourceFile, $format))->frame(),
+                                fn () => $this->checkOptimizationBudget(defer: false),
+                            );
+                            clearstatcache(true, $localPath);
+                            if ($nativeAnimationVersion !== [@filesize($localPath), @filemtime($localPath)]) {
+                                throw new \RuntimeException('Image source changed during optimization.');
+                            }
+                        } else {
+                            $this->renderWithDrivers(
+                                $sourceFile, $localPath, $format, $encodingPath, $animated, $withSpatie, $nativeOrientation, $nativeAlpha, $nativeIcc,
+                            );
+                        }
                     } catch (OptimizationDeferred $e) {
                         throw $e;
                     } catch (\Exception $e) {
@@ -625,16 +654,16 @@ class sGalleryBuilder
         return sGalleryModel::NOIMAGE;
     }
 
-    /** Check for transforms and explicit still-format conversions supported without Spatie. @since 1.9.0 */
-    private function canTransformWithoutSpatie(): bool
+    /** Check for transforms and format conversions supported without Spatie. @since 1.9.0 */
+    private function canTransformWithoutSpatie(bool $animated): bool
     {
         if ($this->requiresSpatie || !empty($this->params['sharpen'])) {
             return false;
         }
 
         $format = $this->params['format'] ?? null;
-        return in_array($format, ['avif', 'gif'], true) ||
-            (isset($this->params['w'], $this->params['h']) && (isset($this->params['fit']) || $this->hasCrop() || $format === 'webp'));
+        return in_array($format, $animated ? ['gif', 'webp'] : ['avif', 'gif'], true) ||
+            (isset($this->params['w'], $this->params['h']) && ($animated || isset($this->params['fit']) || $this->hasCrop() || $format === 'webp'));
     }
 
     /** Identify crop requests that do not resize the source frame. @since 1.9.0 */
@@ -861,17 +890,18 @@ class sGalleryBuilder
      * Stop cooperative frontend processing after the package time budget.
      *
      * Slow markers are remembered even without sTask, so later requests avoid
-     * repeating expensive attempts. Queue failures still return the original.
+     * repeating expensive attempts. Operations without worker support skip deferral.
+     * @param bool $defer Whether the worker can replay this operation.
      * @return void
      * @since 1.6.0
      */
-    private function checkOptimizationBudget(): void
+    private function checkOptimizationBudget(bool $defer = true): void
     {
         if ($this->backgroundOptimization || microtime(true) - $this->optimizationStartedAt <
             sGallery::optimizationBudgetSeconds()) {
             return;
         }
-        if ($this->optimizationJob !== []) {
+        if ($defer && $this->optimizationJob !== []) {
             (new ImageOptimizationQueue())->defer($this->optimizationJob);
         }
         throw new OptimizationDeferred('Image optimization exceeded the frontend time budget.');

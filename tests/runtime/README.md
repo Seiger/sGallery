@@ -18,6 +18,8 @@ With the EXIF extension disabled, also run `PACKAGE_AUTOLOAD=/path/to/core/vendo
 
 `still-formats-test.php` checks static GIF and AVIF output, GIF palette transparency, cache reuse and native WebP fallback on a build that cannot encode AVIF. It also verifies that native still-format requests return animated PNG sources intact.
 
+`animation-test.php` checks GIF and WebP both with and without Spatie. With Imagick it covers offset frames, transparency, duplicate frames, exact WebP delays, finite and infinite loops, and invalid cached timing. A GD-only run verifies that animated sources keep their original URL.
+
 ## Image compatibility baseline
 
 `image-compatibility-test.php` runs the Evolution `HelperProcessor::phpThumb()` and the sGallery Builder against the same generated inputs in a private temporary directory. It requires the phpThumb and Spatie packages from the supplied Composer runtime and GD with JPEG, PNG and WebP support. It checks AVIF when GD can encode it.
