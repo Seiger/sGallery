@@ -7,6 +7,7 @@ use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Facade;
 use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Models\sGalleryModel;
+use Seiger\sGallery\Services\NativeImage;
 use Seiger\sGallery\sGallery;
 use Spatie\Image\Image;
 
@@ -175,6 +176,39 @@ try {
         return [$url, $path, $decoded];
     };
 
+    if (class_exists(Imagick::class)) {
+        $capability = new ReflectionProperty(NativeImage::class, 'imagickEncoders');
+        $previous = $capability->getValue();
+        try {
+            $capability->setValue([IMAGETYPE_WEBP => false] + $previous);
+            $render('sGallery GD codec fallback', fn () => $gallery($landscape)
+                ->fit('stretch', 39, 21)->format('webp')->getFile(), [39, 21, 'image/webp']);
+        } finally {
+            $capability->setValue($previous);
+        }
+
+        if (defined('Imagick::RESOURCETYPE_WIDTH')) {
+            $resource = Imagick::RESOURCETYPE_WIDTH;
+            $limit = Imagick::getResourceLimit($resource);
+            if ($limit > 120 && Imagick::setResourceLimit($resource, 120)) {
+                try {
+                    $probe = new Imagick(EVO_BASE_PATH . $landscape);
+                    try {
+                        $imagickRefused = !$probe->resizeImage(128, 48, Imagick::FILTER_TRIANGLE, 1);
+                    } catch (ImagickException) {
+                        $imagickRefused = true;
+                    }
+                    if ($imagickRefused) {
+                        $render('sGallery GD render retry', fn () => $gallery($landscape)
+                            ->fit('stretch', 128, 48)->format('png')->getFile(), [128, 48, 'image/png']);
+                    }
+                } finally {
+                    Imagick::setResourceLimit($resource, $limit);
+                }
+            }
+        }
+    }
+
     $square = [80, 80, 'image/webp'];
     [, , $legacyFill] = $render('phpThumb far=C landscape', fn () => $legacy($landscape, 'w=80,h=80,far=C,q=75,f=webp'), $square);
     [, , $galleryFill] = $render('sGallery fill landscape', fn () => $gallery($landscape)->fit('fill', 80, 80)->format('webp')->getFile(), $square);
@@ -241,6 +275,41 @@ try {
     [, , $galleryMark] = $render('sGallery watermark', fn () => $gallery($landscape)->fit('max', 80, 80)->format('png')
         ->watermark($mark, ['position' => 'bottom-right', 'width' => '16px', 'padding' => '3px'])->getFile(), [80, 40, 'image/png']);
     $check($isGreen($pixel($legacyMark, 68, 28)) && $isGreen($pixel($galleryMark, 68, 28)), 'Both watermarks draw the center stripe in the lower right');
+
+    $animations = [
+        'gif' => 'R0lGODlhDAAIAPAAAP8AAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQADwAAACwAAAAADAAIAAACCISPqcvtD2MqACH5BAAVAAAALAAAAAAMAAgAgAAA/wAAAAIIhI+py+0PYyoAOw==',
+        'webp' => 'UklGRsAAAABXRUJQVlA4WAoAAAACAAAACwAABwAAQU5JTQYAAAD/////AABBTk1GSAAAAAAAAAAAAAsAAAcAAJYAAAJWUDggMAAAANABAJ0BKgwACAACADQloAJ0ugH4AAOwAP7wxAv/ILlhdcjX/yA/5Af8gP/48gAAAEFOTUZEAAAAAAAAAAAACwAABwAA0gAAAFZQOCAsAAAAlAEAnQEqDAAIAAAANCWgAnS6AAOYAP75k2//kB//kB//kB//ID/iF3sgMAA=',
+    ];
+    foreach ($animations as $format => $bytes) {
+        $animationSource = 'assets/images/animation.' . $format;
+        $sourcePath = EVO_BASE_PATH . $animationSource;
+        file_put_contents($sourcePath, base64_decode($bytes, true));
+        $original = EVO_SITE_URL . $animationSource;
+        $resizeAnimation = fn (): string => $gallery($animationSource)->format($format)->fit('stretch', 6, 4)->getFile();
+        $check($gallery($animationSource)->format('jpeg')->getFile() === $original, 'A still-only output preserves the animated original');
+        $url = $resizeAnimation();
+        if (!class_exists(Imagick::class) || !NativeImage::canEncode($format, 'imagick')) {
+            $check($url === $original, 'GD serves the animated original');
+            continue;
+        }
+
+        $path = EVO_BASE_PATH . substr($url, strlen(EVO_SITE_URL));
+        $check($url !== $original && is_file($path), "Builder generates an animated $format derivative");
+        $rendered = new Imagick($path);
+        $input = new Imagick($sourcePath);
+        $check($rendered->getNumberImages() === 2 && $rendered->getImageWidth() === 6 && $rendered->getImageHeight() === 4,
+            "Builder preserves both frames of a resized $format");
+        foreach ($rendered as $index => $frame) {
+            $input->setIteratorIndex($index);
+            $check($frame->getImageDelay() === $input->getImageDelay(), "Builder preserves $format frame delay");
+        }
+        $singleFrame = imagecreatetruecolor(6, 4);
+        $encoder = $format === 'gif' ? 'imagegif' : 'imagewebp';
+        $encoder($singleFrame, $path);
+        $check($resizeAnimation() === $url && (new Imagick($path))->getNumberImages() === 2,
+            "A cached still $format is regenerated as animation");
+        echo "PASS $format sequence, timing and cache\n";
+    }
 
     $svg = 'assets/images/icon.svg';
     file_put_contents(EVO_BASE_PATH . $svg, '<svg xmlns="http://www.w3.org/2000/svg"/>');

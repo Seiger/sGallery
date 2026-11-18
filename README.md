@@ -3,10 +3,10 @@
 [![Latest Stable Version](https://img.shields.io/packagist/v/seiger/sgallery?label=version)](https://packagist.org/packages/seiger/sgallery)
 [![Evolution CMS version requirement](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FSeiger%2FsGallery%2Fmain%2Fcomposer.json&query=%24.require%5B%27evolution-cms%2Fevolution%27%5D&label=CMS&prefix=Evolution%20&color=brightgreen)](https://github.com/evolution-cms/evolution)
 [![PHP: 8.4, 8.5 and 8.6](https://img.shields.io/badge/PHP-8.4_%7C_8.5_%7C_8.6-777BB4?logo=php&logoColor=white)](#compatibility)
-[![License](https://img.shields.io/packagist/l/seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
 [![Issues](https://img.shields.io/github/issues/Seiger/sgallery)](https://github.com/Seiger/sgallery/issues)
 [![Stars](https://img.shields.io/packagist/stars/Seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
 [![Total Downloads](https://img.shields.io/packagist/dt/seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
+[![License](https://img.shields.io/packagist/l/seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
 ![Made in Ukraine](https://img.shields.io/badge/made_in-Ukraine-ffd700.svg?labelColor=0057b7)
 
 **sGallery** emerges as a versatile and indispensable plugin tailor-made for Evolution CMS,
@@ -38,8 +38,12 @@ Elevate your media management experience with **sGallery** today.
 The gallery Builder's `format()` method offers JPEG, PNG, GIF, WebP and AVIF
 as derivative formats.
 
-The internal `NativeImage` service has the following codec support. Actual
-availability depends on the codecs in the installed GD or Imagick build.
+The Builder uses `NativeImage` for supported still images and keeps Spatie for
+transformations. It checks the source and output formats for each driver,
+prefers Imagick when both can process the image, and retries with the other
+driver when a still image fails. Animated GIF and WebP use Imagick. The
+original stays available if the requested output cannot preserve animation.
+Native codec availability depends on the installed GD or Imagick build.
 
 | Format | Native GD | Native Imagick |
 | --- | --- | --- |
