@@ -29,7 +29,7 @@ class ImageOptimizationWorker extends BaseWorker
     public function description(): string { return __('sGallery::manager.image_optimization_description'); }
 
     /**
-     * Replay a trusted scalar descriptor and finish only after a valid cache was published.
+     * Replay a trusted scalar descriptor in the sTask runner and finish after publication.
      *
      * Exceptions propagate to sTask's failure handling; originals are never task success.
      * @param sTaskModel $task Current task record
@@ -39,9 +39,6 @@ class ImageOptimizationWorker extends BaseWorker
      */
     public function taskOptimize(sTaskModel $task, array $options = []): void
     {
-        if (PHP_SAPI === 'cli') {
-            set_time_limit(0);
-        }
         $result = (new sGalleryBuilder())->processOptimization($options);
         // Remove cached pages that may contain the temporary original URL.
         evo()->clearCache();

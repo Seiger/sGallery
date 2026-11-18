@@ -14,9 +14,38 @@ namespace Seiger\sGallery\Builders {
     {
         return !empty($GLOBALS['mislabel_avif_probe']) ? \imagejpeg($image, $file) : \imageavif($image, $file);
     }
+
+    /** Simulate a recoverable publication error after the derivative was encoded. @since 1.9.0 */
+    function rename(string $source, string $destination): bool
+    {
+        if (!empty($GLOBALS['fail_image_publication']) && str_starts_with(basename($destination), 'test-19x19')) {
+            $GLOBALS['failed_encoding_path'] = $source;
+            throw new \RuntimeException('Simulated derivative publication failure.');
+        }
+
+        return \rename($source, $destination);
+    }
+}
+
+namespace Seiger\sGallery\Services {
+    /** Supply a deterministic memory reading without allocating memory in the test. @since 1.9.0 */
+    function memory_get_usage(bool $realUsage = false): int
+    {
+        return $GLOBALS['estimated_memory_usage'] ?? \memory_get_usage($realUsage);
+    }
 }
 
 namespace {
+    use Illuminate\Cache\ArrayStore;
+    use Illuminate\Cache\Repository;
+    use Illuminate\Console\OutputStyle;
+    use Seiger\sGallery\Services\GalleryCache;
+    use Seiger\sGallery\Services\ImageMemoryBudget;
+    use Seiger\sTask\Console\TaskWorker;
+    use Seiger\sTask\Models\sTaskModel;
+    use Symfony\Component\Console\Input\ArrayInput;
+    use Symfony\Component\Console\Output\BufferedOutput;
+
     $root = sys_get_temp_dir() . '/sgallery-test-' . bin2hex(random_bytes(6));
     mkdir($root . '/storage/logs', 0775, true);
     mkdir($root . '/assets/images', 0775, true);
@@ -25,6 +54,10 @@ namespace {
     $GLOBALS['clock'] = 1000.0;
     $GLOBALS['clock_step'] = 0.0;
     function storage_path(string $path): string { return $GLOBALS['root'] . '/storage/' . $path; }
+    function app($key = null) {
+        $container = \Illuminate\Container\Container::getInstance();
+        return $key === null ? $container : $container->make($key);
+    }
     function config($key, $default = null) {
         return match ($key) {
             'seiger.settings.sGallery.imageCacheDir' => 'derived/',
@@ -36,7 +69,7 @@ namespace {
         return new class {
             public function getConfig($key, $default = null) { return $default; }
             public function make($key, $parameters = []) { return \Illuminate\Container\Container::getInstance()->make($key, $parameters); }
-            public function clearCache(): void { $GLOBALS['page_cache_cleared'] = true; }
+            public function clearCache(): void { $GLOBALS['page_cache_clears'] = ($GLOBALS['page_cache_clears'] ?? 0) + 1; }
         };
     }
     $autoload = getenv('SGALLERY_AUTOLOAD');
@@ -45,11 +78,13 @@ namespace {
     $loader->setPsr4('Seiger\\sGallery\\', dirname(__DIR__) . '/src');
     $loader->addClassMap([
         \Seiger\sGallery\Builders\sGalleryBuilder::class => dirname(__DIR__) . '/src/Builders/sGalleryBuilder.php',
-        \Seiger\sGallery\Services\GalleryCache::class => dirname(__DIR__) . '/src/Services/GalleryCache.php',
+        GalleryCache::class => dirname(__DIR__) . '/src/Services/GalleryCache.php',
+        \Seiger\sGallery\Workers\ImageOptimizationWorker::class => dirname(__DIR__) . '/src/Workers/ImageOptimizationWorker.php',
     ]);
     $container = new \Illuminate\Container\Container();
     \Illuminate\Container\Container::setInstance($container);
     \Illuminate\Support\Facades\Facade::setFacadeApplication($container);
+    $container->instance('cache', new Repository(new ArrayStore()));
     $container->instance('log', new class {
         public function warning($message): void { $GLOBALS['warnings'][] = $message; }
         public function error($message): void { $GLOBALS['errors'][] = $message; }
@@ -68,7 +103,8 @@ namespace {
         foreach (['identifier', 'action', 'priority'] as $name) { $table->string($name); }
         $table->text('meta'); $table->integer('status'); $table->integer('progress');
         $table->integer('started_by')->nullable(); $table->integer('attempts'); $table->integer('max_attempts');
-        $table->text('result')->nullable(); $table->text('message')->nullable(); $table->timestamp('finished_at')->nullable(); $table->timestamps();
+        $table->text('result')->nullable(); $table->text('message')->nullable();
+        $table->timestamp('start_at')->nullable(); $table->timestamp('finished_at')->nullable(); $table->timestamps();
     });
     $service = (new \ReflectionClass(\Seiger\sTask\sTask::class))->newInstanceWithoutConstructor();
     $container->instance('sTask', $service);
@@ -176,7 +212,7 @@ namespace {
         $task->refresh();
         $url = $task->result;
         $check($task->status === \Seiger\sTask\Models\sTaskModel::TASK_STATUS_FINISHED && $task->progress === 100, 'Worker must finalize successful optimization');
-        $check(!empty($GLOBALS['page_cache_cleared']), 'Worker must invalidate pages containing temporary originals');
+        $check($GLOBALS['page_cache_clears'] === 1, 'Worker must invalidate pages containing temporary originals');
         $check($url !== EVO_SITE_URL . 'assets/images/test.jpg', 'Background replay must publish a derived image');
         $url2 = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/images/test.jpg')->format('webp')->getFile();
         $check($url === $url2, 'Next front request must reuse the completed cache');
@@ -200,10 +236,94 @@ namespace {
         $staleUrl = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/images/test.jpg')->format('png')->getFile();
         $check($staleUrl === EVO_SITE_URL . 'assets/images/test.jpg' && \Seiger\sTask\Models\sTaskModel::count() === 1, 'Stale runner must return original without queuing');
         $GLOBALS['clock_step'] = 0.0;
+        $check(empty($GLOBALS['errors']), 'Unexpected image pipeline errors');
+
+        $originalHash = hash_file('sha256', $source);
+        $derivativeHash = hash_file('sha256', $fallbackOutput);
+        $cacheDirectory = EVO_BASE_PATH . GalleryCache::directoryFor($job['file']);
+        $cachedBefore = glob($cacheDirectory . '*.webp');
+        $markersBefore = glob(EVO_BASE_PATH . 'derived/.sgallery-index/*.json');
+        $failedJob = $job;
+        $failedJob['params']['w'] = $failedJob['params']['h'] = 19;
+        $nextJob = $job;
+        $nextJob['params']['w'] = $nextJob['params']['h'] = 17;
+        $failedTask = $service->create($task->identifier, $task->action, $failedJob);
+        $nextTask = $service->create($task->identifier, $task->action, $nextJob);
+
+        $runner = new TaskWorker();
+        $runner->setOutput(new OutputStyle(new ArrayInput([]), new BufferedOutput()));
+        $GLOBALS['fail_image_publication'] = true;
+        try {
+            $check($runner->handle() === TaskWorker::SUCCESS, 'sTask must finish its queue run after a publication error');
+        } finally {
+            unset($GLOBALS['fail_image_publication']);
+        }
+        $failedTask->refresh();
+        $nextTask->refresh();
+        $check($failedTask->status === sTaskModel::TASK_STATUS_FAILED && $failedTask->result === null &&
+            str_contains($failedTask->message, 'did not publish'), 'sTask must report the publication error as a failed job');
+        $check($nextTask->status === sTaskModel::TASK_STATUS_FINISHED && $nextTask->progress === 100, 'sTask must complete the next job in the same run');
+        $nextOutput = EVO_BASE_PATH . substr($nextTask->result, strlen(EVO_SITE_URL));
+        $check((getimagesize($nextOutput)['mime'] ?? null) === 'image/webp', 'Next job must publish a valid WebP');
+        $check(isset($GLOBALS['failed_encoding_path']) && !is_file($GLOBALS['failed_encoding_path']) &&
+            glob($cacheDirectory . '*.pending-*') === [] && glob($cacheDirectory . '.sgallery-webp-*') === [],
+            'The renderer must remove temporary files after both attempts');
+        $check(array_values(array_diff(glob($cacheDirectory . '*.webp'), $cachedBefore)) === [$nextOutput] &&
+            count(glob(EVO_BASE_PATH . 'derived/.sgallery-index/*.json')) === count($markersBefore) + 1,
+            'Only the successful job may publish and register a new derivative');
+        $check(hash_file('sha256', $source) === $originalHash && hash_file('sha256', $fallbackOutput) === $derivativeHash,
+            'A publication error must preserve the original and the existing cache');
+        $check($GLOBALS['page_cache_clears'] === 2, 'Only successful jobs may invalidate the page cache');
+
+        $wideSource = 'assets/images/wide.png';
+        $wide = imagecreatetruecolor(8201, 4);
+        imagepng($wide, EVO_BASE_PATH . $wideSource);
+        unset($wide);
+        $renderWide = static fn (int $width): string => (new \Seiger\sGallery\Builders\sGalleryBuilder())
+            ->file($wideSource)->fit('stretch', $width, 4)->format('png')->optimize(false)->getFile();
+        $readDimensions = static fn (string $url): array|false => getimagesize(EVO_BASE_PATH . substr($url, strlen(EVO_SITE_URL)));
+        $wideUrl = $renderWide(8202);
+        $check(array_slice($readDimensions($wideUrl), 0, 2) === [8202, 4], 'Old per-side limit must not reject a low-cost image');
+        $memoryLimit = ini_get('memory_limit');
+        ini_set('memory_limit', '128M');
+        $GLOBALS['estimated_memory_usage'] = 112 * 1024 * 1024;
+        $originalUrl = EVO_SITE_URL . $wideSource;
+        try {
+            touch(storage_path('logs/sTask.heartbeat'));
+            $check($renderWide(8202) === $wideUrl, 'Existing derivatives must be served with low headroom');
+            $check($renderWide(8203) === $originalUrl, 'Low web memory headroom must defer before encoding');
+            $queued = sTaskModel::queued()->sole();
+            $check($queued->meta['params']['w'] === 8203, 'Queued dimensions must retain the wide output width');
+            try {
+                (new \Seiger\sGallery\Builders\sGalleryBuilder())->processOptimization($queued->meta);
+                throw new LogicException('An operation with insufficient worker headroom was accepted.');
+            } catch (RuntimeException $error) {
+                $check(str_contains($error->getMessage(), 'worker memory budget'), 'A worker with too little headroom must stop before decoding');
+            }
+            touch(storage_path('logs/sTask.heartbeat'), time() - 3611);
+            $check($renderWide(8204) === $originalUrl && sTaskModel::queued()->count() === 1,
+                'Low web headroom with sTask unavailable must return the original');
+            ini_set('memory_limit', '768M');
+            $check(ImageMemoryBudget::allows(24_000_001, 0, true),
+                'The old pixel count must be accepted when the worker has enough memory');
+            $check(!ImageMemoryBudget::allows((float) PHP_INT_MAX * PHP_INT_MAX, 0, true),
+                'Dimension estimates must stay safe beyond the integer range');
+            ini_set('memory_limit', '-1');
+            $check(!ImageMemoryBudget::allows(1, 512 * 1024 * 1024, true), 'Unlimited CLI must use a finite memory estimate');
+        } finally {
+            unset($GLOBALS['estimated_memory_usage']);
+            ini_set('memory_limit', $memoryLimit);
+        }
+        $check($runner->handle() === TaskWorker::SUCCESS, 'The sTask runner must replay the deferred wide image');
+        $queued->refresh();
+        $check($queued->status === sTaskModel::TASK_STATUS_FINISHED && array_slice($readDimensions($queued->result), 0, 2) === [8203, 4],
+            'An image past the old side cap must reach the cache through sTask');
+
         touch($source, time() + 60);
         try { (new \Seiger\sGallery\Builders\sGalleryBuilder())->processOptimization($job); throw new LogicException('Changed source accepted'); }
         catch (RuntimeException $error) { $check(str_contains($error->getMessage(), 'changed'), 'Queued source replacement must be rejected'); }
-        $check(empty($GLOBALS['errors']), 'Unexpected image pipeline errors');
+        $check(count($GLOBALS['errors']) === 2 && str_contains($GLOBALS['errors'][0], 'Simulated derivative publication failure.') &&
+            str_contains($GLOBALS['errors'][1], 'did not publish'), 'The Builder and sTask must log the simulated publication failure');
         echo "sGallery image optimization OK\n";
     } finally {
         $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);

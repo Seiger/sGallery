@@ -7,7 +7,8 @@ permalink: /background-image-optimization/
 
 ## Fast and slow transformations
 
-sGallery first processes uncached images synchronously. The default cooperative
+sGallery processes uncached images synchronously when they fit the web memory
+budget. The default cooperative
 budget is five seconds, defined by the package and exposed through
 `Seiger\sGallery\sGallery::optimizationBudgetSeconds()`. Cached nonempty images are
 returned immediately; empty caches are regenerated.
@@ -44,9 +45,15 @@ or already displayed image is not updated in place. After a successful task,
 the worker clears Evolution page/view caches so later requests use the completed
 derived image. It does not clear the derived-image cache.
 
-## Image limits
+## Large images
 
-Local source and requested output dimensions are limited to 8192 pixels per side and 24 million pixels per image. The builder rejects oversized transformations before encoding or queuing work. Unsupported or oversized local sources display the placeholder. An external HTTP(S) image keeps its original browser URL.
+Image dimensions have no fixed package cap. Before decoding, sGallery estimates
+the memory needed for the source, derivative and resize buffers. The web request
+uses up to half the headroom left by PHP's `memory_limit`, after reserving
+16 MiB for the application. With unlimited web PHP, the estimate uses 128 MiB as
+its starting budget. If the estimate exceeds the web budget, sGallery hands off
+the job to sTask and returns the original URL. The original also remains available
+when the runner cannot accept the job. Existing derivatives are served directly.
 
 ## Job identity and recovery
 
@@ -58,9 +65,19 @@ and sTask's active-task deduplication. Failed/completed jobs without a usable
 cache have a five-minute enqueue retry cooldown; existing active tasks are reused.
 
 State files live in `storage/sgallery/optimization`. Keep storage shared between
-release deployments and writable by both the frontend and CLI users. The CLI
-worker disables PHP's execution-time limit for image jobs; infrastructure timeouts
-and memory limits still apply. Interrupted jobs retain no completed WebP cache.
+release deployments and writable by both the frontend and CLI users.
+
+## Execution by sTask
+
+The standard sTask runner calls the sGallery worker in its PHP process. The
+worker needs write access to the image cache and checks the memory estimate again
+against the runner's `memory_limit`. When that setting is `-1`, sGallery uses
+512 MiB as the starting budget for the estimate.
+
+A completed derivative passes validation before an atomic rename publishes it.
+sTask records recoverable errors and continues with the next job. A fatal error
+that terminates the runner can interrupt that run. The page cache is invalidated
+after a successful job.
 
 ## Verification
 

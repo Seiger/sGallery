@@ -6,9 +6,12 @@ use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
 use Seiger\sGallery\sGallery;
 use Seiger\sGallery\Exceptions\OptimizationDeferred;
+use Seiger\sGallery\Services\GalleryCache;
 use Seiger\sGallery\Services\GalleryFiles;
 use Seiger\sGallery\Services\GalleryMedia;
+use Seiger\sGallery\Services\ImageMemoryBudget;
 use Seiger\sGallery\Services\ImageOptimizationQueue;
+use Seiger\sGallery\Services\Watermark;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Spatie\Image\Enums\CropPosition;
 use Spatie\Image\Enums\Fit;
@@ -29,8 +32,6 @@ use Spatie\Image\Image;
  */
 class sGalleryBuilder
 {
-    private const MAX_IMAGE_SIDE = 8192;
-    private const MAX_IMAGE_PIXELS = 24000000;
     private const OUTPUT_FORMATS = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'original'];
 
     protected string $mode = 'view';
@@ -375,24 +376,17 @@ class sGalleryBuilder
         return $this;
     }
 
-    /** Set output dimensions after validating the combined pixel count. @since 1.8.0 */
+    /** Set output dimensions while retaining the fluent API minimum of one pixel. @since 1.8.0 */
     private function setDimensions(int $width, int $height): void
     {
-        $width = max(1, $width);
-        $height = max(1, $height);
-        if (!self::withinImageLimits($width, $height)) {
-            throw new \InvalidArgumentException('Gallery image dimensions exceed the allowed size.');
-        }
-        $this->params['w'] = $width;
-        $this->params['h'] = $height;
+        $this->params['w'] = max(1, $width);
+        $this->params['h'] = max(1, $height);
     }
 
-    /** Check dimensions using division so the pixel count cannot overflow. @since 1.8.0 */
-    private static function withinImageLimits(mixed $width, mixed $height): bool
+    /** Require both dimensions to be positive integers. @since 1.8.0 */
+    private static function validDimensions(mixed $width, mixed $height): bool
     {
-        return is_int($width) && is_int($height) && $width > 0 && $height > 0 &&
-            $width <= self::MAX_IMAGE_SIDE && $height <= self::MAX_IMAGE_SIDE &&
-            $width <= intdiv(self::MAX_IMAGE_PIXELS, $height);
+        return is_int($width) && is_int($height) && $width > 0 && $height > 0;
     }
 
     /**
@@ -454,7 +448,7 @@ class sGalleryBuilder
      * Slow web transformations return the original and optionally enqueue a versioned
      * sTask job. Empty cache files are regenerated. The cooperative deadline cannot
      * interrupt a native encoder already executing. Remote URLs are returned to
-     * the browser without fetching them. Local images must fit the decode limits.
+     * the browser without fetching them. Uncached work is estimated before decoding.
      *
      * @return string URL of the processed image or 'no image' placeholder.
      */
@@ -474,21 +468,16 @@ class sGalleryBuilder
             $extension = strtolower(pathinfo($localPath, PATHINFO_EXTENSION));
 
             if ($this->params !== null && !in_array($extension, ['svg'])) {
-                if (!$this->isProcessableImage($localPath)) {
+                $dimensions = @getimagesize($localPath);
+                if ($dimensions === false && !$this->isHeifImage($localPath, $extension)) {
+                    return sGalleryModel::NOIMAGE;
+                }
+                if ($dimensions !== false && !self::validDimensions($dimensions[0], $dimensions[1])) {
                     return sGalleryModel::NOIMAGE;
                 }
 
                 $imageName = str_replace('.' . pathinfo($this->file, PATHINFO_EXTENSION), '', pathinfo($this->file, PATHINFO_BASENAME));
-                $imagePath = explode('/', str_replace('\\', '/', pathinfo($this->file, PATHINFO_DIRNAME)));
-                $chacheFile = sGalleryModel::imageCacheDir();
-
-                foreach ($imagePath as $path) {
-                    if ($path !== '.') {
-                        $chacheFile .= is_numeric($path) ? $path : ($path[0] ?? '');
-                    }
-                }
-
-                $chacheFile .= '/';
+                $chacheFile = GalleryCache::directoryFor($this->file);
                 $format = $this->params['format'] ?? $this->getSupportedImageFormat();
                 if ($format === 'original') {
                     $format = $extension;
@@ -532,25 +521,30 @@ class sGalleryBuilder
                 }
                 $cachedSize = is_file($cachedPath) ? filesize($cachedPath) : false;
                 if ($cachedSize > 0 && ($format !== 'avif' || $this->isAvifFile($cachedPath))) {
-                    $output = $chacheFile . $imageName;
-                    \Seiger\sGallery\Services\GalleryCache::remember($sourceFile, $output, true);
-                    return GalleryFiles::url($output);
+                    return $this->derivativeUrl($sourceFile, $chacheFile . $imageName);
                 }
                 if ($format === 'avif') {
                     $fallbackName = preg_replace('/\.avif$/i', '.webp', $imageName);
                     $fallbackPath = $cacheDirectory . DIRECTORY_SEPARATOR . $fallbackName;
                     if (!is_link($fallbackPath) && is_file($fallbackPath) && filesize($fallbackPath) > 100) {
-                        $output = $chacheFile . $fallbackName;
-                        \Seiger\sGallery\Services\GalleryCache::remember($sourceFile, $output, true);
-                        return GalleryFiles::url($output);
+                        return $this->derivativeUrl($sourceFile, $chacheFile . $fallbackName);
                     }
                 }
                 // The cache is missing, empty or mislabeled.
                 $this->optimizationJob = $this->optimizationDescriptor($format);
-                if (!$this->backgroundOptimization && $this->optimizationJob !== [] &&
-                    (new ImageOptimizationQueue())->heavy($this->optimizationJob)) {
-                    (new ImageOptimizationQueue())->defer($this->optimizationJob);
+                $queue = new ImageOptimizationQueue();
+                if (!$this->backgroundOptimization && ($dimensions === false ||
+                    !$this->fitsMemoryBudget($localPath, $dimensions) || $queue->heavy($this->optimizationJob))) {
+                    $queue->defer($this->optimizationJob);
                     return $this->originalImageUrl();
+                }
+                if ($this->backgroundOptimization) {
+                    if ($dimensions === false && ImageMemoryBudget::allows(0, (int) @filesize($localPath), true)) {
+                        $dimensions = $this->heifDimensions($localPath);
+                    }
+                    if ($dimensions === false || !$this->fitsMemoryBudget($localPath, $dimensions)) {
+                        throw new \RuntimeException('Image optimization exceeds the worker memory budget or has unreadable dimensions.');
+                    }
                 }
                 $encodingPath = null;
 
@@ -647,11 +641,11 @@ class sGalleryBuilder
                         }
                     }
                     if ($atomicSuffix !== '') {
-                        if (!is_file($encodingPath) || !getimagesize($encodingPath) || !rename($encodingPath, $cacheDirectory . DIRECTORY_SEPARATOR . $imageName)) {
+                        if (!is_file($encodingPath) || !getimagesize($encodingPath) ||
+                            !chmod($encodingPath, 0644 & ~umask()) || !rename($encodingPath, $cacheDirectory . DIRECTORY_SEPARATOR . $imageName)) {
                             throw new \RuntimeException('Cannot publish generated image.');
                         }
                     }
-                    chmod($cacheDirectory . DIRECTORY_SEPARATOR . $imageName, 0644 & ~umask());
                 } catch (OptimizationDeferred $e) {
                     return $this->originalImageUrl();
                 } catch (\Exception $e) {
@@ -666,9 +660,7 @@ class sGalleryBuilder
                     ($format === 'avif' && !$this->isAvifFile($finalPath))) {
                     return sGalleryModel::NOIMAGE;
                 }
-                $output = $chacheFile . $imageName;
-                \Seiger\sGallery\Services\GalleryCache::remember($sourceFile, $output, true);
-                return GalleryFiles::url($output);
+                return $this->derivativeUrl($sourceFile, $chacheFile . $imageName);
             }
 
             $outputFile = $this->file;
@@ -678,6 +670,13 @@ class sGalleryBuilder
         }
 
         return sGalleryModel::NOIMAGE;
+    }
+
+    /** Register a generated or reused derivative before returning its URL. @since 1.9.0 */
+    private function derivativeUrl(string $source, string $output): string
+    {
+        GalleryCache::remember($source, $output, true);
+        return GalleryFiles::url($output);
     }
 
     /**
@@ -753,7 +752,7 @@ class sGalleryBuilder
         $params = $job['params'] ?? [];
         if (!is_string($file) || !is_array($params) ||
             ((array_key_exists('w', $params) || array_key_exists('h', $params)) &&
-                !self::withinImageLimits($params['w'] ?? null, $params['h'] ?? null)) ||
+                !self::validDimensions($params['w'] ?? null, $params['h'] ?? null)) ||
             !in_array($params['format'] ?? 'webp', self::OUTPUT_FORMATS, true)) {
             throw new \RuntimeException('Invalid gallery optimization parameters.');
         }
@@ -1270,29 +1269,76 @@ class sGalleryBuilder
         }
     }
 
-    /**
-     * Validate if file contains processable image data.
-     *
-     * @param string $filePath
-     * @return bool
-     */
-    private function isProcessableImage(string $filePath): bool
+    /** Recognize HEIF files whose dimensions are probed by the background worker. @since 1.9.0 */
+    private function isHeifImage(string $filePath, string $extension): bool
     {
-        $dimensions = @getimagesize($filePath);
-        if ($dimensions === false && class_exists(\Imagick::class) &&
-            in_array(strtolower(pathinfo($filePath, PATHINFO_EXTENSION)), ['heic', 'heif'], true)) {
-            $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($filePath);
-            if (in_array($mime, ['image/heic', 'image/heif'], true)) {
-                try {
-                    $metadata = new \Imagick();
-                    $metadata->pingImage($filePath);
-                    $dimensions = [$metadata->getImageWidth(), $metadata->getImageHeight()];
-                } catch (\ImagickException $error) {
-                    return false;
+        return class_exists(\Imagick::class) && in_array($extension, ['heic', 'heif'], true) &&
+            in_array((new \finfo(FILEINFO_MIME_TYPE))->file($filePath), ['image/heic', 'image/heif'], true);
+    }
+
+    /** Read HEIF dimensions only after the job has left the web request. @since 1.9.0 */
+    private function heifDimensions(string $filePath): array|false
+    {
+        try {
+            $metadata = new \Imagick();
+            $metadata->pingImage($filePath);
+            $width = $metadata->getImageWidth();
+            $height = $metadata->getImageHeight();
+            return self::validDimensions($width, $height) ? [$width, $height] : false;
+        } catch (\ImagickException) {
+            return false;
+        }
+    }
+
+    /** Include the source, output and intermediate resize in the estimate. @since 1.9.0 */
+    private function fitsMemoryBudget(string $path, array $dimensions): bool
+    {
+        [$width, $height] = $dimensions;
+        $sourcePixels = (float) $width * $height;
+        $targetWidth = $this->params['w'] ?? $width;
+        $targetHeight = $this->params['h'] ?? $height;
+        $outputPixels = (float) $targetWidth * $targetHeight;
+        $fit = $this->params['fit'] ?? null;
+        if ($fit === Fit::Crop || ($fit === null && !isset($this->params['crop']) && !isset($this->params['startX']) &&
+            !isset($this->params['focalCenterX']) && isset($this->params['w']))) {
+            // A width- or height-driven resize can exceed the requested rectangle,
+            // including when the decoder rotates the source before resizing.
+            $aspect = $width / $height;
+            $type = $dimensions[2] ?? null;
+            if (function_exists('exif_read_data') && in_array($type, [IMAGETYPE_JPEG, IMAGETYPE_TIFF_II, IMAGETYPE_TIFF_MM], true)) {
+                $orientation = (int) (@exif_read_data($path, 'IFD0')['Orientation'] ?? 1);
+                if ($orientation >= 5 && $orientation <= 8) {
+                    $aspect = 1 / $aspect;
                 }
             }
+            $outputPixels = max(
+                $outputPixels,
+                $targetWidth * max(1, ceil($targetWidth / $aspect)),
+                $targetHeight * max(1, ceil($targetHeight * $aspect)),
+            );
         }
-        return $dimensions !== false && self::withinImageLimits($dimensions[0], $dimensions[1]);
+
+        $bytes = (int) @filesize($path);
+        $watermark = $this->params['watermark'] ?? null;
+        if ($watermark !== null) {
+            try {
+                $markPath = Watermark::path($watermark['file']);
+            } catch (\InvalidArgumentException) {
+                $markPath = null;
+            }
+            $markDimensions = $markPath === null ? false : @getimagesize($markPath);
+            if ($markDimensions !== false && self::validDimensions($markDimensions[0], $markDimensions[1])) {
+                [$markWidth, $markHeight] = $markDimensions;
+                $markOption = (string) $watermark['options']['width'];
+                $scaledWidth = str_ends_with($markOption, '%')
+                    ? max($width, $height, $targetWidth, $targetHeight) * ((int) $markOption / 100)
+                    : (int) $markOption;
+                $outputPixels += (float) $markWidth * $markHeight + $scaledWidth * ceil($scaledWidth * $markHeight / $markWidth);
+                $bytes += (int) @filesize($markPath);
+            }
+        }
+
+        return ImageMemoryBudget::allows($sourcePixels + $outputPixels, $bytes, $this->backgroundOptimization);
     }
 
     /**

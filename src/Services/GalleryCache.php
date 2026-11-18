@@ -5,6 +5,18 @@ use Seiger\sGallery\Models\sGalleryModel;
 /** Track owned image derivatives so cache clearing cannot remove original media. @since 1.7.0 */
 class GalleryCache
 {
+    /** Map a local source to the existing relative derivative directory. @since 1.9.0 */
+    public static function directoryFor(string $source): string
+    {
+        $directory = sGalleryModel::imageCacheDir();
+        foreach (explode('/', str_replace('\\', '/', pathinfo($source, PATHINFO_DIRNAME))) as $segment) {
+            if ($segment !== '.') {
+                $directory .= is_numeric($segment) ? $segment : ($segment[0] ?? '');
+            }
+        }
+        return $directory . '/';
+    }
+
     /**
      * Record generated or reused derivatives without changing their source.
      * Callers may reuse a just-completed file validation. Missing index directories are

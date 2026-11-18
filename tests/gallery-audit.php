@@ -179,12 +179,6 @@ try {
     $remote = 'https://images.example.test/cover.png';
     $assert((new sGalleryBuilder())->file($remote)->getFile() === $remote, 'Remote sources only return the browser URL.');
     try {
-        (new sGalleryBuilder())->resize(PHP_INT_MAX);
-        throw new LogicException('Oversized dimensions were accepted.');
-    } catch (InvalidArgumentException $error) {
-        $assert(str_contains($error->getMessage(), 'dimensions'), 'Failure must come from the dimension guard.');
-    }
-    try {
         (new sGalleryBuilder())->processOptimization(['file' => 'assets/library/small.png', 'params' => ['w' => 20]]);
         throw new LogicException('Partial dimensions were accepted.');
     } catch (RuntimeException $error) {

@@ -35,20 +35,25 @@ Elevate your media management experience with **sGallery** today.
 
 ## Supported formats
 
-The following image formats are tested and supported by the package. If your GD/Imagick installation supports
-a format that is not listed you are probably fine to use it but your mileage may vary.
+The gallery Builder's `format()` method offers JPEG, PNG, GIF, WebP and AVIF
+as derivative formats.
 
-| Format | GD | Imagick |
-|--------|----| --- |
-| jpeg   | ✅  | ✅ |
-| png    | ✅  | ✅ |
-| gif    | ✅  | ✅ |
-| webp   | ✅  | ✅ |
-| avif   | ✅  | ✅ |
-| heic   | ❌  | ✅ |
-| tiff   | ❌  | ✅ |
+The internal `NativeImage` service has the following codec support. Actual
+availability depends on the codecs in the installed GD or Imagick build.
+
+| Format | Native GD | Native Imagick |
+| --- | --- | --- |
+| JPEG | Read and write | Read and write |
+| PNG | Read and write | Read and write |
+| GIF | Read and write | Read and write |
+| WebP | Read and write | Read and write |
+| AVIF | Read and write | Read and write |
+| BMP | Read | Read |
+| HEIC / HEIF (still image) | — | Read with Fileinfo and an HEIF decoder |
+| TIFF (single page) | — | Read |
 
 ### Compatibility
+
 - Evolution CMS **3.5 or later in the 3.x series**
 - PHP **8.4, 8.5 and 8.6** (minimum 8.4)
 - Composer **2.2+**
