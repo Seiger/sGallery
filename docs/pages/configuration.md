@@ -125,6 +125,8 @@ Without an explicit path, Builder uses `watermark.file` from settings. An empty
 default path leaves the image unwatermarked. Select the default file with the
 manager image browser; the file must be a local image supported by the driver.
 Options override configured defaults for the current call only.
+Without Spatie, GD or Imagick can apply a still watermark to supported native
+derivatives. Imagick applies it to each frame of a GIF or WebP animation.
 
 `width` and `padding` accept integer pixels or percentages. Width is measured
 against the processed image width after resize/crop; percentage horizontal and

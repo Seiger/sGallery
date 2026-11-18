@@ -38,17 +38,11 @@ try {
         !class_exists(Spatie\ImageOptimizer\OptimizerChainFactory::class), 'Spatie processors and optimizers are unavailable');
     $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
     checkOptionalImage(!isset($manifest['require']['spatie/image']) && isset($manifest['suggest']['spatie/image']), 'Image library is only suggested');
-    foreach (['crop', 'contain', 'max', 'fill', 'stretch', 'fill-max', 'unknown'] as $fit) {
-        $url = (string) (new sGallery())->file('photo.png')->fit($fit, 40, 20)->format('avif')->quality(85)->sharpen(10)->optimize(true)->watermark('missing.png');
-        checkOptionalImage($url === EVO_SITE_URL . 'photo.png', "Fit {$fit} with unsupported options serves the original");
-    }
-    foreach (['watermark', 'sharpen'] as $method) {
-        $builder = (new sGallery())->file('photo.png')->resize(24)->format('webp');
-        match ($method) {
-            'watermark' => $builder->watermark('missing.png'),
-            'sharpen' => $builder->sharpen(20),
-        };
-        checkOptionalImage($builder->getFile() === EVO_SITE_URL . 'photo.png', "$method retains the original without Spatie");
+    try {
+        (new sGallery())->file('photo.png')->watermark('missing.png');
+        throw new RuntimeException('Missing explicit watermark accepted');
+    } catch (InvalidArgumentException) {
+        echo "PASS Missing explicit watermark rejected without Spatie\n";
     }
     foreach (['https://remote.test/photo.jpg', 'http://remote.test/photo.jpg'] as $remote) {
         checkOptionalImage((new sGalleryBuilder())->file($remote)->fit('crop', 20)->getFile() === $remote, 'Remote original returned without downloading');

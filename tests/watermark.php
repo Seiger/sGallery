@@ -8,12 +8,12 @@ $settings = ['imageCacheDir' => 'cache/', 'optimize' => false, 'watermark' => ['
 function config($key, $default = null) { return \Illuminate\Support\Arr::get($GLOBALS['settings'], substr($key, strlen('seiger.settings.sGallery.')), $default); }
 function storage_path($path) {return $GLOBALS['root'] . '/storage/' . $path;}
 function evo() { return new class { public function getConfig($key, $default = null) {return $default;} public function make($key) {throw new RuntimeException('No optional worker');} }; }
-$loader = require getenv('SGALLERY_AUTOLOAD');
-$loader->setPsr4('Seiger\\sGallery\\', dirname(__DIR__) . '/src');
-$loader->addClassMap([
-    \Seiger\sGallery\Builders\sGalleryBuilder::class => dirname(__DIR__) . '/src/Builders/sGalleryBuilder.php',
-    \Seiger\sGallery\Services\GalleryCache::class => dirname(__DIR__) . '/src/Services/GalleryCache.php',
-]);
+if (!getenv('PACKAGE_AUTOLOAD') && getenv('SGALLERY_AUTOLOAD')) {
+    putenv('PACKAGE_AUTOLOAD=' . getenv('SGALLERY_AUTOLOAD'));
+}
+require __DIR__ . '/runtime/bootstrap.php';
+$withSpatie = class_exists(\Spatie\Image\Image::class);
+printf("PHP %s, Spatie %s, Imagick %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off', extension_loaded('imagick') ? 'on' : 'off');
 $container = new \Illuminate\Container\Container();
 \Illuminate\Support\Facades\Facade::setFacadeApplication($container);
 $container->instance('log', new class {public function warning($m) {} public function error($m) {throw new RuntimeException($m);} });
@@ -37,24 +37,18 @@ try {
     $fractional = imagecreatetruecolor(306, 270);
     imagefill($fractional, 0, 0, imagecolorallocate($fractional, 0, 0, 255));
     imagepng($fractional, $root . '/assets/fractional.png'); unset($fractional);
-    $fractionalImage = \Spatie\Image\Image::load($root . '/assets/fractional.png');
-    set_error_handler(static function ($severity, $message, $file, $line) {
-        if ($severity === E_DEPRECATED) throw new ErrorException($message, 0, $severity, $file, $line);
-        return false;
-    });
-    try {
-        \Seiger\sGallery\Services\Watermark::apply($fractionalImage, [
-            'file' => 'assets/mark.png', 'hash' => hash_file('sha256', $root . '/assets/mark.png'),
-            'options' => \Seiger\sGallery\Services\Watermark::options([]),
-        ]);
-        $fractionalImage->save($root . '/fractional-result.png');
-    } finally { restore_error_handler(); }
-    $fractional = imagecreatefrompng($root . '/fractional-result.png');
+    $fractionalUrl = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/fractional.png')->format('png')->watermark()->getFile();
+    $fractionalPath = $root . '/' . substr($fractionalUrl, strlen(EVO_SITE_URL));
+    $check(is_file($fractionalPath) && $fractionalUrl !== EVO_SITE_URL . 'assets/fractional.png', 'Watermark alone produces a derivative');
+    $fractional = imagecreatefrompng($fractionalPath);
     $pixel = imagecolorsforindex($fractional, imagecolorat($fractional, 296, 261));
     $outside = imagecolorsforindex($fractional, imagecolorat($fractional, 297, 262));
     $check($pixel['red'] > 200 && $outside['blue'] > 200, 'Percentage watermark uses truncated width and separate horizontal/vertical padding without deprecations');
     unset($fractional);
-    $before = filemtime($path); $check($build()->watermark()->getFile() === $url && filemtime($path) === $before, 'Repeated call reuses cache');
+    $before = 1700000000;
+    touch($path, $before);
+    clearstatcache(true, $path);
+    $check($build()->watermark()->getFile() === $url && filemtime($path) === $before, 'Repeated call reuses cache');
     $check($build()->watermark(['position' => 'top-left'])->getFile() !== $url, 'Options affect cache');
     $mark = imagecreatetruecolor(20, 20); imagefill($mark, 0, 0, imagecolorallocate($mark, 0, 255, 0)); imagepng($mark, $root . '/assets/mark.png'); unset($mark);
     $check($build()->watermark()->getFile() !== $url, 'Replacement watermark under same name invalidates cache');
@@ -62,9 +56,11 @@ try {
     $reusable = $build()->format('original')->watermark('assets/mark.png');
     $reusableUrl = $reusable->getFile();
     $check($reusable->getFile() === $reusableUrl, 'Reusing Builder does not watermark a derivative again');
-    $descriptor = new ReflectionMethod($reusable, 'optimizationDescriptor');
-    $job = $descriptor->invoke($reusable, 'png');
-    $check((new \Seiger\sGallery\Builders\sGalleryBuilder())->processOptimization($job) === $reusableUrl, 'Background replay reuses the same cache identity');
+    if ($withSpatie) {
+        $descriptor = new ReflectionMethod($reusable, 'optimizationDescriptor');
+        $job = $descriptor->invoke($reusable, 'png');
+        $check((new \Seiger\sGallery\Builders\sGalleryBuilder())->processOptimization($job) === $reusableUrl, 'Background replay reuses the same cache identity');
+    }
     $settings['watermark']['file'] = '';
     $check($build()->watermark()->getFile() === $build()->getFile(), 'Missing default is a no-op');
     try {$build()->watermark('assets/missing.png');throw new RuntimeException('Missing explicit watermark accepted');} catch (InvalidArgumentException $expected) {}
@@ -80,6 +76,60 @@ try {
     imagepng($alpha, $root . '/assets/source.png'); unset($alpha);
     $url = $build()->format('original')->watermark('assets/mark.png')->getFile();
     $check(getimagesize($root . '/' . substr($url, strlen(EVO_SITE_URL)))['mime'] === 'image/png', 'Original format preserves transparent source as PNG');
+
+    $mark = imagecreatetruecolor(24, 12);
+    imagealphablending($mark, false);
+    imagesavealpha($mark, true);
+    foreach ([0, 63, 127] as $band => $transparency) {
+        imagefilledrectangle($mark, 8 * $band, 0, 8 * $band + 7, 11, imagecolorallocatealpha($mark, 255, 0, 0, $transparency));
+    }
+    imagepng($mark, $root . '/assets/alpha-mark.png');
+    unset($mark);
+    if (!$withSpatie) {
+        $options = ['position' => 'centerCenter', 'width' => '24px', 'padding' => '5px', 'opacity' => 50];
+        $url = $build()->watermark('assets/alpha-mark.png', $options)->getFile();
+        $result = imagecreatefrompng($root . '/' . substr($url, strlen(EVO_SITE_URL)));
+        $pixelAt = static fn (int $x, int $y): array => imagecolorsforindex($result, imagecolorat($result, $x, $y));
+        $opaqueMark = $pixelAt(36, 42);
+        $translucentMark = $pixelAt(45, 42);
+        $transparentMark = $pixelAt(53, 42);
+        $base = $pixelAt(32, 42);
+        $check(abs($opaqueMark['alpha'] - 40) <= 2 && abs($translucentMark['alpha'] - 60) <= 2 &&
+            $opaqueMark['red'] > $translucentMark['red'] && $transparentMark === $base && $base['alpha'] === 80,
+            'Native opacity multiplies each mark pixel opacity and preserves the base alpha');
+        $check($pixelAt(36, 38) === $base && $pixelAt(36, 50) === $opaqueMark && $pixelAt(36, 51) === $base,
+            'Native center alias, pixel padding and watermark aspect ratio match the placement contract');
+        $url = $build()->watermark('assets/alpha-mark.png', array_replace($options, ['opacity' => 0]))->getFile();
+        $zero = imagecreatefrompng($root . '/' . substr($url, strlen(EVO_SITE_URL)));
+        $check(imagecolorsforindex($zero, imagecolorat($zero, 36, 42)) === $base, 'Zero opacity leaves the pixels unchanged');
+        unset($result, $pixelAt, $zero);
+
+        if (\Seiger\sGallery\Services\NativeImage::canEncode('gif', 'imagick')) {
+            $sequence = new Imagick();
+            foreach (['blue', 'lime'] as $index => $color) {
+                $frame = new Imagick();
+                $frame->newImage(32, 24, $color, 'GIF');
+                $frame->setImageDelay(12 + 8 * $index);
+                $frame->setImageIterations(3);
+                $sequence->addImage($frame);
+            }
+            $sequence->setFirstIterator();
+            $sequence->writeImages($root . '/assets/source.gif', true);
+            foreach (['gif' => IMAGETYPE_GIF, 'webp' => IMAGETYPE_WEBP] as $format => $type) {
+                if (!\Seiger\sGallery\Services\NativeImage::canEncode($format, 'imagick')) continue;
+                $url = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/source.gif')->format($format)
+                    ->quality(90)->watermark('assets/alpha-mark.png', ['position' => 'top-left', 'width' => 12, 'padding' => 0])->getFile();
+                $file = $root . '/' . substr($url, strlen(EVO_SITE_URL));
+                $check($url !== EVO_SITE_URL . 'assets/source.gif' &&
+                    \Seiger\sGallery\Services\ImageAnimation::timing($file, $type) === ['loops' => 3, 'delays' => [120, 200]],
+                    "Native $format watermark preserves frame count, delays and looping");
+                foreach ((new Imagick($file))->coalesceImages() as $frame) {
+                    $check($frame->getImagePixelColor(1, 1)->getColor()['r'] > 220, "Native $format watermark appears in each frame");
+                }
+            }
+        }
+    }
+
     file_put_contents($root . '/cache/unrelated.txt', 'preserve');
     file_put_contents($root . '/cache/protected.png', 'source');
     file_put_contents($root . '/cache/generated.png', 'derived');

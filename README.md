@@ -101,9 +101,16 @@ without an ICC profile, and PNGs with unsupported color metadata.
 The bundled [sRGB profile](https://github.com/saucecontrol/Compact-ICC-Profiles/blob/bdd84663/profiles/sRGB-v2-micro.icc)
 and the Display P3 test fixture come from Compact ICC Profiles and use CC0-1.0.
 
+`watermark()` supports local still watermark files on native derivatives. GD or
+Imagick applies the mark after geometry, using the configured size, position,
+padding and opacity. With Imagick the same mark is applied to each animation frame.
+
+Native `sharpen()` applies a strength from 0 to 100 after geometry and before
+`watermark()`. It preserves transparency and uses Imagick for each animation frame.
+
 When Spatie is installed, the Builder continues to use it for transformations.
-Operations such as watermarks, sharpening and background image
-optimization still use Spatie. If a transformation or codec is unavailable without
+Background image optimization still uses Spatie.
+If a transformation or codec is unavailable without
 Spatie, the Builder returns the original URL. Missing files use the normal placeholder.
 
 To enable image transformations, install version 3 from the site's `core/` directory:

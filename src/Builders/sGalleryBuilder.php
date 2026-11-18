@@ -53,7 +53,6 @@ class sGalleryBuilder
     protected ?\Illuminate\Database\Eloquent\Collection $files = null;
     protected ?string $file = null;
     protected ?array $params = [];
-    private bool $requiresSpatie = false;
     protected ?bool $sourceHasAlpha = null;
     protected array $alphaDetectionCache = [];
     protected bool $backgroundOptimization = false;
@@ -187,7 +186,7 @@ class sGalleryBuilder
     }
 
     /**
-     * Configure an explicit or default watermark; invocation alone enables it.
+     * Configure an explicit or default watermark for the selected image driver.
      * @param string|array|null $file Local image path, options, or default configuration
      * @param array $options Position, width, opacity and padding overrides
      * @return $this
@@ -195,18 +194,14 @@ class sGalleryBuilder
      */
     public function watermark(string|array|null $file = null, array $options = []): self
     {
-        if (!class_exists(Image::class)) {
-            $this->requiresSpatie = true;
-            return $this;
-        }
         if (is_array($file)) { $options = $file; $file = null; }
         $defaults = (array) config('seiger.settings.sGallery.watermark', []);
         $file = $file ?? ($defaults['file'] ?? '');
         unset($this->params['watermark']);
         if ($file === '') return $this;
-        $path = \Seiger\sGallery\Services\Watermark::path($file);
+        $path = Watermark::path($file);
         unset($defaults['file']);
-        $this->params['watermark'] = ['file' => $file, 'hash' => hash_file('sha256', $path), 'options' => \Seiger\sGallery\Services\Watermark::options(array_replace($defaults, $options))];
+        $this->params['watermark'] = ['file' => $file, 'hash' => hash_file('sha256', $path), 'options' => Watermark::options(array_replace($defaults, $options))];
         return $this;
     }
 
@@ -592,10 +587,14 @@ class sGalleryBuilder
                     $this->sourceHasAlpha = $withSpatie ? !$animated && $this->detectAlphaChannelFromPath($localPath) : $nativeAlpha;
                     try {
                         if ($nativeTiming !== null) {
+                            $overlay = null;
                             NativeAnimation::render(
                                 $localPath, $dimensions, $nativeTiming, $format, $encodingPath,
                                 $format === 'webp' ? $this->getWebpOutputQuality() : $this->quality,
-                                fn (\Imagick $frame) => $this->transformNative(NativeImage::fromFrame($frame, $sourceFile, $format))->frame(),
+                                function (\Imagick $frame) use ($sourceFile, $format, &$overlay): \Imagick {
+                                    $image = NativeImage::fromFrame($frame, $sourceFile, $format);
+                                    return $this->transformNative($image, $format, $overlay)->frame();
+                                },
                                 fn () => $this->checkOptimizationBudget(defer: false),
                             );
                             clearstatcache(true, $localPath);
@@ -657,12 +656,9 @@ class sGalleryBuilder
     /** Check for transforms and format conversions supported without Spatie. @since 1.9.0 */
     private function canTransformWithoutSpatie(bool $animated): bool
     {
-        if ($this->requiresSpatie || !empty($this->params['sharpen'])) {
-            return false;
-        }
-
         $format = $this->params['format'] ?? null;
-        return in_array($format, $animated ? ['gif', 'webp'] : ['avif', 'gif'], true) ||
+        return isset($this->params['watermark']) || ($this->params['sharpen'] ?? 0) > 0 ||
+            in_array($format, $animated ? ['gif', 'webp'] : ['avif', 'gif'], true) ||
             (isset($this->params['w'], $this->params['h']) && ($animated || isset($this->params['fit']) || $this->hasCrop() || $format === 'webp'));
     }
 
@@ -711,7 +707,7 @@ class sGalleryBuilder
                         if ($nativeAlpha) {
                             $image = $image->withPixelAlpha();
                         }
-                        $image = $this->transformNative($image);
+                        $image = $this->transformNative($image, $format);
                         if ($nativeAlpha) {
                             $image = $image->withWhiteJpegBackground();
                             if ($format === 'gif') {
@@ -754,23 +750,31 @@ class sGalleryBuilder
         throw $failure;
     }
 
-    /** Apply the Builder's geometry in its existing priority order. @since 1.9.0 */
-    private function transformNative(NativeImage $image): NativeImage
+    /**
+     * Apply native geometry and sharpening before the watermark. An animation reuses the prepared overlay.
+     * @param array{\GdImage|\Imagick, int, int}|null $overlay Resized watermark and position for the current render.
+     * @since 1.9.0
+     */
+    private function transformNative(NativeImage $image, string $format, ?array &$overlay = null): NativeImage
     {
-        if (!isset($this->params['w'], $this->params['h'])) {
-            return $image;
+        if (isset($this->params['w'], $this->params['h'])) {
+            [$width, $height] = [$this->params['w'], $this->params['h']];
+            $image = match (true) {
+                isset($this->params['fit']) => $image->fit($this->params['fit'], $width, $height),
+                isset($this->params['crop']) => $image->crop($this->params['crop'], $width, $height),
+                isset($this->params['focalCenterX'], $this->params['focalCenterY']) =>
+                    $image->focalCrop($this->params['focalCenterX'], $this->params['focalCenterY'], $width, $height),
+                isset($this->params['startX'], $this->params['startY']) =>
+                    $image->manualCrop($this->params['startX'], $this->params['startY'], $width, $height),
+                default => $image->resize($width, $height),
+            };
         }
-        [$width, $height] = [$this->params['w'], $this->params['h']];
 
-        return match (true) {
-            isset($this->params['fit']) => $image->fit($this->params['fit'], $width, $height),
-            isset($this->params['crop']) => $image->crop($this->params['crop'], $width, $height),
-            isset($this->params['focalCenterX'], $this->params['focalCenterY']) =>
-                $image->focalCrop($this->params['focalCenterX'], $this->params['focalCenterY'], $width, $height),
-            isset($this->params['startX'], $this->params['startY']) =>
-                $image->manualCrop($this->params['startX'], $this->params['startY'], $width, $height),
-            default => $image->resize($width, $height),
-        };
+        if (!empty($this->params['sharpen'])) {
+            $image = $image->sharpen($this->params['sharpen']);
+        }
+        $mark = $this->params['watermark'] ?? null;
+        return $mark === null ? $image : Watermark::applyNative($image, $mark, $format, $overlay);
     }
 
     /** Apply the existing transformations and verify the staged derivative. @since 1.9.0 */
@@ -1195,7 +1199,6 @@ class sGalleryBuilder
         $this->files = null;
         $this->file = null;
         $this->params = [];
-        $this->requiresSpatie = false;
         $this->type = null;
         $this->sourceHasAlpha = null;
         $this->qualityExplicit = false;
