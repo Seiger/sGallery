@@ -230,6 +230,38 @@ final class NativeImage
         return new self($frame, $this->outputType, $this->source);
     }
 
+    /** Give GD's GIF encoder one transparent palette index for pixels below half opacity. @since 1.9.0 */
+    public function withGifTransparency(): self
+    {
+        if (!$this->image instanceof GdImage) {
+            return $this;
+        }
+
+        [$width, $height] = $this->dimensions();
+        if (!self::hasMemoryFor($width, $height)) {
+            throw new RuntimeException('Insufficient memory budget to prepare the GIF palette.');
+        }
+
+        $palette = self::newGdFrame($width, $height);
+        if (!imagecopy($palette, $this->image, 0, 0, 0, 0, $width, $height) || !imagetruecolortopalette($palette, false, 255)) {
+            throw new RuntimeException('GD could not prepare the GIF palette.');
+        }
+        $transparent = imagecolorallocatealpha($palette, 0, 0, 0, 127);
+        if ($transparent === false) {
+            throw new RuntimeException('GD could not allocate the transparent GIF palette entry.');
+        }
+        imagecolortransparent($palette, $transparent);
+        for ($y = 0; $y < $height; ++$y) {
+            for ($x = 0; $x < $width; ++$x) {
+                if (((imagecolorat($this->image, $x, $y) >> 24) & 0x7f) >= 64) {
+                    imagesetpixel($palette, $x, $y, $transparent);
+                }
+            }
+        }
+
+        return new self($palette, $this->outputType, $this->source);
+    }
+
     /** Read the orientation of a validated local JPEG without decoding its pixels. @since 1.9.0 */
     public static function readJpegOrientation(string $path): int
     {

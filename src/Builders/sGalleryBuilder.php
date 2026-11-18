@@ -475,7 +475,7 @@ class sGalleryBuilder
                     $this->sourceHasAlpha = $nativeAlpha;
                 }
                 $format = $this->params['format'] ?? $this->getSupportedImageFormat();
-                if (!$withSpatie && !in_array($format === 'original' ? $extension : $format, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+                if (!$withSpatie && !in_array($format === 'original' ? $extension : $format, ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'], true)) {
                     return $this->originalImageUrl();
                 }
                 if ($format === 'original') {
@@ -487,7 +487,7 @@ class sGalleryBuilder
                 }
 
                 // Ensure format is supported (if AVIF was requested but not supported, fallback to WebP)
-                if ($format === 'avif' && !$this->isAvifSupported()) {
+                if ($withSpatie && $format === 'avif' && !$this->isAvifSupported()) {
                     if (($this->params['format'] ?? '') === 'original') throw new \RuntimeException('AVIF encoding is unavailable for the original format.');
                     $format = 'webp';
                 }
@@ -540,10 +540,12 @@ class sGalleryBuilder
                     (!$animated || ImageAnimation::isAnimated($cachedPath, $format === 'gif' ? IMAGETYPE_GIF : IMAGETYPE_WEBP))) {
                     return $this->derivativeUrl($sourceFile, $chacheFile . $imageName);
                 }
-                if ($format === 'avif') {
+                if ($format === 'avif' && ($withSpatie || ($this->params['format'] ?? null) !== 'original')) {
                     $fallbackName = preg_replace('/\.avif$/i', '.webp', $imageName);
                     $fallbackPath = $cacheDirectory . DIRECTORY_SEPARATOR . $fallbackName;
-                    if (!is_link($fallbackPath) && is_file($fallbackPath) && filesize($fallbackPath) > 100) {
+                    if (!is_link($fallbackPath) && is_file($fallbackPath) && ($withSpatie
+                        ? filesize($fallbackPath) > 100
+                        : (@getimagesize($fallbackPath)[2] ?? null) === IMAGETYPE_WEBP)) {
                         return $this->derivativeUrl($sourceFile, $chacheFile . $fallbackName);
                     }
                 }
@@ -582,11 +584,15 @@ class sGalleryBuilder
                         if ($format !== 'avif' || ($this->params['format'] ?? '') === 'original') {
                             throw $e;
                         }
-                        Log::warning("AVIF creation failed, falling back to WebP: " . $e->getMessage());
+                        if ($withSpatie) {
+                            Log::warning("AVIF creation failed, falling back to WebP: " . $e->getMessage());
+                        }
                         $format = 'webp';
                         $imageName = preg_replace('/\.avif$/i', '.webp', $imageName);
                         $encodingPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName . $atomicSuffix . '.webp';
-                        $this->renderWithDrivers($sourceFile, $localPath, $format, $encodingPath, false);
+                        $this->renderWithDrivers(
+                            $sourceFile, $localPath, $format, $encodingPath, false, $withSpatie, $nativeOrientation, $nativeAlpha, $nativeIcc,
+                        );
                     }
                     if (!chmod($encodingPath, 0644 & ~umask()) || !rename($encodingPath, $cacheDirectory . DIRECTORY_SEPARATOR . $imageName)) {
                         throw new \RuntimeException('Cannot publish generated image.');
@@ -619,11 +625,16 @@ class sGalleryBuilder
         return sGalleryModel::NOIMAGE;
     }
 
-    /** Check for geometry that can be applied without Spatie. @since 1.9.0 */
+    /** Check for transforms and explicit still-format conversions supported without Spatie. @since 1.9.0 */
     private function canTransformWithoutSpatie(): bool
     {
-        return !$this->requiresSpatie && empty($this->params['sharpen']) && isset($this->params['w'], $this->params['h']) &&
-            (isset($this->params['fit']) || $this->hasCrop() || ($this->params['format'] ?? null) === 'webp');
+        if ($this->requiresSpatie || !empty($this->params['sharpen'])) {
+            return false;
+        }
+
+        $format = $this->params['format'] ?? null;
+        return in_array($format, ['avif', 'gif'], true) ||
+            (isset($this->params['w'], $this->params['h']) && (isset($this->params['fit']) || $this->hasCrop() || $format === 'webp'));
     }
 
     /** Identify crop requests that do not resize the source frame. @since 1.9.0 */
@@ -652,7 +663,7 @@ class sGalleryBuilder
     ): void
     {
         $drivers = $animated || $nativeIcc ? ['imagick'] : ['imagick', 'gd'];
-        if ($format === 'avif' && self::$avifSupportDriver === 'gd') {
+        if ($withSpatie && $format === 'avif' && self::$avifSupportDriver === 'gd') {
             $drivers = array_reverse($drivers);
         }
         $drivers = array_filter($drivers, static fn (string $driver): bool => NativeImage::canEncode($format, $driver));
@@ -674,8 +685,11 @@ class sGalleryBuilder
                         $image = $this->transformNative($image);
                         if ($nativeAlpha) {
                             $image = $image->withWhiteJpegBackground();
+                            if ($format === 'gif') {
+                                $image = $image->withGifTransparency();
+                            }
                         }
-                        if ($nativeIcc) {
+                        if ($nativeIcc && $format !== 'gif') {
                             $image->tagSrgb();
                         }
                         if ($format === 'webp') {
@@ -714,6 +728,9 @@ class sGalleryBuilder
     /** Apply the Builder's geometry in its existing priority order. @since 1.9.0 */
     private function transformNative(NativeImage $image): NativeImage
     {
+        if (!isset($this->params['w'], $this->params['h'])) {
+            return $image;
+        }
         [$width, $height] = [$this->params['w'], $this->params['h']];
 
         return match (true) {

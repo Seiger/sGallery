@@ -87,7 +87,9 @@ try {
         $decoder = match ($type) {
             IMAGETYPE_PNG => 'imagecreatefrompng',
             IMAGETYPE_JPEG => 'imagecreatefromjpeg',
+            IMAGETYPE_GIF => 'imagecreatefromgif',
             IMAGETYPE_WEBP => 'imagecreatefromwebp',
+            IMAGETYPE_AVIF => 'imagecreatefromavif',
         };
         if (function_exists($decoder)) {
             $image = $decoder($file);
@@ -138,10 +140,19 @@ try {
         $flattened = $path($builder('p3-alpha.png', 'jpeg')->fit('stretch', 48, 24)->getFile());
         $check($near($pixel($flattened, 16, 12), [224, 169, 159]) && $hasSrgb($flattened),
             'JPEG composites partial alpha on white after profile conversion');
+        if (NativeImage::canEncode('gif', 'imagick')) {
+            $gif = $path($builder('p3.png', 'gif')->fit('stretch', 48, 24)->getFile());
+            $check(getimagesize($gif)[2] === IMAGETYPE_GIF && $near($pixel($gif, 16, 12), [193, 83, 63]),
+                'GIF uses the converted sRGB pixels');
+        }
         if (NativeImage::canEncode('webp', 'imagick')) {
             $webp = $path($builder('p3.png', 'webp')->fit('stretch', 48, 24)->getFile());
             $check(getimagesize($webp)[2] === IMAGETYPE_WEBP && $near($pixel($webp, 16, 12), [193, 83, 63]) && $hasSrgb($webp),
                 'WebP stores the converted pixels and the sRGB profile');
+            $avif = $path($builder('p3.png', 'avif')->fit('stretch', 47, 24)->getFile());
+            $type = getimagesize($avif)[2];
+            $check(in_array($type, [IMAGETYPE_AVIF, IMAGETYPE_WEBP], true) && $near($pixel($avif, 16, 12), [193, 83, 63]) &&
+                $hasSrgb($avif), 'An AVIF request preserves sRGB in the encoded result or WebP fallback');
         }
         if ($gd) {
             $encoders = new ReflectionProperty(NativeImage::class, 'imagickEncoders');

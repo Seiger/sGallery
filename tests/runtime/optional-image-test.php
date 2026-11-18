@@ -156,7 +156,19 @@ try {
         $corner = (new Imagick($flattened))->getImagePixelColor(0, 0)->getColor();
     }
     checkOptionalImage(min(array_slice($corner, 0, 3)) > 235, 'JPEG flattens the transparent corner on white');
-    checkOptionalImage(GalleryCache::clear() === 8 && file_get_contents($root . 'photo.png') === $png &&
+
+    $avif = (new sGalleryBuilder())->file('assets/images/photo.jpg')->format('avif')->getFile();
+    $avifPath = $root . rawurldecode(substr($avif, strlen(EVO_SITE_URL)));
+    $format = NativeImage::canEncode('avif', 'imagick') || NativeImage::canEncode('avif', 'gd') ? IMAGETYPE_AVIF : IMAGETYPE_WEBP;
+    checkOptionalImage(array_slice(getimagesize($avifPath), 0, 3) === [96, 48, $format], 'A format-only AVIF request writes AVIF or WebP without Spatie');
+    $derivatives = 9;
+    if (NativeImage::canEncode('gif', 'imagick') || NativeImage::canEncode('gif', 'gd')) {
+        $gif = (new sGalleryBuilder())->file('photo.png')->format('gif')->getFile();
+        $gifPath = $root . rawurldecode(substr($gif, strlen(EVO_SITE_URL)));
+        checkOptionalImage(array_slice(getimagesize($gifPath), 0, 3) === [96, 48, IMAGETYPE_GIF], 'A format-only GIF request writes GIF without Spatie');
+        ++$derivatives;
+    }
+    checkOptionalImage(GalleryCache::clear() === $derivatives && file_get_contents($root . 'photo.png') === $png &&
         file_get_contents($jpegPath) === $jpeg, 'Cache clearing removes the derivatives and preserves their sources');
 } finally {
     $files = new RecursiveIteratorIterator(

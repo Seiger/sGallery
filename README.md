@@ -70,8 +70,14 @@ use `fit()`, `crop()`, `manualCrop()` and `focalCrop()` on local still JPEG and 
 images and produce JPEG, PNG or WebP. For example,
 `sGallery::file('assets/photo.jpg')->fit('crop', 320, 240)->format('webp')->getFile()`.
 The native fit supports `crop`, `contain`, `max`, `fill`, `stretch` and `fill-max`.
-`resize()` also supports explicit or configured WebP output. The native path uses
-a separate cache key and the built-in WebP quality selection. For JPEG files it
+`resize()` also supports explicit or configured WebP output. For still AVIF and
+GIF, call `format('avif')` or `format('gif')` with or without a transform on a
+local still JPEG or PNG. If AVIF encoding fails or is unavailable, the Builder
+tries WebP. GIF uses a palette with binary transparency. Animated sources keep
+their original URL in the native path.
+
+The native path uses a separate cache key and the built-in WebP quality
+selection. For JPEG files it
 applies EXIF orientation before fitting, resizing or cropping. GD can read the
 orientation through PHP EXIF, and Imagick can read it without that extension.
 When neither is available to read the tag, the stored pixel orientation is used.
@@ -81,7 +87,8 @@ requested by the caller or configuration composites transparency onto white.
 
 For native JPEG and PNG sources with an embedded ICC profile, Imagick with
 LittleCMS converts the source to sRGB before resizing or compositing. The
-derivative carries the bundled sRGB profile in JPEG, PNG and WebP. A source
+derivative carries the bundled sRGB profile in JPEG, PNG, WebP and AVIF. GIF
+uses the converted sRGB pixels without requiring a profile. A source
 that requires a color conversion the server cannot perform keeps its original
 URL. This includes ICC-tagged images on GD-only installations, CMYK JPEGs
 without an ICC profile, and PNGs with unsupported color metadata.

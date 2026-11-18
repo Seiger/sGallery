@@ -16,6 +16,8 @@ With the EXIF extension disabled, also run `PACKAGE_AUTOLOAD=/path/to/core/vendo
 
 `color-profile-test.php` compares Display P3 JPEG and PNG sources before and after native sRGB conversion. With Imagick and LittleCMS it checks output pixels, profiles, alpha and padding. On GD-only installations it verifies that profiled sources keep their original URL. Run it with each Composer runtime to compare the Spatie path.
 
+`still-formats-test.php` checks static GIF and AVIF output, GIF palette transparency, cache reuse and native WebP fallback on a build that cannot encode AVIF. It also verifies that native still-format requests return animated PNG sources intact.
+
 ## Image compatibility baseline
 
 `image-compatibility-test.php` runs the Evolution `HelperProcessor::phpThumb()` and the sGallery Builder against the same generated inputs in a private temporary directory. It requires the phpThumb and Spatie packages from the supplied Composer runtime and GD with JPEG, PNG and WebP support. It checks AVIF when GD can encode it.

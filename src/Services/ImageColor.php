@@ -56,7 +56,7 @@ final class ImageColor
         return self::UNSUPPORTED;
     }
 
-    /** Inspect PNG alpha and color chunks before the pixel stream. @return array{bool, string} @since 1.9.0 */
+    /** Inspect PNG alpha, color and animation chunks before the pixel stream. @return array{bool, string} @since 1.9.0 */
     public static function fromPng(string $path): array
     {
         $stream = @fopen($path, 'rb');
@@ -65,7 +65,7 @@ final class ImageColor
         }
 
         $alpha = false;
-        $icc = $srgb = $cicp = false;
+        $icc = $srgb = $unsupported = false;
         $standard = true;
         try {
             $header = (string) fread($stream, 33);
@@ -78,7 +78,7 @@ final class ImageColor
                 $length = unpack('N', $header)[1];
                 if ($type === 'IDAT') {
                     return [$alpha, match (true) {
-                        $cicp => self::UNSUPPORTED,
+                        $unsupported => self::UNSUPPORTED,
                         $icc => self::ICC,
                         $srgb || $standard => self::SRGB,
                         default => self::UNSUPPORTED,
@@ -90,7 +90,7 @@ final class ImageColor
                 $alpha = $alpha || $type === 'tRNS';
                 $icc = $icc || $type === 'iCCP';
                 $srgb = $srgb || $type === 'sRGB';
-                $cicp = $cicp || $type === 'cICP';
+                $unsupported = $unsupported || $type === 'cICP' || $type === 'acTL';
                 $expected = match ($type) {
                     'gAMA' => pack('N', 45455),
                     'cHRM' => pack('N*', 31270, 32900, 64000, 33000, 30000, 60000, 15000, 6000),
