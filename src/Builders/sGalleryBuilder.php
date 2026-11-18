@@ -461,10 +461,9 @@ class sGalleryBuilder
 
                 $imageName = str_replace('.' . pathinfo($this->file, PATHINFO_EXTENSION), '', pathinfo($this->file, PATHINFO_BASENAME));
                 $chacheFile = GalleryCache::directoryFor($this->file);
-                if (!$withSpatie && !isset($this->params['format']) &&
-                    !ImageMemoryBudget::allows((float) $dimensions[0] * $dimensions[1], (int) @filesize($localPath), PHP_SAPI === 'cli')) {
-                    // Format negotiation can otherwise decode a PNG before the memory check.
-                    $this->sourceHasAlpha = $dimensions[2] === IMAGETYPE_PNG;
+                $nativeAlpha = !$withSpatie && $dimensions[2] === IMAGETYPE_PNG && NativeImage::pngMayHaveTransparency($localPath);
+                if (!$withSpatie) {
+                    $this->sourceHasAlpha = $nativeAlpha;
                 }
                 $format = $this->params['format'] ?? $this->getSupportedImageFormat();
                 if (!$withSpatie && !in_array($format === 'original' ? $extension : $format, ['jpg', 'jpeg', 'png', 'webp'], true)) {
@@ -502,6 +501,7 @@ class sGalleryBuilder
                 $ext .= !empty($this->params['optimize']) ? '-opt' : '';
                 $ext .= $this->quality !== 100 ? '-q' . $this->quality : '';
                 $ext .= $nativeOrientation > 1 ? '-exif' . $nativeOrientation : '';
+                $ext .= $nativeAlpha ? '-alpha' : '';
                 $ext .= $withSpatie ? '' : '-native';
                 if (isset($this->params['watermark'])) {
                     $sourceHash = hash_file('sha256', $localPath);
@@ -561,9 +561,9 @@ class sGalleryBuilder
                 $encodingPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName . $atomicSuffix . '.' . $format;
 
                 try {
-                    $this->sourceHasAlpha = $withSpatie && !$animated && $this->detectAlphaChannelFromPath($localPath);
+                    $this->sourceHasAlpha = $withSpatie ? !$animated && $this->detectAlphaChannelFromPath($localPath) : $nativeAlpha;
                     try {
-                        $this->renderWithDrivers($sourceFile, $localPath, $format, $encodingPath, $animated, $withSpatie, $nativeOrientation);
+                        $this->renderWithDrivers($sourceFile, $localPath, $format, $encodingPath, $animated, $withSpatie, $nativeOrientation, $nativeAlpha);
                     } catch (OptimizationDeferred $e) {
                         throw $e;
                     } catch (\Exception $e) {
@@ -635,6 +635,7 @@ class sGalleryBuilder
         bool $animated,
         bool $withSpatie = true,
         int $nativeOrientation = 1,
+        bool $nativeAlpha = false,
     ): void
     {
         $drivers = $animated ? ['imagick'] : ['imagick', 'gd'];
@@ -650,7 +651,13 @@ class sGalleryBuilder
                 try {
                     if (!$withSpatie) {
                         $image = NativeImage::open($source, $format, $driver)->orientFromExif($nativeOrientation);
+                        if ($nativeAlpha) {
+                            $image = $image->withPixelAlpha();
+                        }
                         $image = $this->transformNative($image);
+                        if ($nativeAlpha) {
+                            $image = $image->withWhiteJpegBackground();
+                        }
                         if ($format === 'webp') {
                             $this->saveWebpImage($image, $output);
                         } else {
@@ -897,8 +904,10 @@ class sGalleryBuilder
     public function getSupportedImageFormat(): string
     {
         $availableFormats = $this->buildFormatPreferenceList();
+        $autoJpeg = in_array('jpg', $availableFormats, true);
+        $explicitFormats = $autoJpeg ? $availableFormats : [...$availableFormats, 'jpg'];
 
-        if ($override = $this->getClientOverrideFormat($availableFormats)) {
+        if ($override = $this->getClientOverrideFormat($explicitFormats)) {
             return $this->rememberSupportedImageFormat($override);
         }
 
@@ -912,6 +921,11 @@ class sGalleryBuilder
         }
 
         $supportedFormat = $this->detectSupportedImageFormat($availableFormats);
+
+        // A PNG fallback for this image should not replace the browser's preference.
+        if (!$autoJpeg && $supportedFormat === 'png') {
+            return $supportedFormat;
+        }
 
         return $this->rememberSupportedImageFormat($supportedFormat);
     }
@@ -1022,6 +1036,9 @@ class sGalleryBuilder
     private function buildFormatPreferenceList(): array
     {
         $hasAlpha = $this->sourceHasAlphaChannel();
+        if ($hasAlpha && !class_exists(Image::class)) {
+            return ['webp', 'png'];
+        }
 
         $formats = [];
         $formats[] = 'webp';
@@ -1469,7 +1486,9 @@ class sGalleryBuilder
 
         $absolutePath = $this->getAbsoluteSourcePath();
         if ($absolutePath !== null) {
-            $this->sourceHasAlpha = $this->detectAlphaChannelFromPath($absolutePath);
+            $this->sourceHasAlpha = !class_exists(Image::class) && strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION)) === 'png'
+                ? NativeImage::pngMayHaveTransparency($absolutePath)
+                : $this->detectAlphaChannelFromPath($absolutePath);
             return $this->sourceHasAlpha;
         }
 

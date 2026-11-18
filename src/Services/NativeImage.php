@@ -152,6 +152,83 @@ final class NativeImage
         return self::dimensionsOf($this->image);
     }
 
+    /** Detect PNG alpha or color-key transparency without loading the pixel data. @since 1.9.0 */
+    public static function pngMayHaveTransparency(string $path): bool
+    {
+        $stream = @fopen($path, 'rb');
+        if ($stream === false) {
+            return false;
+        }
+
+        try {
+            // The PNG signature and IHDR occupy the first 33 bytes. The color type is at byte 25.
+            $header = (string) fread($stream, 33);
+            if (!str_starts_with($header, "\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR")) {
+                return false;
+            }
+            if (strlen($header) < 33 || in_array(ord($header[25]), [4, 6], true)) {
+                return true;
+            }
+
+            while (strlen($header = (string) fread($stream, 8)) === 8) {
+                $type = substr($header, 4);
+                if ($type === 'tRNS') {
+                    return true;
+                }
+                if ($type === 'IDAT' || $type === 'IEND') {
+                    return false;
+                }
+                $length = unpack('N', $header)[1];
+                // Skip the chunk data and CRC. Transparency must precede IDAT.
+                if ($length > 0x7fffffff || fseek($stream, $length + 4, SEEK_CUR) !== 0) {
+                    break;
+                }
+            }
+
+            return true;
+        } finally {
+            fclose($stream);
+        }
+    }
+
+    /** Convert GD palette and color-key transparency to per-pixel alpha before resampling. @since 1.9.0 */
+    public function withPixelAlpha(): self
+    {
+        if (!$this->image instanceof GdImage || (imageistruecolor($this->image) && imagecolortransparent($this->image) === -1)) {
+            return $this;
+        }
+
+        [$width, $height] = $this->dimensions();
+        return $this->manualCrop(0, 0, $width, $height);
+    }
+
+    /** Composite the finished frame on the default white background for a native JPEG. @since 1.9.0 */
+    public function withWhiteJpegBackground(): self
+    {
+        if ($this->outputType !== IMAGETYPE_JPEG) {
+            return $this;
+        }
+
+        [$width, $height] = $this->dimensions();
+        if (!self::hasMemoryFor($width, $height)) {
+            throw new RuntimeException('Insufficient memory budget to composite the gallery image.');
+        }
+
+        if ($this->image instanceof Imagick) {
+            $frame = clone $this->image;
+            $success = $frame->setImageBackgroundColor('white') && $frame->setImageAlphaChannel(Imagick::ALPHACHANNEL_REMOVE);
+        } else {
+            $frame = self::newGdFrame($width, $height);
+            imagealphablending($frame, true);
+            $success = imagefill($frame, 0, 0, 0xffffff) && imagecopy($frame, $this->image, 0, 0, 0, 0, $width, $height);
+        }
+        if (!$success) {
+            throw new RuntimeException('The native image driver could not composite the gallery image on white.');
+        }
+
+        return new self($frame, $this->outputType, $this->source);
+    }
+
     /** Read the orientation of a validated local JPEG without decoding its pixels. @since 1.9.0 */
     public static function readJpegOrientation(string $path): int
     {

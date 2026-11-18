@@ -75,6 +75,9 @@ a separate cache key and the built-in WebP quality selection. For JPEG files it
 applies EXIF orientation before fitting, resizing or cropping. GD can read the
 orientation through PHP EXIF, and Imagick can read it without that extension.
 When neither is available to read the tag, the stored pixel orientation is used.
+PNG and WebP derivatives preserve PNG transparency, including palette and color-key
+transparency. Automatic format selection keeps alpha in PNG or WebP. A JPEG
+requested by the caller or configuration composites transparency onto white.
 
 When Spatie is installed, the Builder continues to use it for transformations.
 Operations such as watermarks, sharpening and background image

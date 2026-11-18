@@ -146,7 +146,17 @@ try {
     $expected = function_exists('exif_read_data') || class_exists(Imagick::class) ? [24, 48] : [48, 24];
     checkOptionalImage(array_slice(getimagesize($orientedPath), 0, 3) === [...$expected, IMAGETYPE_WEBP],
         'JPEG orientation without Spatie follows the available metadata reader');
-    checkOptionalImage(GalleryCache::clear() === 7 && file_get_contents($root . 'photo.png') === $png &&
+    $flattenedUrl = (new sGalleryBuilder())->file('photo.png')->fit('max', 48)->format('jpg')->getFile();
+    $flattened = $root . rawurldecode(substr($flattenedUrl, strlen(EVO_SITE_URL)));
+    checkOptionalImage(array_slice(getimagesize($flattened), 0, 3) === [48, 24, IMAGETYPE_JPEG], 'Transparent PNG can produce a JPEG without Spatie');
+    if (function_exists('imagecreatefromjpeg')) {
+        $frame = imagecreatefromjpeg($flattened);
+        $corner = imagecolorsforindex($frame, imagecolorat($frame, 0, 0));
+    } else {
+        $corner = (new Imagick($flattened))->getImagePixelColor(0, 0)->getColor();
+    }
+    checkOptionalImage(min(array_slice($corner, 0, 3)) > 235, 'JPEG flattens the transparent corner on white');
+    checkOptionalImage(GalleryCache::clear() === 8 && file_get_contents($root . 'photo.png') === $png &&
         file_get_contents($jpegPath) === $jpeg, 'Cache clearing removes the derivatives and preserves their sources');
 } finally {
     $files = new RecursiveIteratorIterator(
