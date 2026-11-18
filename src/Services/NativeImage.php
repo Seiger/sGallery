@@ -16,6 +16,12 @@ final class NativeImage
 {
     public const FIT_MODES = ['crop', 'contain', 'max', 'fill', 'stretch', 'fill-max'];
 
+    public const CROP_POSITIONS = [
+        'topLeft' => [0, 0], 'top' => [0.5, 0], 'topRight' => [1, 0],
+        'left' => [0, 0.5], 'center' => [0.5, 0.5], 'right' => [1, 0.5],
+        'bottomLeft' => [0, 1], 'bottom' => [0.5, 1], 'bottomRight' => [1, 1],
+    ];
+
     private const READ_WRITE_FORMATS = [
         IMAGETYPE_JPEG => ['JPEG', 'imagecreatefromjpeg', 'imagejpeg', 'JPEG Support'],
         IMAGETYPE_PNG => ['PNG', 'imagecreatefrompng', 'imagepng', 'PNG Support'],
@@ -174,6 +180,46 @@ final class NativeImage
         return new self($image, $this->outputType, $this->source);
     }
 
+    /** Crop a pixel rectangle at one of the nine positions in the source frame. @since 1.9.0 */
+    public function crop(string $position, int $width, int $height): self
+    {
+        [$sourceWidth, $sourceHeight] = $this->dimensions();
+        [$anchorX, $anchorY] = self::CROP_POSITIONS[$position] ?? self::CROP_POSITIONS['center'];
+        $x = (int) (max(0, $sourceWidth - $width) * $anchorX);
+        $y = (int) (max(0, $sourceHeight - $height) * $anchorY);
+
+        return $this->manualCrop($x, $y, $width, $height);
+    }
+
+    /** Center a crop on a source pixel and shift it inside the source edges. @since 1.9.0 */
+    public function focalCrop(int $centerX, int $centerY, int $width, int $height): self
+    {
+        [$sourceWidth, $sourceHeight] = $this->dimensions();
+        $width = min($width, $sourceWidth);
+        $height = min($height, $sourceHeight);
+        $x = (int) max(0, min($sourceWidth - $width, $centerX - $width / 2));
+        $y = (int) max(0, min($sourceHeight - $height, $centerY - $height / 2));
+
+        return $this->manualCrop($x, $y, $width, $height);
+    }
+
+    /** Crop from the given source pixel, trimming the rectangle at the right and bottom edges. @since 1.9.0 */
+    public function manualCrop(int $x, int $y, int $width, int $height): self
+    {
+        [$sourceWidth, $sourceHeight] = $this->dimensions();
+        $width = min($width, $sourceWidth - $x);
+        $height = min($height, $sourceHeight - $y);
+        if ($x < 0 || $y < 0 || $width < 1 || $height < 1) {
+            throw new InvalidArgumentException('The gallery crop must start inside the source and have positive dimensions.');
+        }
+        if (!self::hasMemoryFor($width, $height)) {
+            throw new RuntimeException('Insufficient memory budget to crop the gallery image.');
+        }
+
+        $image = $this->image instanceof Imagick ? clone $this->image : $this->image;
+        return new self(self::cropFrame($image, $x, $y, $width, $height), $this->outputType, $this->source);
+    }
+
     /**
      * Fit a still frame inside or over the requested rectangle.
      *
@@ -242,34 +288,47 @@ final class NativeImage
         $x = intdiv($width, 2) - intdiv($imageWidth, 2);
         $y = intdiv($height, 2) - intdiv($imageHeight, 2);
 
+        if ($crop) {
+            return self::cropFrame($image, -$x, -$y, $width, $height);
+        }
+
         if ($image instanceof Imagick) {
-            if ($crop && $image->setImagePage(0, 0, 0, 0) &&
-                $image->cropImage($width, $height, -$x, -$y) && $image->setImagePage(0, 0, 0, 0)) {
-                return $image;
-            }
-            if (!$crop) {
-                $canvas = new Imagick();
-                if ($canvas->newImage($width, $height, 'white', 'PNG') &&
-                    $canvas->setImageAlphaChannel(Imagick::ALPHACHANNEL_OPAQUE) &&
-                    $canvas->compositeImage($image, Imagick::COMPOSITE_COPY, $x, $y)) {
-                    return $canvas;
-                }
+            $canvas = new Imagick();
+            if ($canvas->newImage($width, $height, 'white', 'PNG') &&
+                $canvas->setImageAlphaChannel(Imagick::ALPHACHANNEL_OPAQUE) &&
+                $canvas->compositeImage($image, Imagick::COMPOSITE_COPY, $x, $y)) {
+                return $canvas;
             }
         } else {
-            $canvas = imagecreatetruecolor($width, $height);
-            if ($canvas !== false) {
-                imagealphablending($canvas, false);
-                imagesavealpha($canvas, true);
-                $transparent = imagecolorallocatealpha($canvas, 255, 255, 255, 127);
-                if (($crop || imagefill($canvas, 0, 0, 0xffffff)) &&
-                    imagefilledrectangle($canvas, $x, $y, $x + $imageWidth - 1, $y + $imageHeight - 1, $transparent) &&
-                    imagecopy($canvas, $image, $x, $y, 0, 0, $imageWidth, $imageHeight)) {
-                    return $canvas;
-                }
+            $canvas = self::newGdFrame($width, $height);
+            $transparent = imagecolorallocatealpha($canvas, 255, 255, 255, 127);
+            if (imagefill($canvas, 0, 0, 0xffffff) &&
+                imagefilledrectangle($canvas, $x, $y, $x + $imageWidth - 1, $y + $imageHeight - 1, $transparent) &&
+                imagecopy($canvas, $image, $x, $y, 0, 0, $imageWidth, $imageHeight)) {
+                return $canvas;
             }
         }
 
         throw new RuntimeException('The native image driver could not center the gallery image.');
+    }
+
+    /** Copy a rectangle without resampling or discarding transparent pixels. @since 1.9.0 */
+    private static function cropFrame(GdImage|Imagick $image, int $x, int $y, int $width, int $height): GdImage|Imagick
+    {
+        if ($image instanceof Imagick) {
+            if ($image->setImagePage(0, 0, 0, 0) && $image->cropImage($width, $height, $x, $y) &&
+                $image->setImagePage(0, 0, 0, 0)) {
+                return $image;
+            }
+        } else {
+            $frame = self::newGdFrame($width, $height);
+            $transparent = imagecolorallocatealpha($frame, 255, 255, 255, 127);
+            if (imagefill($frame, 0, 0, $transparent) && imagecopy($frame, $image, 0, 0, $x, $y, $width, $height)) {
+                return $frame;
+            }
+        }
+
+        throw new RuntimeException('The native image driver could not crop the gallery image.');
     }
 
     /** Return the pixel dimensions for either raster driver. @since 1.9.0 */
@@ -298,15 +357,23 @@ final class NativeImage
             return $image;
         }
 
+        $frame = self::newGdFrame($width, $height);
+        if (!imagecopyresampled($frame, $image, 0, 0, 0, 0, $width, $height, $sourceWidth, $sourceHeight)) {
+            throw new RuntimeException('GD could not resize the gallery image.');
+        }
+        return $frame;
+    }
+
+    /** Allocate a GD frame ready to receive pixels with alpha. @since 1.9.0 */
+    private static function newGdFrame(int $width, int $height): GdImage
+    {
         $frame = imagecreatetruecolor($width, $height);
         if ($frame === false) {
             throw new RuntimeException('GD could not allocate the gallery frame.');
         }
         imagealphablending($frame, false);
         imagesavealpha($frame, true);
-        if (!imagecopyresampled($frame, $image, 0, 0, 0, 0, $width, $height, $sourceWidth, $sourceHeight)) {
-            throw new RuntimeException('GD could not resize the gallery image.');
-        }
+
         return $frame;
     }
 

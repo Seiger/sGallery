@@ -299,40 +299,24 @@ class sGalleryBuilder
     /**
      * Set the crop method and dimensions for the image.
      *
-     * @param string $method Fit method (e.g., 'center', 'left', 'right').
+     * @param string $method Crop position (e.g., 'center', 'left', 'right').
      * @param int $width Width of the image.
      * @param int|null $height Height of the image (optional, defaults to the width if not provided).
      * @return $this
      */
     public function crop(string $method, int $width, int|null $height = null): self
     {
-        if (!class_exists(Image::class)) {
-            $this->requiresSpatie = true;
-            return $this;
-        }
         $this->setDimensions($width, $height ?: $width);
-
-        $cropMethods = [
-            'topLeft' => CropPosition::TopLeft,
-            'top' => CropPosition::Top,
-            'topRight' => CropPosition::TopRight,
-            'left' => CropPosition::Left,
-            'center' => CropPosition::Center,
-            'right' => CropPosition::Right,
-            'bottomLeft' => CropPosition::BottomLeft,
-            'bottom' => CropPosition::Bottom,
-            'bottomRight' => CropPosition::BottomRight,
-        ];
-
-        $this->params['crop'] = $cropMethods[$method] ?? CropPosition::Center;
+        $position = isset(NativeImage::CROP_POSITIONS[$method]) ? $method : 'center';
+        $this->params['crop'] = class_exists(Image::class) ? CropPosition::from($position) : $position;
         return $this;
     }
 
     /**
-     * Set focal crop with percentage-based center point.
+     * Center a crop on a pixel in the source image.
      *
-     * @param int $centerX The X coordinate of the focal center (0-100)
-     * @param int $centerY The Y coordinate of the focal center (0-100)
+     * @param int $centerX The X coordinate in source pixels.
+     * @param int $centerY The Y coordinate in source pixels.
      * @param int $width The width in pixels (minimum 1)
      * @param int|null $height The height in pixels (optional, defaults to width)
      * @return $this Fluent interface for method chaining
@@ -503,8 +487,12 @@ class sGalleryBuilder
                 // Build cache filename with transformation parameters
                 $fit = $this->params['fit'] ?? null;
                 $ext = $fit === null ? '' : ($fit instanceof Fit ? $fit->value : $fit) . '-';
-                $ext .= isset($this->params['crop']) ? strtolower($this->params['crop']->value) . '-' : '';
+                $crop = $this->params['crop'] ?? null;
+                $ext .= $crop === null ? '' : strtolower($crop instanceof CropPosition ? $crop->value : $crop) . '-';
                 $ext .= isset($this->params['focalCenterX']) ? 'focal' . $this->params['focalCenterX'] . '-' . $this->params['focalCenterY'] . '-' : '';
+                if (!$withSpatie && isset($this->params['startX'], $this->params['startY'])) {
+                    $ext .= 'manual' . $this->params['startX'] . '-' . $this->params['startY'] . '-';
+                }
                 $ext .= isset($this->params['w']) ? $this->params['w'] . 'x' . $this->params['h'] : '';
                 $ext .= isset($this->params['sharpen']) && $this->params['sharpen'] > 0 ? '-sh' . $this->params['sharpen'] : '';
                 $ext .= !empty($this->params['optimize']) ? '-opt' : '';
@@ -551,7 +539,7 @@ class sGalleryBuilder
                 $this->optimizationJob = $this->optimizationDescriptor($format);
                 $queue = new ImageOptimizationQueue();
                 if (!$this->backgroundOptimization && ($dimensions === false ||
-                    !$this->fitsMemoryBudget($localPath, $dimensions) || ($withSpatie && $queue->heavy($this->optimizationJob)))) {
+                    !$this->fitsMemoryBudget($localPath, $dimensions, $withSpatie) || ($withSpatie && $queue->heavy($this->optimizationJob)))) {
                     if ($withSpatie) $queue->defer($this->optimizationJob);
                     return $this->originalImageUrl();
                 }
@@ -559,7 +547,7 @@ class sGalleryBuilder
                     if ($dimensions === false && ImageMemoryBudget::allows(0, (int) @filesize($localPath), true)) {
                         $dimensions = $this->heifDimensions($localPath);
                     }
-                    if ($dimensions === false || !$this->fitsMemoryBudget($localPath, $dimensions)) {
+                    if ($dimensions === false || !$this->fitsMemoryBudget($localPath, $dimensions, $withSpatie)) {
                         throw new \RuntimeException('Image optimization exceeds the worker memory budget or has unreadable dimensions.');
                     }
                 }
@@ -613,12 +601,17 @@ class sGalleryBuilder
         return sGalleryModel::NOIMAGE;
     }
 
-    /** Select the native fit or WebP resize path for supported standalone transformations. @since 1.9.0 */
+    /** Check for geometry that can be applied without Spatie. @since 1.9.0 */
     private function canTransformWithoutSpatie(): bool
     {
-        return !$this->requiresSpatie && (isset($this->params['fit']) || ($this->params['format'] ?? null) === 'webp') &&
-            isset($this->params['w'], $this->params['h']) && empty($this->params['sharpen']) &&
-            !isset($this->params['focalCenterX']) && !isset($this->params['startX']);
+        return !$this->requiresSpatie && empty($this->params['sharpen']) && isset($this->params['w'], $this->params['h']) &&
+            (isset($this->params['fit']) || $this->hasCrop() || ($this->params['format'] ?? null) === 'webp');
+    }
+
+    /** Identify crop requests that do not resize the source frame. @since 1.9.0 */
+    private function hasCrop(): bool
+    {
+        return isset($this->params['crop']) || isset($this->params['focalCenterX']) || isset($this->params['startX']);
     }
 
     /**
@@ -643,8 +636,7 @@ class sGalleryBuilder
                 try {
                     if (!$withSpatie) {
                         $image = NativeImage::open($source, $format, $driver);
-                        [$width, $height] = [$this->params['w'], $this->params['h']];
-                        $image = isset($this->params['fit']) ? $image->fit($this->params['fit'], $width, $height) : $image->resize($width, $height);
+                        $image = $this->transformNative($image);
                         if ($format === 'webp') {
                             $this->saveWebpImage($image, $output);
                         } else {
@@ -676,6 +668,22 @@ class sGalleryBuilder
         }
 
         throw $failure;
+    }
+
+    /** Apply the Builder's geometry in its existing priority order. @since 1.9.0 */
+    private function transformNative(NativeImage $image): NativeImage
+    {
+        [$width, $height] = [$this->params['w'], $this->params['h']];
+
+        return match (true) {
+            isset($this->params['fit']) => $image->fit($this->params['fit'], $width, $height),
+            isset($this->params['crop']) => $image->crop($this->params['crop'], $width, $height),
+            isset($this->params['focalCenterX'], $this->params['focalCenterY']) =>
+                $image->focalCrop($this->params['focalCenterX'], $this->params['focalCenterY'], $width, $height),
+            isset($this->params['startX'], $this->params['startY']) =>
+                $image->manualCrop($this->params['startX'], $this->params['startY'], $width, $height),
+            default => $image->resize($width, $height),
+        };
     }
 
     /** Apply the existing transformations and verify the staged derivative. @since 1.9.0 */
@@ -1380,7 +1388,7 @@ class sGalleryBuilder
     }
 
     /** Include the source, output and intermediate resize in the estimate. @since 1.9.0 */
-    private function fitsMemoryBudget(string $path, array $dimensions): bool
+    private function fitsMemoryBudget(string $path, array $dimensions, bool $withSpatie): bool
     {
         [$width, $height] = $dimensions;
         $sourcePixels = (float) $width * $height;
@@ -1388,8 +1396,9 @@ class sGalleryBuilder
         $targetHeight = $this->params['h'] ?? $height;
         $outputPixels = (float) $targetWidth * $targetHeight;
         $fit = $this->params['fit'] ?? null;
-        if (($fit instanceof Fit && $fit === Fit::Crop) || ($fit === null && !isset($this->params['crop']) && !isset($this->params['startX']) &&
-            !isset($this->params['focalCenterX']) && isset($this->params['w']))) {
+        if (!$withSpatie && $fit === null && $this->hasCrop()) {
+            $outputPixels = (float) min($width, $targetWidth) * min($height, $targetHeight);
+        } elseif (($fit instanceof Fit && $fit === Fit::Crop) || ($fit === null && !$this->hasCrop() && isset($this->params['w']))) {
             // A width- or height-driven resize can exceed the requested rectangle,
             // including when the decoder rotates the source before resizing.
             $aspect = $width / $height;

@@ -42,19 +42,14 @@ try {
         $url = (string) (new sGallery())->file('photo.png')->fit($fit, 40, 20)->format('avif')->quality(85)->sharpen(10)->optimize(true)->watermark('missing.png');
         checkOptionalImage($url === EVO_SITE_URL . 'photo.png', "Fit {$fit} with unsupported options serves the original");
     }
-    foreach (['topLeft', 'top', 'topRight', 'left', 'center', 'right', 'bottomLeft', 'bottom', 'bottomRight', 'unknown'] as $crop) {
-        checkOptionalImage((new sGalleryBuilder())->file('photo.png')->crop($crop, 40)->getFile() === EVO_SITE_URL . 'photo.png', "Crop {$crop} serves original");
-    }
-    foreach (['crop', 'watermark', 'sharpen'] as $method) {
+    foreach (['watermark', 'sharpen'] as $method) {
         $builder = (new sGallery())->file('photo.png')->resize(24)->format('webp');
         match ($method) {
-            'crop' => $builder->crop('center', 24),
             'watermark' => $builder->watermark('missing.png'),
             'sharpen' => $builder->sharpen(20),
         };
         checkOptionalImage($builder->getFile() === EVO_SITE_URL . 'photo.png', "$method retains the original without Spatie");
     }
-    checkOptionalImage((string) (new sGalleryBuilder())->file('photo.png')->focalCrop(50, 50, 40)->manualCrop(0, 0, 20, 20)->resize(10) === EVO_SITE_URL . 'photo.png', 'Other transformations serve original');
     foreach (['https://remote.test/photo.jpg', 'http://remote.test/photo.jpg'] as $remote) {
         checkOptionalImage((new sGalleryBuilder())->file($remote)->fit('crop', 20)->getFile() === $remote, 'Remote original returned without downloading');
     }
@@ -134,7 +129,16 @@ try {
     $fitOutput = $root . rawurldecode(substr($fitUrl, strlen(EVO_SITE_URL)));
     checkOptionalImage($fitOutput !== $path && array_slice(getimagesize($fitOutput), 0, 3) === [24, 12, IMAGETYPE_WEBP],
         'Native fit generates a separate derivative from plain resize');
-    checkOptionalImage(GalleryCache::clear() === 3 && file_get_contents($root . 'photo.png') === $png &&
+    foreach ([
+        'crop' => (new sGalleryBuilder())->file('photo.png')->crop('right', 24),
+        'focalCrop' => (new sGalleryBuilder())->file('photo.png')->focalCrop(50, 10, 24),
+        'manualCrop' => (new sGalleryBuilder())->file('photo.png')->manualCrop(10, 10, 24),
+    ] as $method => $crop) {
+        $cropUrl = $crop->format('webp')->getFile();
+        $cropPath = $root . rawurldecode(substr($cropUrl, strlen(EVO_SITE_URL)));
+        checkOptionalImage(array_slice(getimagesize($cropPath), 0, 3) === [24, 24, IMAGETYPE_WEBP], "$method renders without Spatie");
+    }
+    checkOptionalImage(GalleryCache::clear() === 6 && file_get_contents($root . 'photo.png') === $png &&
         file_get_contents($jpegPath) === $jpeg, 'Cache clearing removes the derivatives and preserves their sources');
 } finally {
     $files = new RecursiveIteratorIterator(

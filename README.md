@@ -66,14 +66,15 @@ Native codec availability depends on the installed GD or Imagick build.
 ### Optional image processing
 
 `spatie/image` is optional. With a compatible GD or Imagick codec, the Builder can
-use `fit()` on local still JPEG and PNG images and produce JPEG, PNG or WebP. For example,
+use `fit()`, `crop()`, `manualCrop()` and `focalCrop()` on local still JPEG and PNG
+images and produce JPEG, PNG or WebP. For example,
 `sGallery::file('assets/photo.jpg')->fit('crop', 320, 240)->format('webp')->getFile()`.
 The native fit supports `crop`, `contain`, `max`, `fill`, `stretch` and `fill-max`.
 `resize()` also supports explicit or configured WebP output. The native path uses
 stored pixel orientation, a separate cache key and the built-in WebP quality selection.
 
 When Spatie is installed, the Builder continues to use it for transformations.
-Operations such as standalone `crop()`, watermarks, sharpening and background image
+Operations such as watermarks, sharpening and background image
 optimization still use Spatie. If a transformation or codec is unavailable without
 Spatie, the Builder returns the original URL. Missing files use the normal placeholder.
 
