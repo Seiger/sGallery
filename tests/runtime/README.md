@@ -6,6 +6,8 @@ Install the optional `spatie/image:^3` package for transformation tests. `option
 
 With the EXIF extension disabled, also run `PACKAGE_AUTOLOAD=/path/to/core/vendor/autoload.php php tests/optional-exif.php`. This exercises thumbnail generation and verifies that a camera-orientation JPEG is resized without automatic EXIF rotation. CI runs this check after disabling EXIF.
 
+`fit-test.php` uses the same fixtures in installations with and without Spatie. Run it with each Composer runtime to check fit geometry, padding, alpha, output formats and cache reuse. The script reports the active image extensions and whether Spatie is available.
+
 ## Image compatibility baseline
 
 `image-compatibility-test.php` runs the Evolution `HelperProcessor::phpThumb()` and the sGallery Builder against the same generated inputs in a private temporary directory. It requires the phpThumb and Spatie packages from the supplied Composer runtime and GD with JPEG, PNG and WebP support. It checks AVIF when GD can encode it.

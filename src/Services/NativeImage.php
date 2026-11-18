@@ -14,6 +14,8 @@ use RuntimeException;
  */
 final class NativeImage
 {
+    public const FIT_MODES = ['crop', 'contain', 'max', 'fill', 'stretch', 'fill-max'];
+
     private const READ_WRITE_FORMATS = [
         IMAGETYPE_JPEG => ['JPEG', 'imagecreatefromjpeg', 'imagejpeg', 'JPEG Support'],
         IMAGETYPE_PNG => ['PNG', 'imagecreatefrompng', 'imagepng', 'PNG Support'],
@@ -170,6 +172,104 @@ final class NativeImage
         $image = self::scaleFrame($image, min($widthAfterRounding, $widthAtHeight), $height);
 
         return new self($image, $this->outputType, $this->source);
+    }
+
+    /**
+     * Fit a still frame inside or over the requested rectangle.
+     *
+     * Fill modes center the image on white padding while retaining its alpha.
+     * Crop centers a covering image. Stretch uses the exact requested dimensions.
+     *
+     * @since 1.9.0
+     */
+    public function fit(string $mode, int $width, int $height): self
+    {
+        if (!in_array($mode, self::FIT_MODES, true) || $width < 1 || $height < 1) {
+            throw new InvalidArgumentException('Invalid gallery fit mode or dimensions.');
+        }
+
+        [$sourceWidth, $sourceHeight] = $this->dimensions();
+        $aspect = $sourceWidth / $sourceHeight;
+        [$scaledWidth, $scaledHeight] = match ($mode) {
+            'stretch' => [$width, $height],
+            'crop' => $aspect > $width / $height
+                ? [round($height * $aspect), $height]
+                : [$width, round($width / $aspect)],
+            default => self::fitInside($sourceWidth, $sourceHeight, $width, $height, !in_array($mode, ['fill', 'max'], true)),
+        };
+        $needsCanvas = in_array($mode, ['crop', 'fill', 'fill-max'], true)
+            && ($scaledWidth != $width || $scaledHeight != $height);
+        $canvasPixels = $needsCanvas ? (float) $width * $height : 0;
+        if (!ImageMemoryBudget::allows((float) $scaledWidth * $scaledHeight + $canvasPixels, 0, PHP_SAPI === 'cli')) {
+            throw new RuntimeException('Insufficient memory budget to fit the gallery image.');
+        }
+
+        $image = $this->image instanceof Imagick ? clone $this->image : $this->image;
+        $image = self::scaleFrame($image, $scaledWidth, $scaledHeight);
+        if ($needsCanvas) {
+            $image = self::centerOnCanvas($image, $width, $height, $mode === 'crop');
+        }
+
+        return new self($image, $this->outputType, $this->source);
+    }
+
+    /** Fit within both bounds using the same integer rounding as the existing Builder. @since 1.9.0 */
+    private static function fitInside(int $sourceWidth, int $sourceHeight, int $width, int $height, bool $upscale): array
+    {
+        [$scaledWidth, $scaledHeight] = self::scaleToSide($sourceWidth, $sourceHeight, $width, $upscale);
+        [$scaledHeight, $scaledWidth] = self::scaleToSide($scaledHeight, $scaledWidth, $height, $upscale);
+        if ($scaledWidth <= $width) {
+            return [$scaledWidth, $scaledHeight];
+        }
+
+        [$scaledHeight, $scaledWidth] = self::scaleToSide($sourceHeight, $sourceWidth, $height, $upscale);
+        return self::scaleToSide($scaledWidth, $scaledHeight, $width, $upscale);
+    }
+
+    /** Scale one side and round the other, optionally limiting both to their source lengths. @since 1.9.0 */
+    private static function scaleToSide(int|float $side, int|float $otherSide, int $target, bool $upscale): array
+    {
+        $scaledSide = $upscale ? $target : min($target, $side);
+        $scaledOtherSide = max(1, round($scaledSide / ($side / $otherSide)));
+
+        return [$scaledSide, $upscale ? $scaledOtherSide : min($scaledOtherSide, $otherSide)];
+    }
+
+    /** Center a frame by cropping its excess or copying it onto white padding. @since 1.9.0 */
+    private static function centerOnCanvas(GdImage|Imagick $image, int $width, int $height, bool $crop): GdImage|Imagick
+    {
+        [$imageWidth, $imageHeight] = self::dimensionsOf($image);
+        $x = intdiv($width, 2) - intdiv($imageWidth, 2);
+        $y = intdiv($height, 2) - intdiv($imageHeight, 2);
+
+        if ($image instanceof Imagick) {
+            if ($crop && $image->setImagePage(0, 0, 0, 0) &&
+                $image->cropImage($width, $height, -$x, -$y) && $image->setImagePage(0, 0, 0, 0)) {
+                return $image;
+            }
+            if (!$crop) {
+                $canvas = new Imagick();
+                if ($canvas->newImage($width, $height, 'white', 'PNG') &&
+                    $canvas->setImageAlphaChannel(Imagick::ALPHACHANNEL_OPAQUE) &&
+                    $canvas->compositeImage($image, Imagick::COMPOSITE_COPY, $x, $y)) {
+                    return $canvas;
+                }
+            }
+        } else {
+            $canvas = imagecreatetruecolor($width, $height);
+            if ($canvas !== false) {
+                imagealphablending($canvas, false);
+                imagesavealpha($canvas, true);
+                $transparent = imagecolorallocatealpha($canvas, 255, 255, 255, 127);
+                if (($crop || imagefill($canvas, 0, 0, 0xffffff)) &&
+                    imagefilledrectangle($canvas, $x, $y, $x + $imageWidth - 1, $y + $imageHeight - 1, $transparent) &&
+                    imagecopy($canvas, $image, $x, $y, 0, 0, $imageWidth, $imageHeight)) {
+                    return $canvas;
+                }
+            }
+        }
+
+        throw new RuntimeException('The native image driver could not center the gallery image.');
     }
 
     /** Return the pixel dimensions for either raster driver. @since 1.9.0 */

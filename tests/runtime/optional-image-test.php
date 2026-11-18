@@ -40,15 +40,14 @@ try {
     checkOptionalImage(!isset($manifest['require']['spatie/image']) && isset($manifest['suggest']['spatie/image']), 'Image library is only suggested');
     foreach (['crop', 'contain', 'max', 'fill', 'stretch', 'fill-max', 'unknown'] as $fit) {
         $url = (string) (new sGallery())->file('photo.png')->fit($fit, 40, 20)->format('avif')->quality(85)->sharpen(10)->optimize(true)->watermark('missing.png');
-        checkOptionalImage($url === EVO_SITE_URL . 'photo.png', "Fit {$fit} serves original without image library");
+        checkOptionalImage($url === EVO_SITE_URL . 'photo.png', "Fit {$fit} with unsupported options serves the original");
     }
     foreach (['topLeft', 'top', 'topRight', 'left', 'center', 'right', 'bottomLeft', 'bottom', 'bottomRight', 'unknown'] as $crop) {
         checkOptionalImage((new sGalleryBuilder())->file('photo.png')->crop($crop, 40)->getFile() === EVO_SITE_URL . 'photo.png', "Crop {$crop} serves original");
     }
-    foreach (['fit', 'crop', 'watermark', 'sharpen'] as $method) {
+    foreach (['crop', 'watermark', 'sharpen'] as $method) {
         $builder = (new sGallery())->file('photo.png')->resize(24)->format('webp');
         match ($method) {
-            'fit' => $builder->fit('max', 24),
             'crop' => $builder->crop('center', 24),
             'watermark' => $builder->watermark('missing.png'),
             'sharpen' => $builder->sharpen(20),
@@ -131,8 +130,12 @@ try {
         clearstatcache(true, $output);
         checkOptionalImage($render() === $cachedUrl && filemtime($output) === $savedAt, 'A repeat request reuses the cached WebP');
     }
-    checkOptionalImage(GalleryCache::clear() === 2 && file_get_contents($root . 'photo.png') === $png &&
-        file_get_contents($jpegPath) === $jpeg, 'Cache clearing removes both derivatives and preserves their sources');
+    $fitUrl = (new sGallery())->file('photo.png')->fit('max', 24)->format('webp')->getFile();
+    $fitOutput = $root . rawurldecode(substr($fitUrl, strlen(EVO_SITE_URL)));
+    checkOptionalImage($fitOutput !== $path && array_slice(getimagesize($fitOutput), 0, 3) === [24, 12, IMAGETYPE_WEBP],
+        'Native fit generates a separate derivative from plain resize');
+    checkOptionalImage(GalleryCache::clear() === 3 && file_get_contents($root . 'photo.png') === $png &&
+        file_get_contents($jpegPath) === $jpeg, 'Cache clearing removes the derivatives and preserves their sources');
 } finally {
     $files = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
