@@ -79,6 +79,16 @@ PNG and WebP derivatives preserve PNG transparency, including palette and color-
 transparency. Automatic format selection keeps alpha in PNG or WebP. A JPEG
 requested by the caller or configuration composites transparency onto white.
 
+For native JPEG and PNG sources with an embedded ICC profile, Imagick with
+LittleCMS converts the source to sRGB before resizing or compositing. The
+derivative carries the bundled sRGB profile in JPEG, PNG and WebP. A source
+that requires a color conversion the server cannot perform keeps its original
+URL. This includes ICC-tagged images on GD-only installations, CMYK JPEGs
+without an ICC profile, and PNGs with unsupported color metadata.
+
+The bundled [sRGB profile](https://github.com/saucecontrol/Compact-ICC-Profiles/blob/bdd84663/profiles/sRGB-v2-micro.icc)
+and the Display P3 test fixture come from Compact ICC Profiles and use CC0-1.0.
+
 When Spatie is installed, the Builder continues to use it for transformations.
 Operations such as watermarks, sharpening and background image
 optimization still use Spatie. If a transformation or codec is unavailable without

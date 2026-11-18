@@ -37,6 +37,7 @@ final class NativeImage
     ];
 
     private static array $imagickEncoders = [];
+    private bool $expectSrgb = false;
 
     /** Hold the decoded frame and the output type chosen for this operation. @since 1.9.0 */
     private function __construct(
@@ -152,43 +153,43 @@ final class NativeImage
         return self::dimensionsOf($this->image);
     }
 
-    /** Detect PNG alpha or color-key transparency without loading the pixel data. @since 1.9.0 */
-    public static function pngMayHaveTransparency(string $path): bool
+    /** Convert the embedded source profile to sRGB before geometry or compositing. @since 1.9.0 */
+    public function toSrgb(): self
     {
-        $stream = @fopen($path, 'rb');
-        if ($stream === false) {
-            return false;
+        if (!$this->image instanceof Imagick) {
+            throw new RuntimeException('The gallery color transform requires Imagick with ICC support.');
+        }
+        $delegates = Imagick::getConfigureOptions('DELEGATES')['DELEGATES'] ?? '';
+        if (!preg_match('/\blcms2?\b/i', $delegates) || $this->image->getImageProfiles('icc', false) === []) {
+            throw new RuntimeException('The native image driver cannot apply the source ICC profile.');
+        }
+        [$width, $height] = $this->dimensions();
+        if (!self::hasMemoryFor($width, $height)) {
+            throw new RuntimeException('Insufficient memory budget to convert the gallery image color.');
+        }
+        $image = clone $this->image;
+        $profile = ImageColor::srgbProfile();
+        if (!$image->profileImage('icc', $profile) || $image->getImageProfile('icc') !== $profile) {
+            throw new RuntimeException('The native image driver could not convert the gallery image to sRGB.');
         }
 
-        try {
-            // The PNG signature and IHDR occupy the first 33 bytes. The color type is at byte 25.
-            $header = (string) fread($stream, 33);
-            if (!str_starts_with($header, "\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR")) {
-                return false;
-            }
-            if (strlen($header) < 33 || in_array(ord($header[25]), [4, 6], true)) {
-                return true;
-            }
+        return new self($image, $this->outputType, $this->source);
+    }
 
-            while (strlen($header = (string) fread($stream, 8)) === 8) {
-                $type = substr($header, 4);
-                if ($type === 'tRNS') {
-                    return true;
-                }
-                if ($type === 'IDAT' || $type === 'IEND') {
-                    return false;
-                }
-                $length = unpack('N', $header)[1];
-                // Skip the chunk data and CRC. Transparency must precede IDAT.
-                if ($length > 0x7fffffff || fseek($stream, $length + 4, SEEK_CUR) !== 0) {
-                    break;
-                }
-            }
-
-            return true;
-        } finally {
-            fclose($stream);
+    /** Tag the finished sRGB frame, including a new canvas created by a fit operation. @since 1.9.0 */
+    public function tagSrgb(): void
+    {
+        $image = $this->image;
+        if (!$image instanceof Imagick || !$image->setImageProfile('icc', ImageColor::srgbProfile())) {
+            throw new RuntimeException('The native image driver could not attach the gallery sRGB profile.');
         }
+        // Grayscale PNG samples cannot carry an RGB ICC profile.
+        if ($this->outputType === IMAGETYPE_PNG &&
+            (!$image->setOption('png:color-type', $image->getImageAlphaChannel() ? '6' : '2') ||
+                !$image->setOption('png:exclude-chunk', 'sRGB'))) {
+            throw new RuntimeException('The native image driver could not select an RGB PNG output.');
+        }
+        $this->expectSrgb = true;
     }
 
     /** Convert GD palette and color-key transparency to per-pixel alpha before resampling. @since 1.9.0 */
@@ -611,7 +612,8 @@ final class NativeImage
         [$format, $decoder] = self::READ_WRITE_FORMATS[$this->outputType];
         if ($this->image instanceof Imagick) {
             $decoded = self::readWithImagick($path, $format);
-            return $decoded !== null && $decoded->getImageWidth() === $width && $decoded->getImageHeight() === $height;
+            return $decoded !== null && $decoded->getImageWidth() === $width && $decoded->getImageHeight() === $height &&
+                (!$this->expectSrgb || $decoded->getImageProfile('icc') === ImageColor::srgbProfile());
         }
 
         if (!self::hasMemoryFor($width, $height, (int) @filesize($path))) {

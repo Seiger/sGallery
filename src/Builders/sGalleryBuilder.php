@@ -11,6 +11,7 @@ use Seiger\sGallery\Services\GalleryCache;
 use Seiger\sGallery\Services\GalleryFiles;
 use Seiger\sGallery\Services\GalleryMedia;
 use Seiger\sGallery\Services\ImageAnimation;
+use Seiger\sGallery\Services\ImageColor;
 use Seiger\sGallery\Services\ImageMemoryBudget;
 use Seiger\sGallery\Services\ImageOptimizationQueue;
 use Seiger\sGallery\Services\NativeImage;
@@ -461,8 +462,16 @@ class sGalleryBuilder
 
                 $imageName = str_replace('.' . pathinfo($this->file, PATHINFO_EXTENSION), '', pathinfo($this->file, PATHINFO_BASENAME));
                 $chacheFile = GalleryCache::directoryFor($this->file);
-                $nativeAlpha = !$withSpatie && $dimensions[2] === IMAGETYPE_PNG && NativeImage::pngMayHaveTransparency($localPath);
+                $nativeAlpha = false;
+                $nativeIcc = false;
                 if (!$withSpatie) {
+                    [$nativeAlpha, $color] = $dimensions[2] === IMAGETYPE_PNG
+                        ? ImageColor::fromPng($localPath)
+                        : [false, ImageColor::fromJpeg($localPath, (int) ($dimensions['channels'] ?? 0))];
+                    if ($color === ImageColor::UNSUPPORTED) {
+                        return $this->originalImageUrl();
+                    }
+                    $nativeIcc = $color === ImageColor::ICC;
                     $this->sourceHasAlpha = $nativeAlpha;
                 }
                 $format = $this->params['format'] ?? $this->getSupportedImageFormat();
@@ -502,6 +511,7 @@ class sGalleryBuilder
                 $ext .= $this->quality !== 100 ? '-q' . $this->quality : '';
                 $ext .= $nativeOrientation > 1 ? '-exif' . $nativeOrientation : '';
                 $ext .= $nativeAlpha ? '-alpha' : '';
+                $ext .= $nativeIcc ? '-srgb' : '';
                 $ext .= $withSpatie ? '' : '-native';
                 if (isset($this->params['watermark'])) {
                     $sourceHash = hash_file('sha256', $localPath);
@@ -563,7 +573,9 @@ class sGalleryBuilder
                 try {
                     $this->sourceHasAlpha = $withSpatie ? !$animated && $this->detectAlphaChannelFromPath($localPath) : $nativeAlpha;
                     try {
-                        $this->renderWithDrivers($sourceFile, $localPath, $format, $encodingPath, $animated, $withSpatie, $nativeOrientation, $nativeAlpha);
+                        $this->renderWithDrivers(
+                            $sourceFile, $localPath, $format, $encodingPath, $animated, $withSpatie, $nativeOrientation, $nativeAlpha, $nativeIcc,
+                        );
                     } catch (OptimizationDeferred $e) {
                         throw $e;
                     } catch (\Exception $e) {
@@ -636,9 +648,10 @@ class sGalleryBuilder
         bool $withSpatie = true,
         int $nativeOrientation = 1,
         bool $nativeAlpha = false,
+        bool $nativeIcc = false,
     ): void
     {
-        $drivers = $animated ? ['imagick'] : ['imagick', 'gd'];
+        $drivers = $animated || $nativeIcc ? ['imagick'] : ['imagick', 'gd'];
         if ($format === 'avif' && self::$avifSupportDriver === 'gd') {
             $drivers = array_reverse($drivers);
         }
@@ -650,13 +663,20 @@ class sGalleryBuilder
                 $this->checkOptimizationBudget();
                 try {
                     if (!$withSpatie) {
-                        $image = NativeImage::open($source, $format, $driver)->orientFromExif($nativeOrientation);
+                        $image = NativeImage::open($source, $format, $driver);
+                        if ($nativeIcc) {
+                            $image = $image->toSrgb();
+                        }
+                        $image = $image->orientFromExif($nativeOrientation);
                         if ($nativeAlpha) {
                             $image = $image->withPixelAlpha();
                         }
                         $image = $this->transformNative($image);
                         if ($nativeAlpha) {
                             $image = $image->withWhiteJpegBackground();
+                        }
+                        if ($nativeIcc) {
+                            $image->tagSrgb();
                         }
                         if ($format === 'webp') {
                             $this->saveWebpImage($image, $output);
@@ -1487,7 +1507,7 @@ class sGalleryBuilder
         $absolutePath = $this->getAbsoluteSourcePath();
         if ($absolutePath !== null) {
             $this->sourceHasAlpha = !class_exists(Image::class) && strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION)) === 'png'
-                ? NativeImage::pngMayHaveTransparency($absolutePath)
+                ? ImageColor::fromPng($absolutePath)[0]
                 : $this->detectAlphaChannelFromPath($absolutePath);
             return $this->sourceHasAlpha;
         }

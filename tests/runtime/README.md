@@ -14,6 +14,8 @@ With the EXIF extension disabled, also run `PACKAGE_AUTOLOAD=/path/to/core/vendo
 
 `transparency-test.php` checks RGBA, indexed and RGB color-key PNGs. The native checks cover alpha after resampling, automatic format selection, white JPEG compositing and cache reuse. The Spatie run reports decoded pixel values for comparison with the previous release.
 
+`color-profile-test.php` compares Display P3 JPEG and PNG sources before and after native sRGB conversion. With Imagick and LittleCMS it checks output pixels, profiles, alpha and padding. On GD-only installations it verifies that profiled sources keep their original URL. Run it with each Composer runtime to compare the Spatie path.
+
 ## Image compatibility baseline
 
 `image-compatibility-test.php` runs the Evolution `HelperProcessor::phpThumb()` and the sGallery Builder against the same generated inputs in a private temporary directory. It requires the phpThumb and Spatie packages from the supplied Composer runtime and GD with JPEG, PNG and WebP support. It checks AVIF when GD can encode it.
