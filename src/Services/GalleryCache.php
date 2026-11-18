@@ -14,7 +14,7 @@ class GalleryCache
                 $directory .= is_numeric($segment) ? $segment : ($segment[0] ?? '');
             }
         }
-        return $directory . '/';
+        return rtrim($directory, '/') . '/';
     }
 
     /**

@@ -138,6 +138,89 @@ final class NativeImage
         return $this->image;
     }
 
+    /** Read the current frame dimensions for WebP quality selection. @since 1.9.0 */
+    public function dimensions(): array
+    {
+        return self::dimensionsOf($this->image);
+    }
+
+    /**
+     * Resize a still frame using Builder's width-then-height behavior and rounding.
+     *
+     * Each pass preserves aspect ratio and transparency. Return a new frame so the
+     * original can be reused by another driver if the transformation fails.
+     *
+     * @since 1.9.0
+     */
+    public function resize(int $width, int $height): self
+    {
+        if ($width < 1 || $height < 1) {
+            throw new InvalidArgumentException('Gallery resize dimensions must be positive.');
+        }
+
+        $image = $this->image instanceof Imagick ? clone $this->image : $this->image;
+        [$sourceWidth, $sourceHeight] = self::dimensionsOf($image);
+        $image = self::scaleFrame($image, $width, max(1, round($width * ($sourceHeight / $sourceWidth))));
+        [$currentWidth, $currentHeight] = self::dimensionsOf($image);
+        $aspect = $currentWidth / $currentHeight;
+        $widthAtHeight = max(1, round($height * $aspect));
+        // Match the legacy aspect-ratio constraint when rounding the second pass.
+        $heightAtWidth = max(1, round($widthAtHeight / $aspect));
+        $widthAfterRounding = max(1, round($height * ($widthAtHeight / $heightAtWidth)));
+        $image = self::scaleFrame($image, min($widthAfterRounding, $widthAtHeight), $height);
+
+        return new self($image, $this->outputType, $this->source);
+    }
+
+    /** Return the pixel dimensions for either raster driver. @since 1.9.0 */
+    private static function dimensionsOf(GdImage|Imagick $image): array
+    {
+        return $image instanceof GdImage ? [imagesx($image), imagesy($image)] : [$image->getImageWidth(), $image->getImageHeight()];
+    }
+
+    /** Allocate a resampled frame only after checking available memory. @since 1.9.0 */
+    private static function scaleFrame(GdImage|Imagick $image, int|float $width, int|float $height): GdImage|Imagick
+    {
+        if (!ImageMemoryBudget::allows((float) $width * $height, 0, PHP_SAPI === 'cli')) {
+            throw new RuntimeException('Insufficient memory budget to resize the gallery image.');
+        }
+        $width = (int) $width;
+        $height = (int) $height;
+        [$sourceWidth, $sourceHeight] = self::dimensionsOf($image);
+        if ($width === $sourceWidth && $height === $sourceHeight) {
+            return $image;
+        }
+
+        if ($image instanceof Imagick) {
+            if (!$image->scaleImage($width, $height)) {
+                throw new RuntimeException('Imagick could not resize the gallery image.');
+            }
+            return $image;
+        }
+
+        $frame = imagecreatetruecolor($width, $height);
+        if ($frame === false) {
+            throw new RuntimeException('GD could not allocate the gallery frame.');
+        }
+        imagealphablending($frame, false);
+        imagesavealpha($frame, true);
+        if (!imagecopyresampled($frame, $image, 0, 0, 0, 0, $width, $height, $sourceWidth, $sourceHeight)) {
+            throw new RuntimeException('GD could not resize the gallery image.');
+        }
+        return $frame;
+    }
+
+    /** Save a candidate at the canonical absolute path selected by the Builder. @since 1.9.0 */
+    public function saveToPath(string $path, int $quality, ?callable $optimize = null): void
+    {
+        $root = realpath(EVO_BASE_PATH);
+        if ($root === false || !str_starts_with($path, $root . DIRECTORY_SEPARATOR)) {
+            throw new RuntimeException('Invalid gallery derivative path.');
+        }
+        $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($path, strlen($root) + 1));
+        $this->save($relative, $quality, $optimize);
+    }
+
     /**
      * Publish an encoded frame to a site-relative derivative path in an existing directory.
      *
@@ -170,9 +253,7 @@ final class NativeImage
         if ($this->image instanceof Imagick && $this->image->getNumberImages() !== 1) {
             throw new RuntimeException('The native image writer requires a single frame.');
         }
-        [$width, $height] = $this->image instanceof GdImage
-            ? [imagesx($this->image), imagesy($this->image)]
-            : [$this->image->getImageWidth(), $this->image->getImageHeight()];
+        [$width, $height] = $this->dimensions();
         if (!self::hasMemoryFor($width, $height)) {
             throw new RuntimeException('Insufficient memory budget to encode the gallery image.');
         }

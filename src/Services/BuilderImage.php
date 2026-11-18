@@ -2,7 +2,6 @@
 
 use GdImage;
 use Imagick;
-use RuntimeException;
 use Spatie\Image\Drivers\Gd\GdDriver;
 use Spatie\Image\Drivers\Imagick\ImagickDriver;
 use Spatie\Image\Image;
@@ -65,13 +64,8 @@ final class BuilderImage extends Image
     /** Encode a candidate on the cache filesystem, forwarding the optional optimizer. @since 1.9.0 */
     public function saveNative(string $path, string $format, int $quality, bool $optimize, ?GdImage $frame = null): void
     {
-        $root = realpath(EVO_BASE_PATH);
-        if ($root === false || !str_starts_with($path, $root . DIRECTORY_SEPARATOR)) {
-            throw new RuntimeException('Invalid gallery derivative path.');
-        }
-        $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($path, strlen($root) + 1));
         $optimizer = $optimize ? ($this->optimizer ??= OptimizerChainFactory::create()) : null;
         NativeImage::fromFrame($frame ?? $this->image(), $this->source, $format)
-            ->save($relative, $quality, $optimizer === null ? null : $optimizer->optimize(...));
+            ->saveToPath($path, $quality, $optimizer === null ? null : $optimizer->optimize(...));
     }
 }

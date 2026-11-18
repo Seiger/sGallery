@@ -65,10 +65,15 @@ Native codec availability depends on the installed GD or Imagick build.
 
 ### Optional image processing
 
-`spatie/image` is optional. Without it, the gallery serves original files. Calls to
-resize, fit, crop, convert, optimize or watermark images safely return the original
-URL, and background image optimization is unavailable. Missing files still use the
-normal placeholder. Gallery uploads, collections and settings remain available.
+`spatie/image` is optional. With a compatible GD or Imagick codec, the Builder can
+resize local JPEG and PNG files to WebP without it. Use
+`sGallery::file('assets/photo.jpg')->resize(320, 240)->format('webp')->getFile()`. This path
+keeps transparency and uses a separate cache key for thumbnails that use stored
+pixel orientation and the built-in WebP quality selection.
+
+Other transformations and background image optimization still use Spatie. If
+the requested transformation or codec is unavailable, the Builder returns the
+original URL. Missing files use the normal placeholder.
 
 To enable image transformations, install version 3 from the site's `core/` directory:
 
@@ -84,8 +89,7 @@ composer require spatie/image:^3 --ignore-platform-req=ext-exif
 ```
 
 Include that flag in subsequent Composer install/update commands on that server.
-With GD, automatic camera-photo rotation requires EXIF; without it, transformations
-preserve stored pixel orientation.
+With the GD driver in Spatie, automatic camera-photo rotation requires EXIF.
 
 ## Install by artisan package installer
 

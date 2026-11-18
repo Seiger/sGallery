@@ -51,6 +51,7 @@ class sGalleryBuilder
     protected ?\Illuminate\Database\Eloquent\Collection $files = null;
     protected ?string $file = null;
     protected ?array $params = [];
+    private bool $requiresSpatie = false;
     protected ?bool $sourceHasAlpha = null;
     protected array $alphaDetectionCache = [];
     protected bool $backgroundOptimization = false;
@@ -193,6 +194,7 @@ class sGalleryBuilder
     public function watermark(string|array|null $file = null, array $options = []): self
     {
         if (!class_exists(Image::class)) {
+            $this->requiresSpatie = true;
             return $this;
         }
         if (is_array($file)) { $options = $file; $file = null; }
@@ -288,7 +290,8 @@ class sGalleryBuilder
     public function fit(string $method, int $width, int|null $height = null): self
     {
         if (!class_exists(Image::class)) {
-            return $this->resize($width, $height);
+            $this->requiresSpatie = true;
+            return $this;
         }
         $this->setDimensions($width, $height ?: $width);
 
@@ -317,7 +320,8 @@ class sGalleryBuilder
     public function crop(string $method, int $width, int|null $height = null): self
     {
         if (!class_exists(Image::class)) {
-            return $this->resize($width, $height);
+            $this->requiresSpatie = true;
+            return $this;
         }
         $this->setDimensions($width, $height ?: $width);
 
@@ -465,13 +469,17 @@ class sGalleryBuilder
         $this->optimizationStartedAt = microtime(true);
         $localPath = $sourceFile === null ? null : GalleryFiles::local($sourceFile);
         if ($localPath !== null) {
-            if (!class_exists(Image::class)) {
+            $withSpatie = class_exists(Image::class);
+            if (!$withSpatie && !$this->canResizeWithoutSpatie()) {
                 return $this->originalImageUrl();
             }
             $extension = strtolower(pathinfo($localPath, PATHINFO_EXTENSION));
 
             if ($this->params !== null && !in_array($extension, ['svg'])) {
                 $dimensions = @getimagesize($localPath);
+                if (!$withSpatie && !in_array($dimensions[2] ?? null, [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)) {
+                    return $this->originalImageUrl();
+                }
                 if ($dimensions === false && !$this->isHeifImage($localPath, $extension)) {
                     return sGalleryModel::NOIMAGE;
                 }
@@ -505,6 +513,7 @@ class sGalleryBuilder
                 $ext .= isset($this->params['sharpen']) && $this->params['sharpen'] > 0 ? '-sh' . $this->params['sharpen'] : '';
                 $ext .= !empty($this->params['optimize']) ? '-opt' : '';
                 $ext .= $this->quality !== 100 ? '-q' . $this->quality : '';
+                $ext .= $withSpatie ? '' : '-native';
                 if (isset($this->params['watermark'])) {
                     $sourceHash = hash_file('sha256', $localPath);
                     $cacheParams = $this->params;
@@ -520,14 +529,15 @@ class sGalleryBuilder
                 clearstatcache();
                 $cacheDirectory = GalleryFiles::directory($chacheFile, true);
                 if ($cacheDirectory === null) {
-                    return sGalleryModel::NOIMAGE;
+                    return $withSpatie ? sGalleryModel::NOIMAGE : $this->originalImageUrl();
                 }
                 $cachedPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName;
                 if (is_link($cachedPath)) {
-                    return sGalleryModel::NOIMAGE;
+                    return $withSpatie ? sGalleryModel::NOIMAGE : $this->originalImageUrl();
                 }
                 $cachedSize = is_file($cachedPath) ? filesize($cachedPath) : false;
                 if ($cachedSize > 0 && ($format !== 'avif' || $this->isAvifFile($cachedPath)) &&
+                    ($withSpatie || (@getimagesize($cachedPath)[2] ?? null) === IMAGETYPE_WEBP) &&
                     (!$animated || ImageAnimation::isAnimated($cachedPath, $format === 'gif' ? IMAGETYPE_GIF : IMAGETYPE_WEBP))) {
                     return $this->derivativeUrl($sourceFile, $chacheFile . $imageName);
                 }
@@ -545,8 +555,8 @@ class sGalleryBuilder
                 $this->optimizationJob = $this->optimizationDescriptor($format);
                 $queue = new ImageOptimizationQueue();
                 if (!$this->backgroundOptimization && ($dimensions === false ||
-                    !$this->fitsMemoryBudget($localPath, $dimensions) || $queue->heavy($this->optimizationJob))) {
-                    $queue->defer($this->optimizationJob);
+                    !$this->fitsMemoryBudget($localPath, $dimensions) || ($withSpatie && $queue->heavy($this->optimizationJob)))) {
+                    if ($withSpatie) $queue->defer($this->optimizationJob);
                     return $this->originalImageUrl();
                 }
                 if ($this->backgroundOptimization) {
@@ -561,9 +571,9 @@ class sGalleryBuilder
                 $encodingPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName . $atomicSuffix . '.' . $format;
 
                 try {
-                    $this->sourceHasAlpha = !$animated && $this->detectAlphaChannelFromPath($localPath);
+                    $this->sourceHasAlpha = $withSpatie && !$animated && $this->detectAlphaChannelFromPath($localPath);
                     try {
-                        $this->renderWithDrivers($sourceFile, $localPath, $format, $encodingPath, $animated);
+                        $this->renderWithDrivers($sourceFile, $localPath, $format, $encodingPath, $animated, $withSpatie);
                     } catch (OptimizationDeferred $e) {
                         throw $e;
                     } catch (\Exception $e) {
@@ -582,6 +592,7 @@ class sGalleryBuilder
                 } catch (OptimizationDeferred $e) {
                     return $this->originalImageUrl();
                 } catch (\Exception $e) {
+                    if (!$withSpatie) return $this->originalImageUrl();
                     Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
                     if ($animated) return $this->originalImageUrl();
                 } finally {
@@ -606,6 +617,14 @@ class sGalleryBuilder
         return sGalleryModel::NOIMAGE;
     }
 
+    /** Limit the first Spatie-free path to plain resize with an explicit or configured WebP output. @since 1.9.0 */
+    private function canResizeWithoutSpatie(): bool
+    {
+        return !$this->requiresSpatie && ($this->params['format'] ?? null) === 'webp' &&
+            isset($this->params['w'], $this->params['h']) && empty($this->params['sharpen']) &&
+            !isset($this->params['focalCenterX']) && !isset($this->params['startX']);
+    }
+
     /**
      * Retry the full transform from the original when a backend cannot produce this format.
      *
@@ -613,22 +632,27 @@ class sGalleryBuilder
      * neither native reader can open the file. A failed write never bypasses native verification.
      * @since 1.9.0
      */
-    private function renderWithDrivers(string $source, string $path, string $format, string $output, bool $animated): void
+    private function renderWithDrivers(string $source, string $path, string $format, string $output, bool $animated, bool $withSpatie = true): void
     {
-        $drivers = $animated ? [ImageDriver::Imagick] : [ImageDriver::Imagick, ImageDriver::Gd];
+        $drivers = $animated ? ['imagick'] : ['imagick', 'gd'];
         if ($format === 'avif' && self::$avifSupportDriver === 'gd') {
             $drivers = array_reverse($drivers);
         }
-        $drivers = array_filter($drivers, static fn (ImageDriver $driver): bool => NativeImage::canEncode($format, $driver->value));
+        $drivers = array_filter($drivers, static fn (string $driver): bool => NativeImage::canEncode($format, $driver));
         $failure = new \RuntimeException('No image driver can produce the requested gallery format.');
         $loaded = false;
-        foreach ($animated ? [true] : [false, true] as $legacy) {
+        foreach ($withSpatie && !$animated ? [false, true] : [$animated] as $legacy) {
             foreach ($drivers as $driver) {
                 $this->checkOptimizationBudget();
                 try {
+                    if (!$withSpatie) {
+                        $image = NativeImage::open($source, $format, $driver)->resize($this->params['w'], $this->params['h']);
+                        $this->saveWebpImage($image, $output);
+                        return;
+                    }
                     $image = $legacy
-                        ? Image::useImageDriver($driver)->loadFile($path)
-                        : BuilderImage::fromSource($source, $path, $format, $driver->value);
+                        ? Image::useImageDriver(ImageDriver::from($driver))->loadFile($path)
+                        : BuilderImage::fromSource($source, $path, $format, $driver);
                     $loaded = true;
                     $this->renderCandidate($image, $path, $format, $output, $animated);
                     return;
@@ -1058,6 +1082,7 @@ class sGalleryBuilder
         $this->files = null;
         $this->file = null;
         $this->params = [];
+        $this->requiresSpatie = false;
         $this->type = null;
         $this->sourceHasAlpha = null;
         $this->qualityExplicit = false;
@@ -1094,25 +1119,30 @@ class sGalleryBuilder
      * Front requests check their deadline between attempts and return the original
      * if work is deferred. Background jobs complete the full quality search.
      *
-     * @param \Spatie\Image\Image $image The image instance.
+     * @param Image|NativeImage $image The resized image used for WebP candidates.
      * @param string $path The path where to save the WebP image.
      * @return void
      * @since 1.5.0
      */
-    private function saveWebpImage(Image $image, string $path): void
+    private function saveWebpImage(Image|NativeImage $image, string $path): void
     {
         $targetBytes = $this->getPageSpeedImageTargetBytes($image);
         $qualities = $this->qualityExplicit || empty($this->params['optimize'])
             ? [$this->getWebpOutputQuality()]
             : [99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80];
-        $temporaryPath = $image instanceof BuilderImage ? $path . '.webp' : tempnam(dirname($path), '.sgallery-webp-');
+        $temporaryPath = $image instanceof NativeImage || $image instanceof BuilderImage
+            ? $path . '.webp' : tempnam(dirname($path), '.sgallery-webp-');
         if ($temporaryPath === false) {
             throw new \RuntimeException('Unable to create a temporary WebP cache file.');
         }
         try {
             foreach ($qualities as $index => $quality) {
                 $this->checkOptimizationBudget();
-                $this->saveEncodedImage($image, $temporaryPath, 'webp', $quality);
+                if ($image instanceof NativeImage) {
+                    $image->saveToPath($temporaryPath, $quality);
+                } else {
+                    $this->saveEncodedImage($image, $temporaryPath, 'webp', $quality);
+                }
                 clearstatcache();
                 if (!is_file($temporaryPath) || filesize($temporaryPath) === 0) {
                     throw new \RuntimeException('WebP generation produced an empty file.');
@@ -1142,13 +1172,14 @@ class sGalleryBuilder
      * The estimate is based on rendered pixels and the Lighthouse/WebPageTest-style
      * bytes-per-pixel target used for modern image delivery recommendations.
      *
-     * @param \Spatie\Image\Image $image The image instance.
+     * @param Image|NativeImage $image The frame whose dimensions determine the size target.
      * @return int Estimated target size in bytes.
      * @since 1.5.0
      */
-    private function getPageSpeedImageTargetBytes(Image $image): int
+    private function getPageSpeedImageTargetBytes(Image|NativeImage $image): int
     {
-        $pixels = max(1, $image->getWidth() * $image->getHeight());
+        [$width, $height] = $image instanceof NativeImage ? $image->dimensions() : [$image->getWidth(), $image->getHeight()];
+        $pixels = max(1, $width * $height);
         $displaySafetyFactor = 0.9;
         $targetBytesPerPixel = 2 / 12;
 
@@ -1350,7 +1381,7 @@ class sGalleryBuilder
         $targetHeight = $this->params['h'] ?? $height;
         $outputPixels = (float) $targetWidth * $targetHeight;
         $fit = $this->params['fit'] ?? null;
-        if ($fit === Fit::Crop || ($fit === null && !isset($this->params['crop']) && !isset($this->params['startX']) &&
+        if (($fit !== null && $fit === Fit::Crop) || ($fit === null && !isset($this->params['crop']) && !isset($this->params['startX']) &&
             !isset($this->params['focalCenterX']) && isset($this->params['w']))) {
             // A width- or height-driven resize can exceed the requested rectangle,
             // including when the decoder rotates the source before resizing.
