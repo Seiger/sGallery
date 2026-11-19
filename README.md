@@ -45,6 +45,10 @@ driver when a still image fails. Animated GIF and WebP use Imagick. The
 original stays available if the requested output cannot preserve animation.
 Native codec availability depends on the installed GD or Imagick build.
 
+Spatie PNG derivatives discard stale EXIF metadata after the pixels are oriented.
+They use an `upright` cache suffix so earlier PNGs are regenerated without deleting
+the old cache files. ICC profiles and pixel transparency are retained.
+
 | Format | Native GD | Native Imagick |
 | --- | --- | --- |
 | JPEG | Read and write | Read and write |

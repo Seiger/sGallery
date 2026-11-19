@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Facade;
 use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Models\sGalleryModel;
 use Seiger\sGallery\Services\NativeImage;
+use Spatie\Image\Enums\Fit;
+use Spatie\Image\Enums\ImageDriver;
 use Spatie\Image\Image;
 
 function config($key, $default = null) { return $key === 'seiger.settings.sGallery.optimize' ? false : $default; }
@@ -106,11 +108,42 @@ try {
                 }
             }
         }
-        if ($withSpatie && str_ends_with($source, '.heif') && $png->getImageOrientation() === 6) {
-            // Also reproduced at 94e777c, before task 11. Report the existing defect without requiring it on newer libraries.
-            echo "LEGACY Spatie PNG retains EXIF 6 after the container rotation; native PNG removes that stale orientation\n";
-        } else {
-            $check(in_array($png->getImageOrientation(), [0, 1], true), "$source PNG orientation cannot trigger another rotation");
+        $check(in_array($png->getImageOrientation(), [0, 1], true), "$source PNG orientation cannot trigger another rotation");
+        $displayed = clone $png;
+        $displayed->autoOrient();
+        $check([$displayed->getImageWidth(), $displayed->getImageHeight()] === [8, 16],
+            "$source PNG remains portrait when a viewer applies its orientation");
+        if ($withSpatie && str_ends_with($source, '.heif')) {
+            $legacyUrl = str_replace('-upright.png', '.png', $url);
+            $check($legacyUrl !== $url, 'Spatie PNGs use a new cache identity after the orientation correction');
+            $check($png->getImageProfiles('exif', false) === [], 'The corrected PNG has no stale EXIF profile');
+            $pngBytes = file_get_contents($path($url));
+            $chunk = 'eXIf' . $exif6;
+            $legacyBytes = substr($pngBytes, 0, 33) . pack('N', strlen($exif6)) . $chunk . pack('N', crc32($chunk)) . substr($pngBytes, 33);
+            file_put_contents($path($legacyUrl), $legacyBytes);
+            $check((new Imagick($path($legacyUrl)))->getImageOrientation() === 6, 'The seeded old PNG cache contains the stale EXIF rotation');
+            $legacyHash = hash_file('sha256', $path($legacyUrl));
+            unlink($path($url));
+            $check($build($source)->getFile() === EVO_SITE_URL . $source, 'The frontend defers regeneration instead of serving the old rotated PNG cache');
+            $check($runJob($image, 'png') === $url && in_array((new Imagick($path($url)))->getImageOrientation(), [0, 1], true),
+                'The worker publishes a corrected PNG under the new cache identity');
+            $check(hash_file('sha256', $path($legacyUrl)) === $legacyHash, 'Cache migration leaves the previous file untouched');
+
+            // Exercise the legacy Spatie writer as well as the normal BuilderImage writer above.
+            $legacyImage = Image::useImageDriver(ImageDriver::Imagick)->loadFile($root . $source);
+            $profile = file_get_contents(__DIR__ . '/../fixtures/DisplayP3-v4.icc');
+            $legacyImage->image()->setImageProfile('icc', $profile);
+            $legacyImage->fit(Fit::Max, 16, 16);
+            $writer = new ReflectionMethod(sGalleryBuilder::class, 'saveEncodedImage');
+            $writer->invoke($image, $legacyImage, $root . 'legacy-writer.png', 'png', 90);
+            $legacyOutput = new Imagick($root . 'legacy-writer.png');
+            $check([$legacyOutput->getImageWidth(), $legacyOutput->getImageHeight()] === [8, 16] &&
+                in_array($legacyOutput->getImageOrientation(), [0, 1], true), 'The legacy Spatie writer also removes the stale PNG rotation');
+            $check($legacyOutput->getImageProfile('icc') === $profile, 'PNG orientation cleanup preserves the ICC profile');
+            foreach ($samples as $index => [$x, $y]) {
+                $check(abs($legacyOutput->getImagePixelColor($x, $y)->getColorValue(Imagick::COLOR_ALPHA) - $rgba[$index][3]) < 0.02,
+                    "Legacy Spatie PNG cleanup preserves opacity quadrant $index");
+            }
         }
         $check($runJob($image, 'png') === $url, "$source worker and frontend share the PNG cache");
         touch($path($url), 1700000000);

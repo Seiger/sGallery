@@ -105,6 +105,10 @@ try {
         $output = $path($url);
         $info = is_file($output) ? getimagesize($output) : false;
         $check($info !== false && array_slice($info, 0, 3) === [$width, $height, IMAGETYPE_PNG], "Orientation $orientation dimensions");
+        if ($imagick) {
+            $check(in_array((new Imagick($output))->getImageOrientation(), [0, 1], true),
+                "Orientation $orientation PNG does not retain a second EXIF rotation");
+        }
         $frame = $decodePng($output);
         $expected = $canOrient ? $layout : $layouts[1];
         $samples = [[12, 12], [$width - 12, 12], [12, $height - 12], [$width - 12, $height - 12]];

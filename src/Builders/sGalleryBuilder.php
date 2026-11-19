@@ -547,6 +547,8 @@ class sGalleryBuilder
                     $ext .= '-adaptive';
                 }
                 $ext .= $withSpatie ? '' : '-native';
+                // Earlier Spatie PNGs can carry an EXIF rotation after their pixels were oriented.
+                $ext .= $withSpatie && $format === 'png' ? '-upright' : '';
                 if (isset($this->params['watermark'])) {
                     $sourceHash = hash_file('sha256', $localPath);
                     $cacheParams = $this->params;
@@ -903,9 +905,16 @@ class sGalleryBuilder
         }
     }
 
-    /** Encode one cache candidate with the codec selected at source load. @since 1.9.0 */
+    /** Encode a candidate, removing stale PNG EXIF after Spatie has oriented its pixels. @since 1.9.0 */
     private function saveEncodedImage(Image $image, string $path, string $format, int $quality): void
     {
+        if ($format === 'png' && ($frame = $image->image()) instanceof \Imagick) {
+            if (($frame->getImageProfiles('exif', false) !== [] && !$frame->removeImageProfile('exif')) ||
+                ($frame->getImageProperty('exif:Orientation') !== false && !$frame->deleteImageProperty('exif:Orientation')) ||
+                !$frame->setImageOrientation(\Imagick::ORIENTATION_TOPLEFT)) {
+                throw new \RuntimeException('Cannot remove the stale gallery PNG orientation.');
+            }
+        }
         if ($image instanceof BuilderImage) {
             $image->saveNative($path, $format, $quality, !empty($this->params['optimize']));
             return;

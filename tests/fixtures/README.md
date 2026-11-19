@@ -49,8 +49,9 @@ expectations before checking Builder output. HEIF container transforms and EXIF
 handling can be inspected in the tested
 [ImageMagick HEIC reader](https://github.com/ImageMagick/ImageMagick/blob/7.1.1-43/coders/heic.c).
 
-The Spatie path at baseline `94e777c` retains the redundant EXIF orientation in
-the resulting PNG. `heif-properties-test.php` records this existing behavior
-separately from native correctness assertions. It can cause another rotation in
-a viewer that honors PNG EXIF. The native output is checked to have orientation
-0 or 1. Changing the Spatie behavior requires a separate correction.
+The Spatie path at baseline `94e777c` retained the redundant EXIF orientation in
+the resulting PNG, causing another rotation in a viewer that honors PNG EXIF.
+`heif-properties-test.php` now requires orientation 0 or 1 with and without
+Spatie and checks portrait geometry after a viewer applies orientation. It also
+seeds an old PNG cache entry, checks regeneration under the new cache identity,
+and verifies that orientation cleanup preserves the ICC profile and alpha.
