@@ -90,17 +90,27 @@ $cachePrefix = 'assets/cache/m/photo-max-768x504-q85' . ($withSpatie ? '' : '-na
 $cacheTimestamp = 1700000000;
 printf("PHP %s, Spatie %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off');
 
-$im = imagecreatetruecolor(128, 128);
-for ($x = 0; $x < 128; $x++) {
-    for ($y = 0; $y < 128; $y++) {
-        imagesetpixel($im, $x, $y, imagecolorallocate($im, ($x * 7 + $y * 3) % 256, ($x * 13 + $y * 5) % 256, ($x * 3 + $y * 11) % 256));
+if (function_exists('imagecreatetruecolor')) {
+    $im = imagecreatetruecolor(128, 128);
+    for ($x = 0; $x < 128; $x++) {
+        for ($y = 0; $y < 128; $y++) {
+            imagesetpixel($im, $x, $y, imagecolorallocate($im, ($x * 7 + $y * 3) % 256, ($x * 13 + $y * 5) % 256, ($x * 3 + $y * 11) % 256));
+        }
     }
+    imagejpeg($im, $root . 'media/photo.jpg');
+    ob_start();
+    imagewebp($im, null, 85);
+    $webp = ob_get_clean();
+} else {
+    $im = new Imagick();
+    $im->newPseudoImage(128, 128, 'gradient:blue-red');
+    $im->setImageFormat('JPEG');
+    $im->writeImage($root . 'media/photo.jpg');
+    $im->setImageFormat('WEBP');
+    $im->setImageCompressionQuality(85);
+    $webp = $im->getImageBlob();
 }
-imagejpeg($im, $root . 'media/photo.jpg');
 $jpeg = file_get_contents($root . 'media/photo.jpg');
-ob_start();
-imagewebp($im, null, 85);
-$webp = ob_get_clean();
 unset($im);
 file_put_contents($root . 'media/icon.svg', '<svg/>');
 use Seiger\sGallery\Services\GalleryCache as G;

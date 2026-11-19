@@ -1,0 +1,494 @@
+{
+  "date": "2026-11-19",
+  "package_commit": "27bfc23",
+  "legacy_tag": "v1.8.1",
+  "evolution": "3.5.9",
+  "stask_commit": "6355cf2",
+  "runtime_script_runs": 171,
+  "runtime_failed": [],
+  "site_checks": [
+    {
+      "php": "8.4.27",
+      "driver": "both",
+      "upgrade": false,
+      "passed": 16,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "input-bmp",
+        "input-tiff",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": "3.8.0",
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.4.27",
+      "driver": "both",
+      "upgrade": true,
+      "passed": 30,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "input-bmp",
+        "input-tiff",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": "3.8.0",
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.4.27",
+      "driver": "gd",
+      "upgrade": false,
+      "passed": 18,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": null,
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.4.27",
+      "driver": "gd",
+      "upgrade": true,
+      "passed": 32,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": null,
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.4.27",
+      "driver": "imagick",
+      "upgrade": false,
+      "passed": 16,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "input-bmp",
+        "input-tiff",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": "3.8.0",
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.4.27",
+      "driver": "imagick",
+      "upgrade": true,
+      "passed": 30,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "input-bmp",
+        "input-tiff",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": "3.8.0",
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.4.27",
+      "driver": "none",
+      "upgrade": false,
+      "passed": 25,
+      "failed": [
+        "queue-deduplicates"
+      ],
+      "imagick": null,
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.4.27",
+      "driver": "none",
+      "upgrade": true,
+      "passed": 39,
+      "failed": [
+        "queue-deduplicates"
+      ],
+      "imagick": null,
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.5.10",
+      "driver": "both",
+      "upgrade": false,
+      "passed": 16,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "input-bmp",
+        "input-tiff",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": "3.8.1",
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.5.10",
+      "driver": "both",
+      "upgrade": true,
+      "passed": 30,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "input-bmp",
+        "input-tiff",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": "3.8.1",
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.5.10",
+      "driver": "gd",
+      "upgrade": false,
+      "passed": 18,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": null,
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.5.10",
+      "driver": "gd",
+      "upgrade": true,
+      "passed": 32,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": null,
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.5.10",
+      "driver": "imagick",
+      "upgrade": false,
+      "passed": 16,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "input-bmp",
+        "input-tiff",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": "3.8.1",
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.5.10",
+      "driver": "imagick",
+      "upgrade": true,
+      "passed": 30,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "input-bmp",
+        "input-tiff",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": "3.8.1",
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.5.10",
+      "driver": "none",
+      "upgrade": false,
+      "passed": 25,
+      "failed": [
+        "queue-deduplicates"
+      ],
+      "imagick": null,
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.5.10",
+      "driver": "none",
+      "upgrade": true,
+      "passed": 39,
+      "failed": [
+        "queue-deduplicates"
+      ],
+      "imagick": null,
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.6.0RC7",
+      "driver": "both",
+      "upgrade": false,
+      "passed": 16,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "input-bmp",
+        "input-tiff",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": "@PACKAGE_VERSION@",
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.6.0RC7",
+      "driver": "both",
+      "upgrade": true,
+      "passed": 30,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "input-bmp",
+        "input-tiff",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": "@PACKAGE_VERSION@",
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.6.0RC7",
+      "driver": "gd",
+      "upgrade": false,
+      "passed": 17,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "input-bmp",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": null,
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.6.0RC7",
+      "driver": "gd",
+      "upgrade": true,
+      "passed": 31,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "input-bmp",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": null,
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.6.0RC7",
+      "driver": "imagick",
+      "upgrade": false,
+      "passed": 16,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "input-bmp",
+        "input-tiff",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": "@PACKAGE_VERSION@",
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.6.0RC7",
+      "driver": "imagick",
+      "upgrade": true,
+      "passed": 30,
+      "failed": [
+        "resize-png-default-quality",
+        "resize-jpeg-default-quality",
+        "format-jpeg-default-quality",
+        "format-webp-default-quality",
+        "input-gif",
+        "input-webp",
+        "input-avif",
+        "input-bmp",
+        "input-tiff",
+        "queue-deduplicates",
+        "source-replacement-refreshes-cache"
+      ],
+      "imagick": "@PACKAGE_VERSION@",
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.6.0RC7",
+      "driver": "none",
+      "upgrade": false,
+      "passed": 25,
+      "failed": [
+        "queue-deduplicates"
+      ],
+      "imagick": null,
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    },
+    {
+      "php": "8.6.0RC7",
+      "driver": "none",
+      "upgrade": true,
+      "passed": 39,
+      "failed": [
+        "queue-deduplicates"
+      ],
+      "imagick": null,
+      "framework_spatie_packages": [
+        "spatie/once"
+      ]
+    }
+  ],
+  "accepted": false
+}

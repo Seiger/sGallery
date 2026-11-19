@@ -158,11 +158,11 @@ try {
             $encoders = new ReflectionProperty(NativeImage::class, 'imagickEncoders');
             $original = $encoders->getValue();
             try {
-                $encoders->setValue([IMAGETYPE_PNG => false] + $original);
+                $encoders->setValue(null, [IMAGETYPE_PNG => false] + $original);
                 $check($builder('p3.png', 'png')->fit('stretch', 41, 21)->getFile() === EVO_SITE_URL . 'p3.png',
                     'A profiled source cannot silently fall back to GD');
             } finally {
-                $encoders->setValue($original);
+                $encoders->setValue(null, $original);
             }
         }
     }

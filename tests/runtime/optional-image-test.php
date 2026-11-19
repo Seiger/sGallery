@@ -21,6 +21,15 @@ use Seiger\sGallery\Services\NativeImage;
 use Seiger\sGallery\Services\Watermark;
 use Seiger\sGallery\sGallery;
 
+$container = new Illuminate\Container\Container();
+Illuminate\Support\Facades\Facade::setFacadeApplication($container);
+$container->instance('log', new class {
+    /** Accept the missing application binding when sTask is installed but not booted. @since 1.9.0 */
+    public function warning(string $message): void {}
+    /** Fail on actual image processing errors in this fixture. @since 1.9.0 */
+    public function error(string $message): void { throw new RuntimeException($message); }
+});
+
 function checkOptionalImage(bool $condition, string $message): void
 {
     if (!$condition) throw new RuntimeException($message);

@@ -180,11 +180,11 @@ try {
         $capability = new ReflectionProperty(NativeImage::class, 'imagickEncoders');
         $previous = $capability->getValue();
         try {
-            $capability->setValue([IMAGETYPE_WEBP => false] + $previous);
+            $capability->setValue(null, [IMAGETYPE_WEBP => false] + $previous);
             $render('sGallery GD codec fallback', fn () => $gallery($landscape)
                 ->fit('stretch', 39, 21)->format('webp')->getFile(), [39, 21, 'image/webp']);
         } finally {
-            $capability->setValue($previous);
+            $capability->setValue(null, $previous);
         }
 
         if (defined('Imagick::RESOURCETYPE_WIDTH')) {

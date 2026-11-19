@@ -1,5 +1,9 @@
 # Runtime regression checks
 
+Task 12 also has a [real-installation acceptance suite](../acceptance/README.md)
+for clean CMS installations, upgrades from 1.8.1 and the PHP/driver matrix.
+Its integration gate currently fails; see the [recorded results](../../docs/testing/native-image-acceptance-2026-11.md).
+
 Run each `*-test.php` with `PACKAGE_AUTOLOAD` pointing at an installed Evolution CMS 3.6.x `core/vendor/autoload.php`. The test bootstrap loads this package from the checkout ahead of any consumer classmap. Fixtures use isolated SQLite databases and temporary files; no site database is used. The CI matrix executes PHP 8.4 and 8.5.
 
 Install the optional `spatie/image:^3` package for transformation tests. `optional-image-test.php` excludes every `Spatie\Image\` class from autoloading and verifies original-file fallbacks, watermark settings validation and background-job behavior without the package.
@@ -7,6 +11,8 @@ Install the optional `spatie/image:^3` package for transformation tests. `option
 With the EXIF extension disabled, also run `PACKAGE_AUTOLOAD=/path/to/core/vendor/autoload.php php tests/optional-exif.php`. This exercises thumbnail generation and verifies that a camera-orientation JPEG is resized without automatic EXIF rotation. CI runs this check after disabling EXIF.
 
 `fit-test.php` uses the same fixtures in installations with and without Spatie. Run it with each Composer runtime to check fit geometry, padding, alpha, output formats and cache reuse. The script reports the active image extensions and whether Spatie is available.
+
+`client-format-test.php` checks HTTP Accept, session/cookie preferences, invalid cookies, and opaque/transparent defaults. It keeps the existing Spatie behavior and the native transparent-image format policy separate. This script also runs without either image extension.
 
 `crop-test.php` checks the nine crop positions, manual and focal coordinates, edge clipping and pixel transparency. It also checks that equal-sized native manual crops from different coordinates have separate cache entries.
 

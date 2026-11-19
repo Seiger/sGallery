@@ -140,11 +140,11 @@ try {
             $encoders = new ReflectionProperty(NativeImage::class, 'imagickEncoders');
             $detected = $encoders->getValue();
             try {
-                $encoders->setValue([IMAGETYPE_PNG => false] + $detected);
+                $encoders->setValue(null, [IMAGETYPE_PNG => false] + $detected);
                 $fallback = $path($builder('photo-6.jpg')->crop('topLeft', 22)->format('png')->getFile());
                 $check($matches($pixel($decodePng($fallback), 8, 8), $colors[2]), 'GD fallback uses the same orientation detected for Imagick');
             } finally {
-                $encoders->setValue($detected);
+                $encoders->setValue(null, $detected);
             }
         }
     }
