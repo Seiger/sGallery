@@ -446,9 +446,20 @@ class sGalleryBuilder
 
             if ($this->params !== null && !in_array($extension, ['svg'])) {
                 $dimensions = @getimagesize($localPath);
+                $nativeInputFormat = $withSpatie || in_array($dimensions[2] ?? null, [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP], true)
+                    ? null : NativeImage::imagickInputFormat($localPath);
+                $nativeInput = null;
+                if ($nativeInputFormat !== null) {
+                    if (($this->params['format'] ?? null) === 'original' || !$this->canTransformWithoutSpatie(false)) {
+                        return $this->originalImageUrl();
+                    }
+                    $nativeInput = NativeImage::inspectImagickInput($localPath, $nativeInputFormat, $this->backgroundOptimization);
+                    if ($nativeInput === null) return $this->originalImageUrl();
+                    $dimensions = $nativeInput['dimensions'];
+                }
                 $animated = ImageAnimation::isAnimated($localPath, $dimensions[2] ?? 0);
                 if (!$withSpatie && (!$this->canTransformWithoutSpatie($animated) ||
-                    (!$animated && !in_array($dimensions[2] ?? null, [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)))) {
+                    (!$animated && $nativeInput === null && !in_array($dimensions[2] ?? null, [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)))) {
                     return $this->originalImageUrl();
                 }
                 if ($dimensions === false && !$this->isHeifImage($localPath, $extension)) {
@@ -466,6 +477,10 @@ class sGalleryBuilder
                 $nativeAnimationFormat = null;
                 if (!$withSpatie && $animated) {
                     $nativeAnimationFormat = $dimensions[2] === IMAGETYPE_GIF ? 'gif' : 'webp';
+                } elseif ($nativeInput !== null) {
+                    $nativeAlpha = $nativeInput['alpha'];
+                    $nativeIcc = $nativeInput['icc'];
+                    $this->sourceHasAlpha = $nativeAlpha;
                 } elseif (!$withSpatie) {
                     [$nativeAlpha, $color] = $dimensions[2] === IMAGETYPE_PNG
                         ? ImageColor::fromPng($localPath)
@@ -503,9 +518,8 @@ class sGalleryBuilder
                     $format = 'webp';
                 }
 
-                $nativeOrientation = !$withSpatie && $dimensions[2] === IMAGETYPE_JPEG
-                    ? NativeImage::readJpegOrientation($localPath)
-                    : 1;
+                $nativeOrientation = $nativeInput['orientation'] ?? (!$withSpatie && $dimensions[2] === IMAGETYPE_JPEG
+                    ? NativeImage::readJpegOrientation($localPath) : 1);
 
                 // Build cache filename with transformation parameters
                 $fit = $this->params['fit'] ?? null;
@@ -606,7 +620,7 @@ class sGalleryBuilder
                             }
                         } else {
                             $this->renderWithDrivers(
-                                $sourceFile, $localPath, $format, $encodingPath, $animated, $withSpatie, $nativeOrientation, $nativeAlpha, $nativeIcc,
+                                $sourceFile, $localPath, $format, $encodingPath, $animated, $withSpatie, $nativeOrientation, $nativeAlpha, $nativeIcc, $nativeInputFormat,
                             );
                         }
                     } catch (OptimizationDeferred $e) {
@@ -622,7 +636,7 @@ class sGalleryBuilder
                         $imageName = preg_replace('/\.avif$/i', '.webp', $imageName);
                         $encodingPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName . $atomicSuffix . '.webp';
                         $this->renderWithDrivers(
-                            $sourceFile, $localPath, $format, $encodingPath, false, $withSpatie, $nativeOrientation, $nativeAlpha, $nativeIcc,
+                            $sourceFile, $localPath, $format, $encodingPath, false, $withSpatie, $nativeOrientation, $nativeAlpha, $nativeIcc, $nativeInputFormat,
                         );
                     }
                     if (!chmod($encodingPath, 0644 & ~umask()) || !rename($encodingPath, $cacheDirectory . DIRECTORY_SEPARATOR . $imageName)) {
@@ -692,6 +706,7 @@ class sGalleryBuilder
         int $nativeOrientation = 1,
         bool $nativeAlpha = false,
         bool $nativeIcc = false,
+        ?string $nativeInputFormat = null,
     ): void
     {
         $drivers = $animated || $nativeIcc ? ['imagick'] : ['imagick', 'gd'];
@@ -707,6 +722,19 @@ class sGalleryBuilder
                 try {
                     if (!$withSpatie) {
                         $image = NativeImage::open($source, $format, $driver);
+                        if ($nativeInputFormat !== null) {
+                            $frame = $image->frame();
+                            if (!$frame instanceof \Imagick) {
+                                throw new \RuntimeException('The image source requires an Imagick decoder.');
+                            }
+                            $nativeAlpha = $frame->getImageAlphaChannel();
+                            $nativeIcc = $frame->getImageProfiles('icc', false) !== [];
+                            if (!$nativeIcc && !in_array($frame->getImageColorspace(), [\Imagick::COLORSPACE_SRGB, \Imagick::COLORSPACE_GRAY], true)) {
+                                throw new \RuntimeException('The image source has unsupported color metadata.');
+                            }
+                            // JPEG XL decoding applies codestream orientation before exposing the frame.
+                            $nativeOrientation = $nativeInputFormat === 'HEIC' ? $frame->getImageOrientation() : 1;
+                        }
                         if ($nativeIcc) {
                             $image = $image->toSrgb();
                         }

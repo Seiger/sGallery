@@ -52,7 +52,7 @@ final class NativeImage
      * Open a site-relative raster source using a driver that can also encode the requested type.
      *
      * The codecs operate on still images. Inspect the file data for the input type and
-     * let Imagick probe dimensions when PHP cannot read a HEIC/HEIF header.
+     * let Imagick probe dimensions when PHP cannot read a HEIC/HEIF or JPEG XL header.
      *
      * @param 'gd'|'imagick'|null $driver A specific driver when a caller must preserve its processing behavior.
      * @throws InvalidArgumentException If the requested output format is unknown.
@@ -70,8 +70,9 @@ final class NativeImage
         $metadata = @getimagesize($path);
         $input = $metadata === false ? null
             : (self::READ_WRITE_FORMATS[$metadata[2]] ?? self::READ_ONLY_FORMATS[$metadata[2]] ?? null);
-        if ($input === null && self::isHeif($path)) {
-            $input = ['HEIC', null];
+        $imagickFormat = $input === null ? self::imagickInputFormat($path) : null;
+        if ($imagickFormat !== null) {
+            $input = [$imagickFormat, null];
         }
         if ($input === null || ($metadata !== false && ($metadata[0] <= 0 || $metadata[1] <= 0))) {
             throw new RuntimeException('Invalid or unsupported gallery image source.');
@@ -135,11 +136,56 @@ final class NativeImage
         return new self($frame, self::type($format), $path);
     }
 
-    /** Identify still HEIC/HEIF from local file contents before selecting the Imagick coder. @since 1.9.0 */
-    private static function isHeif(string $path): bool
+    /** Identify HEIC/HEIF and JPEG XL codestreams or containers from local contents. @since 1.9.0 */
+    public static function imagickInputFormat(string $path): ?string
     {
-        return class_exists(\finfo::class)
-            && in_array((new \finfo(FILEINFO_MIME_TYPE))->file($path), ['image/heic', 'image/heif'], true);
+        $stream = @fopen($path, 'rb');
+        if ($stream === false) {
+            return null;
+        }
+        try {
+            $header = fread($stream, 12);
+        } finally {
+            fclose($stream);
+        }
+        if (is_string($header) && (str_starts_with($header, "\xff\x0a") || $header === "\0\0\0\x0cJXL \x0d\x0a\x87\x0a")) {
+            return 'JXL';
+        }
+        return class_exists(\finfo::class) &&
+            in_array((new \finfo(FILEINFO_MIME_TYPE))->file($path), ['image/heic', 'image/heif'], true) ? 'HEIC' : null;
+    }
+
+    /**
+     * Probe an optional Imagick input before decoding, with a compressed-file memory check.
+     * Require a single image so an animated input cannot become a still derivative.
+     * @return array{dimensions: array{int, int, int}, alpha: bool, icc: bool, orientation: int}|null
+     * @since 1.9.0
+     */
+    public static function inspectImagickInput(string $path, string $format, bool $background = false): ?array
+    {
+        if (!class_exists(Imagick::class) || !in_array($format, ['HEIC', 'JXL'], true) ||
+            Imagick::queryFormats($format) === [] || !ImageMemoryBudget::allows(0, (int) @filesize($path), $background)) {
+            return null;
+        }
+        $stream = @fopen($path, 'rb');
+        if ($stream === false) return null;
+        try {
+            $image = self::pingImagick($stream, $format);
+            if ($image === null || $image->getImageWidth() < 1 || $image->getImageHeight() < 1) {
+                return null;
+            }
+            $orientation = $format === 'HEIC' ? $image->getImageOrientation() : 1;
+            return [
+                'dimensions' => [$image->getImageWidth(), $image->getImageHeight(), 0],
+                'alpha' => $image->getImageAlphaChannel(),
+                'icc' => $image->getImageProfiles('icc', false) !== [],
+                'orientation' => $orientation >= 2 && $orientation <= 8 ? $orientation : 1,
+            ];
+        } catch (ImagickException) {
+            return null;
+        } finally {
+            fclose($stream);
+        }
     }
 
     /** Expose the decoded frame to callers that apply driver-specific transformations. @since 1.9.0 */

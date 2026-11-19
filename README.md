@@ -54,6 +54,7 @@ Native codec availability depends on the installed GD or Imagick build.
 | AVIF | Read and write | Read and write |
 | BMP | Read | Read |
 | HEIC / HEIF (still image) | — | Read with Fileinfo and an HEIF decoder |
+| JPEG XL (still image) | — | Read with a JPEG XL decoder |
 | TIFF (single page) | — | Read |
 
 ### Compatibility
@@ -70,6 +71,12 @@ use `fit()`, `crop()`, `manualCrop()` and `focalCrop()` on local still JPEG and 
 images and produce JPEG, PNG or WebP. For example,
 `sGallery::file('assets/photo.jpg')->fit('crop', 320, 240)->format('webp')->getFile()`.
 The native fit supports `crop`, `contain`, `max`, `fill`, `stretch` and `fill-max`.
+The native Builder also reads still HEIC/HEIF and JPEG XL inputs through Imagick
+and produces JPEG, PNG, WebP, AVIF or GIF derivatives, subject to output codec
+availability. Missing decoders, unsupported color metadata and multi-frame inputs
+return the original URL. `format('original')` returns these input files directly.
+JPEG XL codestreams and containers are identified by content. Gallery uploads
+accept `.jxl` when the CMS upload settings allow it and the server MIME agrees.
 `resize()` also supports explicit or configured WebP output. For still AVIF and
 GIF, call `format('avif')` or `format('gif')` with or without a transform on a
 local still JPEG or PNG. If AVIF encoding fails or is unavailable, the Builder

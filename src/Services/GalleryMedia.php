@@ -12,7 +12,7 @@ use Symfony\Component\Mime\MimeTypes;
 final class GalleryMedia
 {
     private const EXTENSIONS = [
-        'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp', 'tif', 'tiff', 'heic', 'heif'],
+        'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp', 'tif', 'tiff', 'heic', 'heif', 'jxl'],
         'video' => ['mp4', 'm4v', 'mov', 'webm', 'ogv', 'mpeg', 'mpg'],
         'audio' => ['mp3', 'm4a', 'wav', 'ogg', 'oga', 'flac', 'aac'],
         'pdf' => ['pdf'],
@@ -58,7 +58,10 @@ final class GalleryMedia
             ($group === 'media' && $documents) || !in_array($mime, MimeTypes::getDefault()->getMimeTypes($suffix), true)) {
             throw new RuntimeException('Unsupported gallery file type.');
         }
-        if ($type === 'image' && !in_array($extension, ['heic', 'heif'], true) && !@getimagesize($path)) {
+        if ($type === 'image' && $extension === 'jxl' && NativeImage::imagickInputFormat($path) !== 'JXL') {
+            throw new RuntimeException('Invalid gallery image.');
+        }
+        if ($type === 'image' && !in_array($extension, ['heic', 'heif', 'jxl'], true) && !@getimagesize($path)) {
             throw new RuntimeException('Invalid gallery image.');
         }
 

@@ -26,6 +26,8 @@ With the EXIF extension disabled, also run `PACKAGE_AUTOLOAD=/path/to/core/vendo
 
 `worker-test.php` requires sTask with its heartbeat API and PDO SQLite. Run it with and without Spatie to exercise the real runner against an isolated queue. It checks duplicate jobs, retries, stale heartbeat, replaced sources and watermarks, native geometry, animation, cache identity and continuation after a publication error. PHP 8.6 dependency deprecations are reported separately while package warnings still fail the test.
 
+`modern-formats-test.php` checks native HEIC/HEIF and JPEG XL input conversion, content detection, alpha, JPEG backgrounds, ICC conversion, EXIF metadata, cache reuse and queued geometry. Its fixed JPEG XL fixtures include a raw codestream, a container and an animation that must retain its original URL. Run with Imagick codecs installed, with the codecs absent, and with each Composer runtime to compare the Spatie entry point. JPEG XL uploads must also pass the CMS extension setting and server MIME checks.
+
 ## Image compatibility baseline
 
 `image-compatibility-test.php` runs the Evolution `HelperProcessor::phpThumb()` and the sGallery Builder against the same generated inputs in a private temporary directory. It requires the phpThumb and Spatie packages from the supplied Composer runtime and GD with JPEG, PNG and WebP support. It checks AVIF when GD can encode it.
