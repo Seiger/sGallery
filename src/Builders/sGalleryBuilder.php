@@ -48,6 +48,7 @@ class sGalleryBuilder
     protected ?int $documentId = null;
     protected int $quality = 100;
     protected bool $qualityExplicit = false;
+    private bool $optimizationExplicit = false;
     protected ?string $lang = null;
     protected ?\Illuminate\Database\Eloquent\Builder $query = null;
     protected ?\Illuminate\Database\Eloquent\Collection $files = null;
@@ -253,13 +254,15 @@ class sGalleryBuilder
     }
 
     /**
-     * Run Spatie image optimizer after the processed image is saved.
+     * Enable output optimization, including native compression and adaptive WebP quality.
+     * The Spatie path forwards the flag to its optimizer chain.
      *
      * @param bool $optimize Whether to optimize the output image.
      * @return $this
      */
     public function optimize(bool $optimize = true): self
     {
+        $this->optimizationExplicit = true;
         $this->params['optimize'] = $optimize;
         return $this;
     }
@@ -516,6 +519,7 @@ class sGalleryBuilder
                 $ext .= isset($this->params['w']) ? $this->params['w'] . 'x' . $this->params['h'] : '';
                 $ext .= isset($this->params['sharpen']) && $this->params['sharpen'] > 0 ? '-sh' . $this->params['sharpen'] : '';
                 $ext .= !empty($this->params['optimize']) ? '-opt' : '';
+                $ext .= !$withSpatie && !empty($this->params['optimize']) ? '-enc' : '';
                 $ext .= $this->quality !== 100 ? '-q' . $this->quality : '';
                 $ext .= $nativeOrientation > 1 ? '-exif' . $nativeOrientation : '';
                 $ext .= $nativeAlpha ? '-alpha' : '';
@@ -656,7 +660,8 @@ class sGalleryBuilder
     private function canTransformWithoutSpatie(bool $animated): bool
     {
         $format = $this->params['format'] ?? null;
-        return $this->qualityExplicit || isset($this->params['watermark']) || ($this->params['sharpen'] ?? 0) > 0 ||
+        return $this->qualityExplicit || ($this->optimizationExplicit && !empty($this->params['optimize'])) ||
+            isset($this->params['watermark']) || ($this->params['sharpen'] ?? 0) > 0 ||
             in_array($format, $animated ? ['gif', 'webp'] : ['avif', 'gif'], true) ||
             (isset($this->params['w'], $this->params['h']) && ($animated || isset($this->params['fit']) || $this->hasCrop() || $format === 'webp'));
     }
@@ -716,6 +721,7 @@ class sGalleryBuilder
                         if ($nativeIcc && $format !== 'gif') {
                             $image->tagSrgb();
                         }
+                        $image->optimize(!empty($this->params['optimize']));
                         if ($format === 'webp') {
                             $this->saveWebpImage($image, $output);
                         } else {
@@ -796,6 +802,7 @@ class sGalleryBuilder
                     return $image->frame();
                 },
                 fn () => $this->checkOptimizationBudget(defer: false),
+                !empty($this->params['optimize']),
             );
             clearstatcache(true, $output);
             if (filesize($output) <= $targetBytes || $index === count($qualities) - 1) {
@@ -1230,6 +1237,7 @@ class sGalleryBuilder
         $this->type = null;
         $this->sourceHasAlpha = null;
         $this->qualityExplicit = false;
+        $this->optimizationExplicit = false;
         $this->quality = (int) config('seiger.settings.sGallery.quality', 100);
         $this->params['sharpen'] = (float) config('seiger.settings.sGallery.sharpen', 0);
         $this->params['optimize'] = (bool) config('seiger.settings.sGallery.optimize', true);

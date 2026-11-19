@@ -95,7 +95,7 @@ try {
             $image->fit(Spatie\Image\Enums\Fit::Stretch, 96, 96);
             $image->saveNative($root . $relative, $format, $quality, $optimize);
         } else {
-            NativeImage::open("$name.png", $format, $driver)->fit('stretch', 96, 96)->save($relative, $quality);
+            NativeImage::open("$name.png", $format, $driver)->fit('stretch', 96, 96)->optimize($optimize)->save($relative, $quality);
         }
         return $root . $relative;
     };
@@ -173,7 +173,7 @@ try {
         $configuredQuality = 73;
         $adaptive = $builder()->getFile();
         $fixed = $builder()->quality(73)->getFile();
-        $check($fixed !== $adaptive && hash_file('sha256', $path($fixed)) === hash_file('sha256', $reference('noise', 73)),
+        $check($fixed !== $adaptive && hash_file('sha256', $path($fixed)) === hash_file('sha256', $reference('noise', 73, optimize: true)),
             'Configured quality and explicit equal quality keep separate adaptive and fixed cache entries');
         $configuredQuality = 100;
         $default = $builder()->optimize(false)->getFile();

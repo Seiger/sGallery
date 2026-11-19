@@ -17,6 +17,7 @@ final class NativeAnimation
      * @param array{loops: int, delays: list<int>} $timing
      * @param callable(Imagick): Imagick $transform
      * @param callable(): void $checkBudget
+     * @param bool $optimize Enable frame compression while retaining the container timing.
      * @since 1.9.0
      */
     public static function render(
@@ -28,6 +29,7 @@ final class NativeAnimation
         int $quality,
         callable $transform,
         callable $checkBudget,
+        bool $optimize = false,
     ): void {
         $count = count($timing['delays']);
         $loops = $timing['loops'];
@@ -79,6 +81,9 @@ final class NativeAnimation
                 if ($frameSize !== $size || !$frame->setImagePage(0, 0, 0, 0) || !$frame->setImageFormat(strtoupper($format)) ||
                     !$frame->setImageCompressionQuality($quality)) {
                     throw new RuntimeException('Cannot encode a gallery animation frame.');
+                }
+                if ($optimize) {
+                    NativeImage::optimizeImagickFrame($frame, $format);
                 }
 
                 if ($writer instanceof AnimatedWebpWriter) {

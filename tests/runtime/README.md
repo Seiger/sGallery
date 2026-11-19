@@ -22,6 +22,8 @@ With the EXIF extension disabled, also run `PACKAGE_AUTOLOAD=/path/to/core/vendo
 
 `quality-test.php` compares explicit quality with directly encoded references, exercises the first and last adaptive WebP candidates, and checks fixed/adaptive cache separation without Spatie. With Imagick it also checks animation timing and the final animated WebP candidate. Quality comparisons use small local fixtures with the frontend deadline disabled to isolate encoding from scheduling. Run it with and without Spatie.
 
+`optimize-test.php` checks native PNG size and pixel preservation, progressive JPEG, output types, cache migration and reuse, and toggling optimization on a reused Builder. With Imagick it verifies ICC preservation and metadata removal from static and animated derivatives. Run it with and without Spatie.
+
 ## Image compatibility baseline
 
 `image-compatibility-test.php` runs the Evolution `HelperProcessor::phpThumb()` and the sGallery Builder against the same generated inputs in a private temporary directory. It requires the phpThumb and Spatie packages from the supplied Composer runtime and GD with JPEG, PNG and WebP support. It checks AVIF when GD can encode it.

@@ -236,8 +236,12 @@ try {
             'The incomplete PNG has the expected format and dimensions');
         $pngFrame = $class->newInstanceWithoutConstructor();
         $class->getConstructor()->invoke($pngFrame, $badEncoder, IMAGETYPE_PNG, EVO_BASE_PATH . $source);
-        $rejects(fn () => $pngFrame->save($pngTarget), 'The native encoder produced an image that could not be decoded.');
-        $check(file_get_contents(EVO_BASE_PATH . $pngTarget) === $png, 'An incomplete PNG leaves the previous valid cache intact');
+        foreach ([false, true] as $optimize) {
+            $pngFrame->optimize($optimize);
+            $rejects(fn () => $pngFrame->save($pngTarget), 'The native encoder produced an image that could not be decoded.');
+            $check(file_get_contents(EVO_BASE_PATH . $pngTarget) === $png,
+                'An incomplete PNG leaves the previous valid cache intact with optimization ' . ($optimize ? 'on' : 'off'));
+        }
 
         if (is_file(EVO_BASE_PATH . 'cache/frame.jpg')) {
             $badEncoder->resizeImage(24, 12, Imagick::FILTER_POINT, 1);

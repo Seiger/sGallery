@@ -115,6 +115,15 @@ padding and opacity. With Imagick the same mark is applied to each animation fra
 Native `sharpen()` applies a strength from 0 to 100 after geometry and before
 `watermark()`. It preserves transparency and uses Imagick for each animation frame.
 
+Native `optimize()` uses PNG compression level 9 and progressive JPEG encoding.
+Imagick also uses optimized JPEG coding and WebP method 6, and removes descriptive
+metadata while keeping ICC profiles. Other formats use the selected codec's
+compression. Explicit quality, transparency and animation timing are preserved.
+The method works without a geometry request and requires no external optimizer
+executables. The native optimized cache uses a new key so earlier derivatives
+cannot bypass the encoder settings. `optimize(false)` uses the regular encoding
+settings and disables adaptive WebP quality selection.
+
 When Spatie is installed, the Builder continues to use it for transformations.
 Background image optimization still uses Spatie.
 If a transformation or codec is unavailable without

@@ -38,6 +38,7 @@ final class NativeImage
 
     private static array $imagickEncoders = [];
     private bool $expectSrgb = false;
+    private bool $optimizeEncoding = false;
 
     /** Hold the decoded frame and the output type chosen for this operation. @since 1.9.0 */
     private function __construct(
@@ -596,6 +597,17 @@ final class NativeImage
         return $frame;
     }
 
+    /**
+     * Enable native compression options and strip non-color metadata during encoding.
+     * Keep the caller's quality. The usual staged-file decode still precedes publication.
+     * @since 1.9.0
+     */
+    public function optimize(bool $enabled = true): self
+    {
+        $this->optimizeEncoding = $enabled;
+        return $this;
+    }
+
     /** Save a candidate at the canonical absolute path selected by the Builder. @since 1.9.0 */
     public function saveToPath(string $path, int $quality, ?callable $optimize = null): void
     {
@@ -706,21 +718,33 @@ final class NativeImage
                 throw new RuntimeException('Cannot convert a palette frame for the native encoder.');
             }
             imagesavealpha($this->image, true);
-            $success = match ($this->outputType) {
-                IMAGETYPE_PNG => @$encoder($this->image, $path, min(9, (int) round((100 - $quality) / 10))),
-                IMAGETYPE_GIF => @$encoder($this->image, $path),
-                default => @$encoder($this->image, $path, $quality),
-            };
+            $interlaced = imageinterlace($this->image);
+            try {
+                if ($this->optimizeEncoding && $this->outputType === IMAGETYPE_JPEG) {
+                    imageinterlace($this->image, true);
+                }
+                $success = match ($this->outputType) {
+                    IMAGETYPE_PNG => @$encoder($this->image, $path, $this->optimizeEncoding ? 9 : min(9, (int) round((100 - $quality) / 10))),
+                    IMAGETYPE_GIF => @$encoder($this->image, $path),
+                    default => @$encoder($this->image, $path, $quality),
+                };
+            } finally {
+                imageinterlace($this->image, $interlaced);
+            }
         } else {
             $stream = @fopen($path, 'wb');
             if ($stream === false) {
                 throw new RuntimeException('Cannot open the temporary gallery image.');
             }
             try {
-                $success = $this->image->setImageFormat($format)
-                    && $this->image->setImageCompressionQuality($quality)
-                    && $this->image->setCompressionQuality($format === 'PNG' ? 100 - $quality : $quality)
-                    && $this->image->writeImageFile($stream, $format)
+                $image = $this->optimizeEncoding ? clone $this->image : $this->image;
+                if ($this->optimizeEncoding) {
+                    self::optimizeImagickFrame($image, $format);
+                }
+                $success = $image->setImageFormat($format)
+                    && $image->setImageCompressionQuality($quality)
+                    && $image->setCompressionQuality($format === 'PNG' ? 100 - $quality : $quality)
+                    && $image->writeImageFile($stream, $format)
                     && fflush($stream);
             } catch (ImagickException $error) {
                 throw new RuntimeException('The native encoder could not write the gallery image.', 0, $error);
@@ -731,6 +755,46 @@ final class NativeImage
 
         if (!$success) {
             throw new RuntimeException('The native encoder could not write the gallery image.');
+        }
+    }
+
+    /**
+     * Configure one Imagick frame, including a frame owned by the animation writer.
+     * ICC and pixel opacity survive metadata stripping. Frame timing belongs to the writer.
+     * @since 1.9.0
+     */
+    public static function optimizeImagickFrame(Imagick $image, string $format): void
+    {
+        $format = strtoupper($format);
+        $hasProfile = $image->getImageProfiles('icc', false) !== [];
+        foreach ($image->getImageProfiles('*', false) as $profile) {
+            if (!in_array(strtolower($profile), ['icc', 'icm'], true)) {
+                $image->removeImageProfile($profile);
+            }
+        }
+        foreach ($image->getImageProperties('*', false) as $property) {
+            if (!$image->deleteImageProperty($property)) {
+                throw new RuntimeException('Cannot remove gallery image metadata.');
+            }
+        }
+        $options = match ($format) {
+            'JPEG', 'JPG' => ['jpeg:optimize-coding' => 'true'],
+            'PNG' => ['png:compression-level' => '9', 'png:compression-filter' => '5', 'png:exclude-chunk' => 'date,time'],
+            'WEBP' => ['webp:method' => '6'],
+            default => [],
+        };
+        foreach ($options as $key => $value) {
+            if (!$image->setOption($key, $value)) {
+                throw new RuntimeException('Cannot configure native gallery compression.');
+            }
+        }
+        if (in_array($format, ['JPEG', 'JPG'], true) && !$image->setInterlaceScheme(Imagick::INTERLACE_PLANE)) {
+            throw new RuntimeException('Cannot configure progressive gallery JPEG encoding.');
+        }
+        if ($hasProfile && $format === 'PNG' &&
+            (!$image->setOption('png:color-type', $image->getImageAlphaChannel() ? '6' : '2') ||
+                !$image->setOption('png:exclude-chunk', 'sRGB,date,time'))) {
+            throw new RuntimeException('Cannot preserve the gallery PNG color profile.');
         }
     }
 
