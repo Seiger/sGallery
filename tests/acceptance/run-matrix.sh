@@ -19,7 +19,11 @@ for profile in both gd imagick none; do
         sh /pkg/tests/acceptance/with-driver.sh "$profile" php /pkg/tests/acceptance/capabilities.php > "$prefix-capabilities.json"
         code=0
         sh /pkg/tests/acceptance/with-driver.sh "$profile" php /pkg/tests/acceptance/verify-site.php > "$prefix-site.log" 2>&1 || code=$?
-        if test -f "$target/acceptance-result.json"; then cp "$target/acceptance-result.json" "$prefix-site.json"; fi
+        if test -f "$target/acceptance-result.json"; then
+            cp "$target/acceptance-result.json" "$prefix-site.json"
+        else
+            code=1
+        fi
         printf '%s\t%s\t%s\tsite\t%s\n' "$label" "$profile" "$scenario" "$code" >> /lab/results/status.tsv
         test "$code" = 0 || failed=1
         echo "$label $profile $scenario site=$code"

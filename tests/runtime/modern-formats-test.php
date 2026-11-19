@@ -82,9 +82,16 @@ try {
         echo "$label decoder " . ($canRead ? 'on' : 'off') . PHP_EOL;
         $url = $build($source)->getFile();
         if ($withSpatie) {
-            // Baseline 94e777c defers HEIF through Imagick and rejects unsupported JXL headers.
-            $expected = $codec === 'HEIC' && class_exists(Imagick::class) ? EVO_SITE_URL . $source : sGalleryModel::NOIMAGE;
-            $check($url === $expected, "Spatie $label keeps its existing result contract");
+            // Existing Spatie processing is synchronous when PHP can read the HEIF dimensions.
+            // Older header readers defer the same source; both behaviors also occur at 27bfc23.
+            if ($codec === 'HEIC' && $canRead && @getimagesize($root . $source) !== false && NativeImage::canEncode('png', 'imagick')) {
+                $check($url !== EVO_SITE_URL . $source && is_file($path($url)) &&
+                    array_slice(getimagesize($path($url)), 0, 3) === [16, 8, IMAGETYPE_PNG],
+                    "Spatie $label renders when PHP provides its dimensions");
+            } else {
+                $expected = $codec === 'HEIC' && class_exists(Imagick::class) ? EVO_SITE_URL . $source : sGalleryModel::NOIMAGE;
+                $check($url === $expected, "Spatie $label keeps its existing result contract");
+            }
             echo "Spatie $label result " . ($url === EVO_SITE_URL . $source ? 'original' : ($url === sGalleryModel::NOIMAGE ? 'placeholder' : 'derivative')) . PHP_EOL;
             continue;
         }

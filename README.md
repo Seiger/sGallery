@@ -81,7 +81,13 @@ availability. Missing decoders, unsupported color metadata and multi-frame input
 return the original URL. `format('original')` returns these input files directly.
 JPEG XL codestreams and containers are identified by content. Gallery uploads
 accept `.jxl` when the CMS upload settings allow it and the server MIME agrees.
-`resize()` also supports explicit or configured WebP output. For still AVIF and
+Native `resize()` works with automatic or explicit output formats without a
+`quality()` call. It preserves the existing width-then-height behavior: on a
+32 × 16 source, `resize(16, 8)` produces 16 × 8, while `resize(16, 16)` produces
+32 × 16. Use `fit('max', 16, 16)` for a result inside a bounding box.
+`format('jpg')`, `format('jpeg')`, `format('png')` and `format('webp')` also work
+without resize or another operation, using the configured quality and optimization.
+An unavailable codec returns the original URL. For still AVIF and
 GIF, call `format('avif')` or `format('gif')` with or without a transform on a
 local still JPEG or PNG. If AVIF encoding fails or is unavailable, the Builder
 tries WebP. GIF uses a palette with binary transparency.

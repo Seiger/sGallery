@@ -38,8 +38,8 @@ $path = static fn (string $url): string => EVO_BASE_PATH . rawurldecode(substr($
 $png = NativeImage::canEncode('png', 'gd') || NativeImage::canEncode('png', 'imagick');
 $make = static fn (): sGalleryBuilder => clone sGallery::file($source)->optimize(false);
 $cases = [
-    'resize-png-default-quality' => [$make()->resize(16, 16)->format('png'), 16, 8, 'png'],
-    'resize-jpeg-default-quality' => [$make()->resize(16, 16)->format('jpeg'), 16, 8, 'jpeg'],
+    'resize-png-default-quality' => [$make()->resize(16, 16)->format('png'), 32, 16, 'png'],
+    'resize-jpeg-default-quality' => [$make()->resize(16, 16)->format('jpeg'), 32, 16, 'jpeg'],
     'format-jpeg-default-quality' => [$make()->format('jpeg'), 32, 16, 'jpeg'],
     'format-webp-default-quality' => [$make()->format('webp'), 32, 16, 'webp'],
     'fit' => [$make()->fit('max', 16, 16)->format('png'), 16, 8, 'png'],

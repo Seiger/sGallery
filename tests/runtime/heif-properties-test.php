@@ -90,7 +90,7 @@ try {
             $exif6 = "II\x2a\0\x08\0\0\0\x01\0\x12\x01\x03\0\x01\0\0\0\x06\0\0\0\0\0\0\0";
             $check(str_contains($bytes, $exif6), 'The HEIF fixture contains a redundant EXIF orientation of 6');
         }
-        if ($withSpatie) {
+        if ($withSpatie && @getimagesize($root . $source) === false) {
             $check($url === EVO_SITE_URL . $source, "$source Spatie frontend retains background deferral");
             $url = $runJob($image, 'png');
         }
@@ -124,7 +124,9 @@ try {
             $check((new Imagick($path($legacyUrl)))->getImageOrientation() === 6, 'The seeded old PNG cache contains the stale EXIF rotation');
             $legacyHash = hash_file('sha256', $path($legacyUrl));
             unlink($path($url));
-            $check($build($source)->getFile() === EVO_SITE_URL . $source, 'The frontend defers regeneration instead of serving the old rotated PNG cache');
+            $frontend = $build($source)->getFile();
+            $check($frontend === (@getimagesize($root . $source) === false ? EVO_SITE_URL . $source : $url),
+                'The frontend regenerates or defers instead of serving the old rotated PNG cache');
             $check($runJob($image, 'png') === $url && in_array((new Imagick($path($url)))->getImageOrientation(), [0, 1], true),
                 'The worker publishes a corrected PNG under the new cache identity');
             $check(hash_file('sha256', $path($legacyUrl)) === $legacyHash, 'Cache migration leaves the previous file untouched');

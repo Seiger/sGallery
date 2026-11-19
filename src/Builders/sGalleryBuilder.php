@@ -675,14 +675,14 @@ class sGalleryBuilder
         return sGalleryModel::NOIMAGE;
     }
 
-    /** Check for transforms and format conversions supported without Spatie. @since 1.9.0 */
+    /** Admit native resize and explicit output formats without requiring quality or another operation. @since 1.9.0 */
     private function canTransformWithoutSpatie(bool $animated): bool
     {
         $format = $this->params['format'] ?? null;
         return $this->backgroundOptimization || $this->qualityExplicit || ($this->optimizationExplicit && !empty($this->params['optimize'])) ||
             isset($this->params['watermark']) || ($this->params['sharpen'] ?? 0) > 0 ||
-            in_array($format, $animated ? ['gif', 'webp'] : ['avif', 'gif'], true) ||
-            (isset($this->params['w'], $this->params['h']) && ($animated || isset($this->params['fit']) || $this->hasCrop() || $format === 'webp'));
+            in_array($format, $animated ? ['gif', 'webp'] : ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'], true) ||
+            isset($this->params['w'], $this->params['h']);
     }
 
     /** Identify crop requests that do not resize the source frame. @since 1.9.0 */
