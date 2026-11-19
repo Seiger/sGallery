@@ -234,7 +234,7 @@ try {
             $fixed = $animation()->quality(80)->getFile();
             $check(filesize($path($fixed)) > $target && hash_file('sha256', $path($url)) === hash_file('sha256', $path($fixed)),
                 'Animated WebP exhausts the candidate list at quality 80 when the size target cannot be met');
-            $oldUrl = str_replace('-adaptive-native', '-native', $url);
+            $oldUrl = str_replace('-adaptive-src', '-src', $url);
             $check($oldUrl !== $url, 'Adaptive animation has a different cache key from the previous single-quality renderer');
             copy($path($animation()->quality(99)->getFile()), $path($oldUrl));
             unlink($path($url));

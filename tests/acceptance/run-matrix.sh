@@ -29,7 +29,7 @@ for profile in both gd imagick none; do
         echo "$label $profile $scenario site=$code"
         if test "${SGALLERY_SITE_ONLY:-0}" = 1; then continue; fi
         if test "$scenario" = upgrade; then continue; fi
-        tests='native-image fit optional-image basic-operations static-inputs modern-formats heif-properties client-format'
+        tests='native-image fit optional-image basic-operations source-cache static-inputs modern-formats heif-properties client-format'
         if test "$profile" != none; then
             tests="$tests crop orientation transparency color-profile still-formats animation quality optimize sharpen worker thumbnail"
         fi

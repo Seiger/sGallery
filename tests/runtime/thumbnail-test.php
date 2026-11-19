@@ -86,7 +86,6 @@ $GLOBALS['evo'] = new class
     }
 };
 $withSpatie = class_exists(Spatie\Image\Image::class);
-$cachePrefix = 'assets/cache/m/photo-max-768x504-q85' . ($withSpatie ? '' : '-native');
 $cacheTimestamp = 1700000000;
 printf("PHP %s, Spatie %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off');
 
@@ -112,6 +111,9 @@ if (function_exists('imagecreatetruecolor')) {
 }
 $jpeg = file_get_contents($root . 'media/photo.jpg');
 unset($im);
+// Seed corrupt/ready cache cases under the current source revision selected by the Builder.
+$probe = (string) (new NewReady())->file('media/photo.jpg')->fit('max', 768, 504)->quality(85)->format('webp');
+$cachePrefix = substr($probe, strlen(EVO_SITE_URL), -strlen('.webp'));
 file_put_contents($root . 'media/icon.svg', '<svg/>');
 use Seiger\sGallery\Services\GalleryCache as G;
 /**

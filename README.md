@@ -52,6 +52,15 @@ this prevents an invalid RGB profile on grayscale samples. They use an
 version, are regenerated without deleting the old cache files. ICC profiles,
 pixel values and transparency are retained.
 
+Derivative URLs include a revision of the full source path, size, modification
+time and SHA-256 contents. Replacing a local file also refreshes its cache when
+size and mtime are preserved. Earlier derivatives stay available until cache
+clearing. Fingerprints stream the source bytes without decoding them; cache
+lookups still require reading the source. Both processing paths recheck the
+revision before and after publication, and sTask rejects stale hashed jobs.
+Earlier size/mtime-only jobs validate their available metadata and then pin
+the current contents before processing.
+
 | Format | Native GD | Native Imagick |
 | --- | --- | --- |
 | JPEG | Read and write | Read and write |

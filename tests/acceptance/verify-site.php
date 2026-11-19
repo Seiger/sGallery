@@ -60,7 +60,7 @@ foreach ($cases as $name => [$image, $width, $height, $format]) {
 foreach (['jpeg', 'png', 'gif', 'webp', 'avif', 'bmp', 'tiff'] as $format) {
     $input = 'assets/acceptance-inputs/input.' . $format;
     if (!is_file(EVO_BASE_PATH . $input)) throw new RuntimeException('Run seed-inputs.php before taking matrix snapshots.');
-    // Isolate codecs: the existing cache name does not include the source extension.
+    // Give every codec an independent fixture path and diagnostic URL.
     $separate = 'assets/acceptance/input-' . $format . '.' . $format;
     copy(EVO_BASE_PATH . $input, EVO_BASE_PATH . $separate);
     $input = $separate;
@@ -115,6 +115,7 @@ if ($png) {
     $cached = $make()->fit('max', 16, 16)->format('png');
     $url = $cached->getFile();
     $before = hash_file('sha256', $path($url));
+    $oldSourceJob = $descriptor->invoke($cached, 'png');
     // Replace the source with a valid, opaque blue PNG of the same dimensions.
     $chunk = static fn (string $type, string $data): string => pack('N', strlen($data)) . $type . $data . pack('N', crc32($type . $data));
     $replacement = "\x89PNG\r\n\x1a\n" . $chunk('IHDR', pack('NNCCCCC', 32, 16, 8, 6, 0, 0, 0))
@@ -123,6 +124,14 @@ if ($png) {
     touch($directory . 'current.png', time() + 60);
     $updated = $make()->fit('max', 16, 16)->format('png')->getFile();
     $check('source-replacement-refreshes-cache', $updated !== $original && hash_file('sha256', $path($updated)) !== $before, $updated);
+    $check('source-replacement-preserves-old-cache', hash_file('sha256', $path($url)) === $before);
+    $staleSourceTask = $service->create(ImageOptimizationQueue::IDENTIFIER, 'optimize', $oldSourceJob);
+    $freshSourceTask = $service->create(ImageOptimizationQueue::IDENTIFIER, 'optimize', $descriptor->invoke($make()->fit('max', 16, 16)->format('png'), 'png'));
+    $check('source-replacement-runner', $runner->handle() === TaskWorker::SUCCESS);
+    $staleSourceTask->refresh(); $freshSourceTask->refresh();
+    $check('stale-source-task-fails', $staleSourceTask->status === sTaskModel::TASK_STATUS_FAILED && $staleSourceTask->result === null &&
+        str_contains($staleSourceTask->message, 'source changed while queued'));
+    $check('fresh-source-task-finishes', $freshSourceTask->status === sTaskModel::TASK_STATUS_FINISHED && $freshSourceTask->result === $updated);
 } else {
     $check('no-codec-preserves-source', hash_file('sha256', $directory . 'current.png') === $sourceHash);
 }

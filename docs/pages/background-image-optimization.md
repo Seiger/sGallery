@@ -62,7 +62,7 @@ when the runner cannot accept the job. Existing derivatives are served directly.
 
 ## Job identity and recovery
 
-Jobs preserve the source path, source size and modification time, resolved output
+Jobs preserve the source path, source size, modification time and SHA-256 contents, resolved output
 format, transform parameters and explicit-quality settings. Remote sources are
 not enqueued. Source replacements detected while queued are rejected rather than
 processed using stale parameters. Front requests use a nonblocking per-job lock
@@ -72,6 +72,16 @@ Stored scalar geometry works with both processing paths. Watermark parameters
 are restored in the frontend's cache order after sTask normalizes the metadata,
 so a completed job selects the same derivative as the following frontend request.
 Changed watermark contents are rejected before publication.
+
+The derivative key includes the full source path and revision, so replacements
+with unchanged size/mtime cannot reuse earlier pixels. Fingerprinting streams
+the source, including on cache hits. The worker checks the pinned revision
+before and after final publication and before reporting success. A detected
+publication race removes the just-published stale candidate; a newer revision
+uses a different key. Source bytes and earlier valid derivatives are preserved.
+Older two-field size/mtime jobs are accepted when those fields match, then pin
+the current content hash. They cannot detect a same-stat change that happened
+before execution, but render current contents under the current cache key.
 
 State files live in `storage/sgallery/optimization`. Keep storage shared between
 release deployments and writable by both the frontend and CLI users.

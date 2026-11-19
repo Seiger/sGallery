@@ -222,6 +222,28 @@ try {
     $check($changedTask->status === sTaskModel::TASK_STATUS_FAILED && str_contains($changedTask->message, 'source changed while queued'),
         'A descriptor queued before source replacement cannot publish stale output');
 
+    $sourceMtime = filemtime($root . 'assets/source.png');
+    $chunk = static fn (string $type, string $data): string => pack('N', strlen($data)) . $type . $data . pack('N', crc32($type . $data));
+    $revision = static fn (string $sample): string => "\x89PNG\r\n\x1a\n" . $chunk('IHDR', pack('NNCCCCC', 96, 48, 8, 6, 0, 0, 0))
+        . $chunk('IDAT', gzcompress(str_repeat("\0" . str_repeat($sample, 96), 48), 0)) . $chunk('IEND', '');
+    file_put_contents($root . 'assets/source.png', $revision("\xe0\x14\x1e\xff"));
+    touch($root . 'assets/source.png', $sourceMtime);
+    $oldMeta = $descriptor->invoke($build(14), 'webp');
+    $staleTask = $service->create(ImageOptimizationQueue::IDENTIFIER, 'optimize', $oldMeta);
+    file_put_contents($root . 'assets/source.png', $revision("\x0a\x28\xe6\xff"));
+    touch($root . 'assets/source.png', $sourceMtime);
+    $freshMeta = $descriptor->invoke($build(14), 'webp');
+    $freshTask = $service->create(ImageOptimizationQueue::IDENTIFIER, 'optimize', $freshMeta);
+    $check($oldMeta['source_version'][0] === $freshMeta['source_version'][0] && $oldMeta['source_version'][1] === $freshMeta['source_version'][1],
+        'Queued replacement keeps the earlier size and mtime');
+    $check($runner->handle() === TaskWorker::SUCCESS, 'A stale content-hash job does not stop the queue');
+    $staleTask->refresh(); $freshTask->refresh();
+    $check($staleTask->status === sTaskModel::TASK_STATUS_FAILED && $staleTask->result === null &&
+        str_contains($staleTask->message, 'source changed while queued') && $freshTask->status === sTaskModel::TASK_STATUS_FINISHED &&
+        $build(14)->getFile() === $freshTask->result, 'The old revision fails and the following current revision publishes its own cache');
+    file_put_contents($root . 'assets/source.png', $png);
+    touch($root . 'assets/source.png', $sourceMtime);
+
     foreach (['crop', 'manual', 'focal', 'optimize'] as $mode) {
         $image = (new sGalleryBuilder())->file('assets/source.png')->format('png')->quality(83);
         $image = match ($mode) {

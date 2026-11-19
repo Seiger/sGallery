@@ -48,7 +48,7 @@ $sample = static function (string $file, int $x, int $y): array {
 };
 try {
     foreach (glob(__DIR__ . '/../fixtures/static-inputs/*') as $file) {
-        // Use distinct basenames: the existing cache key omits the source extension.
+        // Keep codec-specific names in fixture paths and diagnostic URLs.
         $name = pathinfo($file, PATHINFO_FILENAME) . '-' . pathinfo($file, PATHINFO_EXTENSION) . '.' . pathinfo($file, PATHINFO_EXTENSION);
         copy($file, $root . $name);
     }

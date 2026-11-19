@@ -14,6 +14,16 @@ With the EXIF extension disabled, also run `PACKAGE_AUTOLOAD=/path/to/core/vendo
 
 `client-format-test.php` checks HTTP Accept, session/cookie preferences, invalid cookies, and opaque/transparent defaults. It keeps the existing Spatie behavior and the native transparent-image format policy separate. This script also runs without either image extension.
 
+`source-cache-test.php` checks same-size/same-mtime replacement on a reused
+Builder, current pixels and URLs, refreshed alpha metadata, unchanged-source
+cache reuse, full-path identity, long UTF-8 filenames and old two-field jobs.
+Deterministic filesystem hooks replace the source during encoding and immediately
+before/after final publication, with a newer derivative generated concurrently.
+The stale worker must fail without leaving its result or harming either earlier
+valid caches or the newer revision. Frontend races return the current original.
+`worker-test.php` also runs a stale hashed job followed by a current job through
+the real sTask runner and checks failure isolation and cache identity.
+
 `crop-test.php` checks the nine crop positions, manual and focal coordinates, edge clipping and pixel transparency. It also checks that equal-sized native manual crops from different coordinates have separate cache entries.
 
 `orientation-test.php` checks all eight JPEG orientations, crop coordinates after rotation, and the cache transition from stored to corrected orientation. Run it with and without Spatie, and with EXIF disabled to check the GD fallback or Imagick metadata reading.

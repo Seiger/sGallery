@@ -14,6 +14,7 @@ use Seiger\sGallery\Services\ImageAnimation;
 use Seiger\sGallery\Services\ImageColor;
 use Seiger\sGallery\Services\ImageMemoryBudget;
 use Seiger\sGallery\Services\ImageOptimizationQueue;
+use Seiger\sGallery\Services\ImageSource;
 use Seiger\sGallery\Services\NativeAnimation;
 use Seiger\sGallery\Services\NativeImage;
 use Seiger\sGallery\Services\Watermark;
@@ -59,6 +60,8 @@ class sGalleryBuilder
     protected bool $backgroundOptimization = false;
     protected float $optimizationStartedAt = 0;
     protected array $optimizationJob = [];
+    private ?array $queuedSourceVersion = null;
+    private ?array $metadataSourceVersion = null;
 
     /**
      * Cached AVIF support driver (null = not checked, 'imagick' = ImageMagick supports AVIF, 'gd' = GD supports AVIF, false = no support)
@@ -428,6 +431,7 @@ class sGalleryBuilder
      * sTask job. Empty cache files are regenerated. The cooperative deadline cannot
      * interrupt a native encoder already executing. Remote URLs are returned to
      * the browser without fetching them. Uncached work is estimated before decoding.
+     * Cache identity includes the source contents; publication rechecks the pinned revision.
      *
      * @return string URL of the processed image or 'no image' placeholder.
      */
@@ -445,6 +449,16 @@ class sGalleryBuilder
             $extension = strtolower(pathinfo($localPath, PATHINFO_EXTENSION));
 
             if ($this->params !== null && !in_array($extension, ['svg'])) {
+                $sourceVersion = ImageSource::version($localPath);
+                if ($sourceVersion === null || ($this->queuedSourceVersion !== null && $sourceVersion !== $this->queuedSourceVersion)) {
+                    if ($this->backgroundOptimization) throw new \RuntimeException('Image optimization source changed while queued.');
+                    return $this->originalImageUrl();
+                }
+                if ($sourceVersion !== $this->metadataSourceVersion) {
+                    $this->sourceHasAlpha = null;
+                    $this->alphaDetectionCache = [];
+                    $this->metadataSourceVersion = $sourceVersion;
+                }
                 $dimensions = @getimagesize($localPath);
                 $nativeInputFormat = $withSpatie || in_array($dimensions[2] ?? null, [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP], true)
                     ? null : NativeImage::imagickInputFormat($localPath);
@@ -478,7 +492,6 @@ class sGalleryBuilder
                 $nativeAlpha = false;
                 $nativeIcc = false;
                 $nativeTiming = null;
-                $nativeAnimationVersion = null;
                 $nativeAnimationFormat = null;
                 if (!$withSpatie && $animated) {
                     $nativeAnimationFormat = $dimensions[2] === IMAGETYPE_GIF ? 'gif' : 'webp';
@@ -509,8 +522,6 @@ class sGalleryBuilder
                     return $this->originalImageUrl();
                 }
                 if ($nativeAnimationFormat !== null) {
-                    clearstatcache(true, $localPath);
-                    $nativeAnimationVersion = [@filesize($localPath), @filemtime($localPath)];
                     $nativeTiming = ImageAnimation::timing($localPath, $dimensions[2]);
                     if ($nativeTiming === null) {
                         return $this->originalImageUrl();
@@ -551,6 +562,7 @@ class sGalleryBuilder
                 if ($nativeTiming !== null && $format === 'webp' && !$this->qualityExplicit && !empty($this->params['optimize'])) {
                     $ext .= '-adaptive';
                 }
+                $ext .= '-src' . substr(hash('sha256', $sourceFile . "\0" . json_encode($sourceVersion)), 0, 32);
                 $ext .= $withSpatie ? '' : '-native';
                 // Replace earlier PNGs with stale EXIF or an RGB ICC attached to grayscale samples.
                 $ext .= $withSpatie && $format === 'png' ? '-upright-icc' : '';
@@ -561,7 +573,13 @@ class sGalleryBuilder
                     ksort($cacheParams);
                     $ext .= '-wm' . substr(hash('sha256', $sourceHash . json_encode($cacheParams) . $this->quality), 0, 24);
                 }
-                $imageName .= (trim($ext) ? '-' . $ext : '') . '.' . $format;
+                $suffix = (trim($ext) ? '-' . $ext : '') . '.' . $format;
+                // Reserve space for pending/WebP candidates within the filesystem filename limit.
+                $prefixLength = max(0, 220 - strlen($suffix));
+                while ($prefixLength > 0 && isset($imageName[$prefixLength]) && (ord($imageName[$prefixLength]) & 0xc0) === 0x80) {
+                    $prefixLength--;
+                }
+                $imageName = substr($imageName, 0, $prefixLength) . $suffix;
 
                 if (str_contains($imageName, '/') || !GalleryFiles::relative($chacheFile . $imageName)) {
                     return sGalleryModel::NOIMAGE;
@@ -581,7 +599,7 @@ class sGalleryBuilder
                     ($withSpatie || (@getimagesize($cachedPath)['mime'] ?? null) === 'image/' . ($format === 'jpg' ? 'jpeg' : $format)) &&
                     (!$animated || ($nativeTiming === null
                         ? ImageAnimation::isAnimated($cachedPath, $animationType)
-                        : ImageAnimation::timing($cachedPath, $animationType) === $nativeTiming))) {
+                        : ImageAnimation::timing($cachedPath, $animationType) === $nativeTiming)) && ImageSource::version($localPath) === $sourceVersion) {
                     return $this->derivativeUrl($sourceFile, $chacheFile . $imageName);
                 }
                 if ($format === 'avif' && ($withSpatie || ($this->params['format'] ?? null) !== 'original')) {
@@ -589,7 +607,7 @@ class sGalleryBuilder
                     $fallbackPath = $cacheDirectory . DIRECTORY_SEPARATOR . $fallbackName;
                     if (!is_link($fallbackPath) && is_file($fallbackPath) && ($withSpatie
                         ? filesize($fallbackPath) > 100
-                        : (@getimagesize($fallbackPath)[2] ?? null) === IMAGETYPE_WEBP)) {
+                        : (@getimagesize($fallbackPath)[2] ?? null) === IMAGETYPE_WEBP) && ImageSource::version($localPath) === $sourceVersion) {
                         return $this->derivativeUrl($sourceFile, $chacheFile . $fallbackName);
                     }
                 }
@@ -597,7 +615,7 @@ class sGalleryBuilder
                     return $this->originalImageUrl();
                 }
                 // The cache is missing, empty or mislabeled.
-                $this->optimizationJob = $this->optimizationDescriptor($format);
+                $this->optimizationJob = $this->optimizationDescriptor($format, $sourceVersion);
                 $queue = new ImageOptimizationQueue();
                 if (!$this->backgroundOptimization && ($dimensions === false ||
                     !$this->fitsMemoryBudget($localPath, $dimensions, $withSpatie, $nativeOrientation) ||
@@ -621,10 +639,6 @@ class sGalleryBuilder
                     try {
                         if ($nativeTiming !== null) {
                             $this->renderNativeAnimation($sourceFile, $localPath, $dimensions, $nativeTiming, $format, $encodingPath);
-                            clearstatcache(true, $localPath);
-                            if ($nativeAnimationVersion !== [@filesize($localPath), @filemtime($localPath)]) {
-                                throw new \RuntimeException('Image source changed during optimization.');
-                            }
                         } else {
                             $this->renderWithDrivers(
                                 $sourceFile, $localPath, $format, $encodingPath, $animated, $withSpatie, $nativeOrientation, $nativeAlpha, $nativeIcc, $nativeInputFormat,
@@ -646,14 +660,22 @@ class sGalleryBuilder
                             $sourceFile, $localPath, $format, $encodingPath, false, $withSpatie, $nativeOrientation, $nativeAlpha, $nativeIcc, $nativeInputFormat,
                         );
                     }
-                    if (!chmod($encodingPath, 0644 & ~umask()) || !rename($encodingPath, $cacheDirectory . DIRECTORY_SEPARATOR . $imageName)) {
+                    $this->assertSourceUnchanged($localPath, $sourceVersion);
+                    $publishedPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName;
+                    if (!chmod($encodingPath, 0644 & ~umask()) || !rename($encodingPath, $publishedPath)) {
                         throw new \RuntimeException('Cannot publish generated image.');
+                    }
+                    try {
+                        $this->assertSourceUnchanged($localPath, $sourceVersion);
+                    } catch (\RuntimeException $error) {
+                        if (is_file($publishedPath)) unlink($publishedPath);
+                        throw $error;
                     }
                 } catch (OptimizationDeferred $e) {
                     return $this->originalImageUrl();
                 } catch (\Exception $e) {
-                    if (!$withSpatie) {
-                        if ($this->backgroundOptimization) throw $e;
+                    if ($this->backgroundOptimization) throw $e;
+                    if (!$withSpatie || ImageSource::version($localPath) !== $sourceVersion) {
                         return $this->originalImageUrl();
                     }
                     Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
@@ -765,10 +787,6 @@ class sGalleryBuilder
                         } else {
                             $this->checkOptimizationBudget();
                             $image->saveToPath($output, $this->quality);
-                            clearstatcache(true, $path);
-                            if ($this->optimizationJob['source_version'] !== [@filesize($path), @filemtime($path)]) {
-                                throw new \RuntimeException('Image source changed during optimization.');
-                            }
                         }
                         return;
                     }
@@ -946,10 +964,11 @@ class sGalleryBuilder
      * Source metadata separates replaced files from old pending jobs. Remote inputs
      * are not queued because their identity and availability cannot be verified here.
      * @param string $format Resolved cache format
+     * @param array{int, int, string}|null $sourceVersion Revision already captured before reading image metadata.
      * @return array<string, mixed> Replayable descriptor, or an empty array for remote sources
      * @since 1.6.0
      */
-    private function optimizationDescriptor(string $format): array
+    private function optimizationDescriptor(string $format, ?array $sourceVersion = null): array
     {
         if ($this->file === null || sGallery::hasLink($this->file)) {
             return [];
@@ -966,7 +985,15 @@ class sGalleryBuilder
         clearstatcache();
         return ['file' => $this->file, 'params' => $params, 'quality' => $this->quality,
             'quality_explicit' => $this->qualityExplicit,
-            'source_version' => [@filesize(EVO_BASE_PATH . $this->file), @filemtime(EVO_BASE_PATH . $this->file)]];
+            'source_version' => $sourceVersion ?? ImageSource::version(EVO_BASE_PATH . $this->file)];
+    }
+
+    /** Reject a replaced source at the publication boundary for either image backend. @since 1.9.0 */
+    private function assertSourceUnchanged(string $path, array $version): void
+    {
+        if (ImageSource::version($path) !== $version) {
+            throw new \RuntimeException('Image source changed during optimization.');
+        }
     }
 
     /** Return the untouched source URL while optimization is pending. @since 1.6.0 */
@@ -999,7 +1026,8 @@ class sGalleryBuilder
      * Replay a deferred local transformation without the web deadline.
      *
      * Validate the dimensions, format and cached filename parameters before touching
-     * the source. Only a published derivative counts as a completed task.
+     * the source. Earlier size/mtime descriptors pin the current contents after validation;
+     * new descriptors also validate their queued hash. Only a published derivative counts as success.
      * @param array<string, mixed> $job Descriptor created by optimizationDescriptor()
      * @return string Published derived image URL
      * @since 1.6.0
@@ -1027,8 +1055,8 @@ class sGalleryBuilder
         if ($path === null) {
             throw new \RuntimeException('Invalid local image optimization source.');
         }
-        clearstatcache();
-        if (($job['source_version'] ?? null) !== [filesize($path), filemtime($path)]) {
+        $sourceVersion = ImageSource::version($path);
+        if (!ImageSource::matchesQueued($job['source_version'] ?? null, $sourceVersion)) {
             throw new \RuntimeException('Image optimization source changed while queued.');
         }
         $this->file($file);
@@ -1056,7 +1084,9 @@ class sGalleryBuilder
         $this->quality = max(1, min(100, (int) ($job['quality'] ?? 100)));
         $this->qualityExplicit = (bool) ($job['quality_explicit'] ?? false);
         $this->backgroundOptimization = true;
+        $this->queuedSourceVersion = $sourceVersion;
         $result = $this->getFile();
+        $this->assertSourceUnchanged($path, $sourceVersion);
         if ($result === GalleryFiles::url($file) || $result === sGalleryModel::NOIMAGE) {
             throw new \RuntimeException('Image optimization did not publish a derived image.');
         }
@@ -1308,6 +1338,8 @@ class sGalleryBuilder
         $this->backgroundOptimization = false;
         $this->optimizationStartedAt = 0;
         $this->optimizationJob = [];
+        $this->queuedSourceVersion = null;
+        $this->metadataSourceVersion = null;
     }
 
     /**
@@ -1372,11 +1404,6 @@ class sGalleryBuilder
                 if (filesize($temporaryPath) <= $targetBytes || $index === count($qualities) - 1) {
                     break;
                 }
-            }
-            clearstatcache();
-            if ($this->optimizationJob !== [] && $this->optimizationJob['source_version'] !==
-                [@filesize(EVO_BASE_PATH . $this->optimizationJob['file']), @filemtime(EVO_BASE_PATH . $this->optimizationJob['file'])]) {
-                throw new \RuntimeException('Image source changed during optimization.');
             }
             if (!rename($temporaryPath, $path)) {
                 throw new \RuntimeException('Unable to publish the generated WebP cache file.');
