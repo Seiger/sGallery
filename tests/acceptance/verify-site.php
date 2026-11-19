@@ -60,6 +60,10 @@ foreach ($cases as $name => [$image, $width, $height, $format]) {
 foreach (['jpeg', 'png', 'gif', 'webp', 'avif', 'bmp', 'tiff'] as $format) {
     $input = 'assets/acceptance-inputs/input.' . $format;
     if (!is_file(EVO_BASE_PATH . $input)) throw new RuntimeException('Run seed-inputs.php before taking matrix snapshots.');
+    // Isolate codecs: the existing cache name does not include the source extension.
+    $separate = 'assets/acceptance/input-' . $format . '.' . $format;
+    copy(EVO_BASE_PATH . $input, EVO_BASE_PATH . $separate);
+    $input = $separate;
     $readable = false;
     try {
         NativeImage::open($input, 'png')->save('assets/acceptance/decoder-probe.png');

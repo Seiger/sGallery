@@ -71,8 +71,9 @@ the old cache files. ICC profiles and pixel transparency are retained.
 ### Optional image processing
 
 `spatie/image` is optional. With a compatible GD or Imagick codec, the Builder can
-use `fit()`, `crop()`, `manualCrop()` and `focalCrop()` on local still JPEG and PNG
-images and produce JPEG, PNG or WebP. For example,
+use `fit()`, `crop()`, `manualCrop()` and `focalCrop()` on local still JPEG, PNG,
+GIF, WebP, AVIF and BMP images, plus single-page TIFF through Imagick, and produce
+JPEG, PNG, WebP, AVIF or GIF. For example,
 `sGallery::file('assets/photo.jpg')->fit('crop', 320, 240)->format('webp')->getFile()`.
 The native fit supports `crop`, `contain`, `max`, `fill`, `stretch` and `fill-max`.
 The native Builder also reads still HEIC/HEIF and JPEG XL inputs through Imagick
@@ -89,7 +90,7 @@ Native `resize()` works with automatic or explicit output formats without a
 without resize or another operation, using the configured quality and optimization.
 An unavailable codec returns the original URL. For still AVIF and
 GIF, call `format('avif')` or `format('gif')` with or without a transform on a
-local still JPEG or PNG. If AVIF encoding fails or is unavailable, the Builder
+supported local still image. If AVIF encoding fails or is unavailable, the Builder
 tries WebP. GIF uses a palette with binary transparency.
 
 With Imagick, native GIF and WebP animations keep their frames, delays and loop
@@ -114,13 +115,16 @@ PNG and WebP derivatives preserve PNG transparency, including palette and color-
 transparency. Automatic format selection keeps alpha in PNG or WebP. A JPEG
 requested by the caller or configuration composites transparency onto white.
 
-For native JPEG and PNG sources with an embedded ICC profile, Imagick with
+For native sources with an embedded ICC profile, Imagick with
 LittleCMS converts the source to sRGB before resizing or compositing. The
 derivative carries the bundled sRGB profile in JPEG, PNG, WebP and AVIF. GIF
 uses the converted sRGB pixels without requiring a profile. A source
 that requires a color conversion the server cannot perform keeps its original
 URL. This includes ICC-tagged images on GD-only installations, CMYK JPEGs
-without an ICC profile, and PNGs with unsupported color metadata.
+without an ICC profile, and PNGs with unsupported color metadata. TIFF is probed
+for page count and orientation before processing. Unsupported AVIF color/rotation
+metadata, WebP EXIF without a supported profile, and BMP color metadata the driver
+cannot interpret return the original URL. AVIF sequences are not flattened to stills.
 
 The bundled [sRGB profile](https://github.com/saucecontrol/Compact-ICC-Profiles/blob/bdd84663/profiles/sRGB-v2-micro.icc)
 and the Display P3 test fixture come from Compact ICC Profiles and use CC0-1.0.

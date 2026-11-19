@@ -24,6 +24,15 @@ With the EXIF extension disabled, also run `PACKAGE_AUTOLOAD=/path/to/core/vendo
 
 `still-formats-test.php` checks static GIF and AVIF output, GIF palette transparency, cache reuse and native WebP fallback on a build that cannot encode AVIF. It also verifies that native still-format requests return animated PNG sources intact.
 
+`static-inputs-test.php` checks fixed GIF, WebP, AVIF, BMP and TIFF sources with
+and without Spatie, including a GD-readable 24-bit BMP. It covers resize, fit,
+three crop methods, PNG/JPEG output, cache reuse, cold worker replay, alpha,
+white JPEG compositing and source preservation. Native checks also cover TIFF
+endianness/orientation, multi-page fallback, ICC conversion or original-file
+fallback, content-based input selection and unsupported GD metadata. Run it
+with both drivers, GD only, Imagick only and neither driver. Input fixtures
+remain available even when the selected profile cannot encode their format.
+
 `animation-test.php` checks GIF and WebP both with and without Spatie. With Imagick it covers offset frames, transparency, duplicate frames, exact WebP delays, finite and infinite loops, and invalid cached timing. A GD-only run verifies that animated sources keep their original URL.
 
 `quality-test.php` compares explicit quality with directly encoded references, exercises the first and last adaptive WebP candidates, and checks fixed/adaptive cache separation without Spatie. With Imagick it also checks animation timing and the final animated WebP candidate. Quality comparisons use small local fixtures with the frontend deadline disabled to isolate encoding from scheduling. Run it with and without Spatie.

@@ -458,6 +458,11 @@ class sGalleryBuilder
                     $dimensions = $nativeInput['dimensions'];
                 }
                 $animated = ImageAnimation::isAnimated($localPath, $dimensions[2] ?? 0);
+                if (!$withSpatie && !$animated && $this->canTransformWithoutSpatie(false) && in_array($dimensions[2] ?? null,
+                    [IMAGETYPE_GIF, IMAGETYPE_WEBP, IMAGETYPE_AVIF, IMAGETYPE_BMP, IMAGETYPE_TIFF_II, IMAGETYPE_TIFF_MM], true)) {
+                    $nativeInput = NativeImage::inspectRasterInput($localPath, $dimensions, $this->backgroundOptimization);
+                    if ($nativeInput === null) return $this->originalImageUrl();
+                }
                 if (!$withSpatie && (!$this->canTransformWithoutSpatie($animated) ||
                     (!$animated && $nativeInput === null && !in_array($dimensions[2] ?? null, [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)))) {
                     return $this->originalImageUrl();

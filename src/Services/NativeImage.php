@@ -163,7 +163,7 @@ final class NativeImage
      */
     public static function inspectImagickInput(string $path, string $format, bool $background = false): ?array
     {
-        if (!class_exists(Imagick::class) || !in_array($format, ['HEIC', 'JXL'], true) ||
+        if (!class_exists(Imagick::class) || !in_array($format, ['HEIC', 'JXL', 'GIF', 'WEBP', 'AVIF', 'BMP', 'TIFF'], true) ||
             Imagick::queryFormats($format) === [] || !ImageMemoryBudget::allows(0, (int) @filesize($path), $background)) {
             return null;
         }
@@ -174,11 +174,15 @@ final class NativeImage
             if ($image === null || $image->getImageWidth() < 1 || $image->getImageHeight() < 1) {
                 return null;
             }
-            $orientation = $format === 'HEIC' ? $image->getImageOrientation() : 1;
+            $icc = $image->getImageProfiles('icc', false) !== [];
+            if (!$icc && !in_array($image->getImageColorspace(), [Imagick::COLORSPACE_SRGB, Imagick::COLORSPACE_GRAY], true)) {
+                return null;
+            }
+            $orientation = $format === 'JXL' ? 1 : $image->getImageOrientation();
             return [
                 'dimensions' => [$image->getImageWidth(), $image->getImageHeight(), 0],
                 'alpha' => $image->getImageAlphaChannel(),
-                'icc' => $image->getImageProfiles('icc', false) !== [],
+                'icc' => $icc,
                 'orientation' => $orientation >= 2 && $orientation <= 8 ? $orientation : 1,
             ];
         } catch (ImagickException) {
@@ -186,6 +190,33 @@ final class NativeImage
         } finally {
             fclose($stream);
         }
+    }
+
+    /**
+     * Inspect newly supported still rasters without decoding pixels before the queue budget check.
+     * TIFF requires a single-page Imagick probe; unsupported metadata retains the original.
+     * @return array{dimensions: array, alpha: bool, icc: bool, orientation: int}|null
+     * @since 1.9.0
+     */
+    public static function inspectRasterInput(string $path, array $dimensions, bool $background = false): ?array
+    {
+        $type = $dimensions[2] ?? null;
+        $format = (self::READ_WRITE_FORMATS[$type] ?? self::READ_ONLY_FORMATS[$type] ?? [null])[0];
+        if (!in_array($format, ['GIF', 'WEBP', 'AVIF', 'BMP', 'TIFF'], true)) return null;
+        if (class_exists(Imagick::class) && Imagick::queryFormats($format) !== []) {
+            $metadata = self::inspectImagickInput($path, $format, $background);
+            // Some WebP ping implementations omit ICC even though the decoder exposes it.
+            $color = in_array($format, ['WEBP', 'AVIF', 'BMP'], true) ? ImageColor::fromRaster($path, $type)[1] : ImageColor::SRGB;
+            if ($metadata !== null && !$metadata['icc'] && $color === ImageColor::UNSUPPORTED) return null;
+            // TIFF ping can omit its ExtraSamples alpha channel; retain it conservatively.
+            if ($metadata !== null) return [...$metadata, 'dimensions' => $dimensions,
+                'alpha' => $metadata['alpha'] || $format === 'TIFF', 'icc' => $metadata['icc'] || $color === ImageColor::ICC];
+        }
+        if ($format === 'TIFF') return null;
+        [$alpha, $color] = ImageColor::fromRaster($path, $type);
+        return $color === ImageColor::UNSUPPORTED ? null : [
+            'dimensions' => $dimensions, 'alpha' => $alpha, 'icc' => $color === ImageColor::ICC, 'orientation' => 1,
+        ];
     }
 
     /** Expose the decoded frame to callers that apply driver-specific transformations. @since 1.9.0 */

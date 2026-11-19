@@ -55,3 +55,24 @@ the resulting PNG, causing another rotation in a viewer that honors PNG EXIF.
 Spatie and checks portrait geometry after a viewer applies orientation. It also
 seeds an old PNG cache entry, checks regeneration under the new cache identity,
 and verifies that orientation cleanup preserves the ICC profile and alpha.
+
+## Static input fixtures
+
+`static-inputs/` contains synthetic 32 × 16 GIF, WebP, AVIF, BMP and TIFF inputs
+for `static-inputs-test.php`. The alpha fixtures use the quadrant source above;
+GIF quantizes it to binary alpha. `opaque.bmp` is a 24-bit GD BMP composited on
+white, while the alpha BMP uses ImageMagick's extended BMP header. The decoder
+may support only the 24-bit variant. `oriented.tiff` stores orientation 6;
+`pages.tiff` has two pages. The `p3.*` fixtures contain uniform RGB 180/90/70
+tagged with the existing Display P3 profile.
+
+Fixtures were generated with PHP 8.5.10, GD, ImageMagick 7.1.1-43 and
+avifenc / libaom in the disposable acceptance image. To regenerate them explicitly:
+
+```sh
+php tests/fixtures/generate-static-inputs.php
+```
+
+Generation requires GD, Imagick, the corresponding output codecs and `avifenc`
+on PATH for the ICC-tagged AVIF. Runtime tests only read the checked-in files;
+they do not invoke the generator or require external encoders.
