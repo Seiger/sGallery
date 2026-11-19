@@ -203,6 +203,47 @@ final class NativeImage
         return $this->manualCrop(0, 0, $width, $height);
     }
 
+    /**
+     * Sharpen the frame's color channels while keeping its original opacity.
+     * Call after resampling and before compositing any watermark or output background.
+     *
+     * @param float $amount Strength from 0 to 100 after Builder validation.
+     * @since 1.9.0
+     */
+    public function sharpen(float $amount): self
+    {
+        if (!is_finite($amount) || $amount < 0 || $amount > 100) {
+            throw new InvalidArgumentException('Gallery sharpening strength must be between 0 and 100.');
+        }
+        if ($amount === 0.0) {
+            return $this;
+        }
+
+        [$width, $height] = $this->dimensions();
+        if (!self::hasMemoryFor($width, $height)) {
+            throw new RuntimeException('Insufficient memory budget to sharpen the gallery image.');
+        }
+
+        $image = $this->withPixelAlpha();
+        $frame = $image->image;
+        if ($frame instanceof Imagick) {
+            $channels = Imagick::CHANNEL_RED | Imagick::CHANNEL_GREEN | Imagick::CHANNEL_BLUE;
+            $success = $frame->unsharpMaskImage(1, 1, $amount / 6.25, 0, $channels);
+        } else {
+            $corner = $amount >= 10 ? -$amount * 0.01 : 0.0;
+            $edge = -$amount * 0.025;
+            $center = 1 - 4 * ($corner + $edge);
+            $kernel = [[$corner, $edge, $corner], [$edge, $center, $edge], [$corner, $edge, $corner]];
+            // Convolution writes pixels back with their original alpha. Blending would compound it.
+            $success = function_exists('imageconvolution') && imagealphablending($frame, false) &&
+                imageconvolution($frame, $kernel, 1, 0);
+        }
+        if (!$success) {
+            throw new RuntimeException('The native image driver could not sharpen the gallery image.');
+        }
+        return $image;
+    }
+
     /** Composite the finished frame on the default white background for a native JPEG. @since 1.9.0 */
     public function withWhiteJpegBackground(): self
     {
