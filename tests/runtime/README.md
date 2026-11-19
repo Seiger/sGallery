@@ -28,6 +28,8 @@ With the EXIF extension disabled, also run `PACKAGE_AUTOLOAD=/path/to/core/vendo
 
 `modern-formats-test.php` checks native HEIC/HEIF and JPEG XL input conversion, content detection, alpha, JPEG backgrounds, ICC conversion, EXIF metadata, cache reuse and queued geometry. Its fixed JPEG XL fixtures include a raw codestream, a container and an animation that must retain its original URL. Run with Imagick codecs installed, with the codecs absent, and with each Composer runtime to compare the Spatie entry point. JPEG XL uploads must also pass the CMS extension setting and server MIME checks.
 
+`heif-properties-test.php` uses committed HEIC/HEIF fixtures with a container rotation, an auxiliary alpha image and a redundant EXIF tag. With and without Spatie it checks portrait geometry, PNG colors and opacity, crop coordinates, background replay and cache reuse. Native checks also cover white JPEG compositing and optimized PNG output. The test records the existing Spatie PNG EXIF behavior separately; it does not claim that retained orientation is correct. See [fixture provenance and reproduction](../fixtures/README.md). A run without an HEIF decoder checks the existing original/placeholder fallback contract.
+
 ## Image compatibility baseline
 
 `image-compatibility-test.php` runs the Evolution `HelperProcessor::phpThumb()` and the sGallery Builder against the same generated inputs in a private temporary directory. It requires the phpThumb and Spatie packages from the supplied Composer runtime and GD with JPEG, PNG and WebP support. It checks AVIF when GD can encode it.
