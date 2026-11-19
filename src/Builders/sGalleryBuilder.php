@@ -227,7 +227,8 @@ class sGalleryBuilder
     }
 
     /**
-     * Set the quality for the image output.
+     * Set a fixed encoding quality, clamped to 1 through 100.
+     * Explicit quality bypasses the adaptive WebP candidate search.
      *
      * @param int $quality Quality percentage (e.g., 80).
      * @return $this
@@ -520,6 +521,13 @@ class sGalleryBuilder
                 $ext .= $nativeAlpha ? '-alpha' : '';
                 $ext .= $nativeIcc ? '-srgb' : '';
                 $ext .= $nativeTiming !== null ? '-animated' : '';
+                if (!$withSpatie && $this->qualityExplicit && in_array($format, ['webp', 'avif'], true) &&
+                    ($this->quality === 100 || !empty($this->params['optimize']))) {
+                    $ext .= '-fixed';
+                }
+                if ($nativeTiming !== null && $format === 'webp' && !$this->qualityExplicit && !empty($this->params['optimize'])) {
+                    $ext .= '-adaptive';
+                }
                 $ext .= $withSpatie ? '' : '-native';
                 if (isset($this->params['watermark'])) {
                     $sourceHash = hash_file('sha256', $localPath);
@@ -587,16 +595,7 @@ class sGalleryBuilder
                     $this->sourceHasAlpha = $withSpatie ? !$animated && $this->detectAlphaChannelFromPath($localPath) : $nativeAlpha;
                     try {
                         if ($nativeTiming !== null) {
-                            $overlay = null;
-                            NativeAnimation::render(
-                                $localPath, $dimensions, $nativeTiming, $format, $encodingPath,
-                                $format === 'webp' ? $this->getWebpOutputQuality() : $this->quality,
-                                function (\Imagick $frame) use ($sourceFile, $format, &$overlay): \Imagick {
-                                    $image = NativeImage::fromFrame($frame, $sourceFile, $format);
-                                    return $this->transformNative($image, $format, $overlay)->frame();
-                                },
-                                fn () => $this->checkOptimizationBudget(defer: false),
-                            );
+                            $this->renderNativeAnimation($sourceFile, $localPath, $dimensions, $nativeTiming, $format, $encodingPath);
                             clearstatcache(true, $localPath);
                             if ($nativeAnimationVersion !== [@filesize($localPath), @filemtime($localPath)]) {
                                 throw new \RuntimeException('Image source changed during optimization.');
@@ -657,7 +656,7 @@ class sGalleryBuilder
     private function canTransformWithoutSpatie(bool $animated): bool
     {
         $format = $this->params['format'] ?? null;
-        return isset($this->params['watermark']) || ($this->params['sharpen'] ?? 0) > 0 ||
+        return $this->qualityExplicit || isset($this->params['watermark']) || ($this->params['sharpen'] ?? 0) > 0 ||
             in_array($format, $animated ? ['gif', 'webp'] : ['avif', 'gif'], true) ||
             (isset($this->params['w'], $this->params['h']) && ($animated || isset($this->params['fit']) || $this->hasCrop() || $format === 'webp'));
     }
@@ -775,6 +774,35 @@ class sGalleryBuilder
         }
         $mark = $this->params['watermark'] ?? null;
         return $mark === null ? $image : Watermark::applyNative($image, $mark, $format, $overlay);
+    }
+
+    /**
+     * Encode native animation candidates with the same WebP quality policy as still images.
+     * Each candidate is verified before size selection. The Builder publishes only the final file.
+     * @param array{loops: int, delays: list<int>} $timing Original container playback metadata.
+     * @since 1.9.0
+     */
+    private function renderNativeAnimation(string $source, string $path, array $dimensions, array $timing, string $format, string $output): void
+    {
+        $overlay = null;
+        $targetBytes = 0;
+        $qualities = $format === 'webp' ? $this->getWebpOutputQualities() : [$this->quality];
+        foreach ($qualities as $index => $quality) {
+            NativeAnimation::render(
+                $path, $dimensions, $timing, $format, $output, $quality,
+                function (\Imagick $frame) use ($source, $format, &$overlay, &$targetBytes): \Imagick {
+                    $image = $this->transformNative(NativeImage::fromFrame($frame, $source, $format), $format, $overlay);
+                    $targetBytes = $this->getPageSpeedImageTargetBytes($image);
+                    return $image->frame();
+                },
+                fn () => $this->checkOptimizationBudget(defer: false),
+            );
+            clearstatcache(true, $output);
+            if (filesize($output) <= $targetBytes || $index === count($qualities) - 1) {
+                return;
+            }
+            unlink($output);
+        }
     }
 
     /** Apply the existing transformations and verify the staged derivative. @since 1.9.0 */
@@ -1216,15 +1244,26 @@ class sGalleryBuilder
     /**
      * Get the effective WebP output quality.
      *
-     * WebP quality 100 can create unnecessarily heavy files, so the default
-     * upper bound is normalized to 99 unless a lower quality is configured.
+     * Keep the configured default below 100. Native explicit quality keeps 100,
+     * while the Spatie path retains its existing normalization.
      *
      * @return int
      * @since 1.5.0
      */
     private function getWebpOutputQuality(): int
     {
+        if ($this->qualityExplicit && !class_exists(Image::class)) {
+            return $this->quality;
+        }
         return $this->quality >= 100 ? 99 : $this->quality;
+    }
+
+    /** Use one quality for fixed requests, otherwise keep the existing descending WebP search. @since 1.9.0 */
+    private function getWebpOutputQualities(): array
+    {
+        return $this->qualityExplicit || empty($this->params['optimize'])
+            ? [$this->getWebpOutputQuality()]
+            : [99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80];
     }
 
     /**
@@ -1243,9 +1282,7 @@ class sGalleryBuilder
     private function saveWebpImage(Image|NativeImage $image, string $path): void
     {
         $targetBytes = $this->getPageSpeedImageTargetBytes($image);
-        $qualities = $this->qualityExplicit || empty($this->params['optimize'])
-            ? [$this->getWebpOutputQuality()]
-            : [99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80];
+        $qualities = $this->getWebpOutputQualities();
         $temporaryPath = $image instanceof NativeImage || $image instanceof BuilderImage
             ? $path . '.webp' : tempnam(dirname($path), '.sgallery-webp-');
         if ($temporaryPath === false) {

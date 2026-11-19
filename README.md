@@ -81,9 +81,16 @@ GIF or WebP explicitly. The Builder returns the original URL if the encoder is
 unavailable, the request exceeds the processing budget, or the selected output
 cannot preserve the timing or color profile. GIF delays use 10 ms units.
 
-The native path uses a separate cache key and the built-in WebP quality
-selection. For JPEG files it
-applies EXIF orientation before fitting, resizing or cropping. GD can read the
+The native path uses a separate cache key. Explicit `quality()` is clamped to
+1–100 and uses one encoder setting, including native WebP quality 100. Fixed WebP
+requests have separate cache entries when they can differ from automatic quality.
+With the existing adaptive selection enabled, WebP tries qualities from 99 down
+to 80 and stops at the first file within the size target, or keeps the final
+candidate. This also applies to native WebP animations. Quality-only requests
+work on supported local sources without a geometry operation.
+
+For JPEG files, native processing applies EXIF orientation before fitting,
+resizing or cropping. GD can read the
 orientation through PHP EXIF, and Imagick can read it without that extension.
 When neither is available to read the tag, the stored pixel orientation is used.
 PNG and WebP derivatives preserve PNG transparency, including palette and color-key
