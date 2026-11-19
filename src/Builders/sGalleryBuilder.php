@@ -580,8 +580,8 @@ class sGalleryBuilder
                 $queue = new ImageOptimizationQueue();
                 if (!$this->backgroundOptimization && ($dimensions === false ||
                     !$this->fitsMemoryBudget($localPath, $dimensions, $withSpatie, $nativeOrientation) ||
-                    ($withSpatie && $queue->heavy($this->optimizationJob)))) {
-                    if ($withSpatie) $queue->defer($this->optimizationJob);
+                    $queue->heavy($this->optimizationJob))) {
+                    $queue->defer($this->optimizationJob);
                     return $this->originalImageUrl();
                 }
                 if ($this->backgroundOptimization) {
@@ -631,7 +631,10 @@ class sGalleryBuilder
                 } catch (OptimizationDeferred $e) {
                     return $this->originalImageUrl();
                 } catch (\Exception $e) {
-                    if (!$withSpatie) return $this->originalImageUrl();
+                    if (!$withSpatie) {
+                        if ($this->backgroundOptimization) throw $e;
+                        return $this->originalImageUrl();
+                    }
                     Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
                     if ($animated) return $this->originalImageUrl();
                 } finally {
@@ -660,7 +663,7 @@ class sGalleryBuilder
     private function canTransformWithoutSpatie(bool $animated): bool
     {
         $format = $this->params['format'] ?? null;
-        return $this->qualityExplicit || ($this->optimizationExplicit && !empty($this->params['optimize'])) ||
+        return $this->backgroundOptimization || $this->qualityExplicit || ($this->optimizationExplicit && !empty($this->params['optimize'])) ||
             isset($this->params['watermark']) || ($this->params['sharpen'] ?? 0) > 0 ||
             in_array($format, $animated ? ['gif', 'webp'] : ['avif', 'gif'], true) ||
             (isset($this->params['w'], $this->params['h']) && ($animated || isset($this->params['fit']) || $this->hasCrop() || $format === 'webp'));
@@ -801,7 +804,7 @@ class sGalleryBuilder
                     $targetBytes = $this->getPageSpeedImageTargetBytes($image);
                     return $image->frame();
                 },
-                fn () => $this->checkOptimizationBudget(defer: false),
+                $this->checkOptimizationBudget(...),
                 !empty($this->params['optimize']),
             );
             clearstatcache(true, $output);
@@ -929,18 +932,17 @@ class sGalleryBuilder
      * Stop cooperative frontend processing after the package time budget.
      *
      * Slow markers are remembered even without sTask, so later requests avoid
-     * repeating expensive attempts. Operations without worker support skip deferral.
-     * @param bool $defer Whether the worker can replay this operation.
+     * repeating expensive attempts. Queue failures still return the original.
      * @return void
      * @since 1.6.0
      */
-    private function checkOptimizationBudget(bool $defer = true): void
+    private function checkOptimizationBudget(): void
     {
         if ($this->backgroundOptimization || microtime(true) - $this->optimizationStartedAt <
             sGallery::optimizationBudgetSeconds()) {
             return;
         }
-        if ($defer && $this->optimizationJob !== []) {
+        if ($this->optimizationJob !== []) {
             (new ImageOptimizationQueue())->defer($this->optimizationJob);
         }
         throw new OptimizationDeferred('Image optimization exceeded the frontend time budget.');
@@ -957,9 +959,6 @@ class sGalleryBuilder
      */
     public function processOptimization(array $job): string
     {
-        if (!class_exists(Image::class)) {
-            throw new \RuntimeException('Image optimization requires the optional spatie/image package (^3).');
-        }
         $file = $job['file'] ?? null;
         $params = $job['params'] ?? [];
         if (!is_string($file) || !is_array($params) ||
@@ -989,9 +988,24 @@ class sGalleryBuilder
         $this->params = $params;
         foreach (['fit' => Fit::class, 'crop' => CropPosition::class] as $key => $enum) {
             if (isset($this->params[$key])) {
-                $this->params[$key] = $enum::from($this->params[$key]);
+                if (class_exists(Image::class)) {
+                    $this->params[$key] = $enum::from($this->params[$key]);
+                } elseif (!is_string($this->params[$key]) || !in_array($this->params[$key],
+                    $key === 'fit' ? NativeImage::FIT_MODES : array_keys(NativeImage::CROP_POSITIONS), true)) {
+                    throw new \RuntimeException('Invalid native gallery optimization geometry.');
+                }
             }
         }
+        if (isset($this->params['watermark'])) {
+            $mark = $this->params['watermark'];
+            if (!is_array($mark) || !is_string($mark['file'] ?? null) || !is_string($mark['hash'] ?? null) ||
+                !is_array($mark['options'] ?? null)) {
+                throw new \RuntimeException('Invalid gallery optimization watermark.');
+            }
+            // sTask sorts nested metadata. Restore the frontend order used by the cache hash.
+            $this->params['watermark'] = ['file' => $mark['file'], 'hash' => $mark['hash'], 'options' => Watermark::options($mark['options'])];
+        }
+        $this->optimizationExplicit = !empty($this->params['optimize']);
         $this->quality = max(1, min(100, (int) ($job['quality'] ?? 100)));
         $this->qualityExplicit = (bool) ($job['quality_explicit'] ?? false);
         $this->backgroundOptimization = true;

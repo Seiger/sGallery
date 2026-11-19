@@ -17,7 +17,8 @@ Automatic WebP quality selection keeps the original 15 candidates:
 `99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80`.
 It selects the first candidate meeting the size target, or the last candidate if
 none meets it. An explicit `quality()` remains a single requested quality.
-The existing WebP upper-bound normalization to 99 still applies.
+Native explicit WebP quality can use 100. The configured default and the Spatie
+path retain their upper-bound normalization to 99.
 Only the final nonempty WebP is atomically published from a temporary file.
 
 The budget is checked between transformations and encoding attempts. It cannot
@@ -28,6 +29,10 @@ synchronous processing. Temporary files from abandoned attempts are never
 served as completed images.
 
 ## Optional sTask integration
+
+sTask can replay the supported native transformations through GD or Imagick
+without Spatie. Animated GIF and WebP processing requires Imagick. When Spatie
+is installed, the worker selects the Spatie processing path.
 
 The package remains independently installable. Queue delivery requires installed
 sTask runtime classes, the `heartbeat()` API, and a current runner heartbeat.
@@ -63,6 +68,10 @@ not enqueued. Source replacements detected while queued are rejected rather than
 processed using stale parameters. Front requests use a nonblocking per-job lock
 and sTask's active-task deduplication. Failed/completed jobs without a usable
 cache have a five-minute enqueue retry cooldown; existing active tasks are reused.
+Stored scalar geometry works with both processing paths. Watermark parameters
+are restored in the frontend's cache order after sTask normalizes the metadata,
+so a completed job selects the same derivative as the following frontend request.
+Changed watermark contents are rejected before publication.
 
 State files live in `storage/sgallery/optimization`. Keep storage shared between
 release deployments and writable by both the frontend and CLI users.
@@ -88,3 +97,8 @@ sTask and its heartbeat API, GD/WebP support and SQLite:
 SGALLERY_AUTOLOAD=/path/to/site/core/vendor/autoload.php php tests/image-optimization.php
 php tests/optional-stask.php
 ```
+
+With `PACKAGE_AUTOLOAD` pointing at the same runtime, also run
+`php tests/runtime/worker-test.php` both with and without Spatie. It uses an
+isolated SQLite queue and the real sTask runner to verify deferral, retries,
+source replacement, cache identity and recovery after a failed publication.

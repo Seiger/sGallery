@@ -11,6 +11,7 @@ spl_autoload_register(static function (string $class) use ($loader): void {
 });
 
 function config($key, $default = null) { return $default; }
+function storage_path($path = '') { return EVO_BASE_PATH . 'storage/' . $path; }
 
 use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Models\sGalleryModel;
@@ -63,7 +64,7 @@ try {
         (new sGalleryBuilder())->processOptimization(['file' => 'photo.png', 'params' => ['fit' => 'crop']]);
         throw new RuntimeException('Queued optimization unexpectedly succeeded');
     } catch (RuntimeException $error) {
-        checkOptionalImage(str_contains($error->getMessage(), 'optional spatie/image'), 'Existing queued job fails with actionable exception');
+        checkOptionalImage(str_contains($error->getMessage(), 'source changed while queued'), 'Queued job with no source version is rejected before processing');
     }
     checkOptionalImage(!is_dir($root . 'assets'), 'Unsupported operations do not create a cache');
 

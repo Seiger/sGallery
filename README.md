@@ -125,7 +125,8 @@ cannot bypass the encoder settings. `optimize(false)` uses the regular encoding
 settings and disables adaptive WebP quality selection.
 
 When Spatie is installed, the Builder continues to use it for transformations.
-Background image optimization still uses Spatie.
+Background image optimization through sTask uses the same native pipeline when
+Spatie is absent, including geometry, watermarks, sharpening and output settings.
 If a transformation or codec is unavailable without
 Spatie, the Builder returns the original URL. Missing files use the normal placeholder.
 

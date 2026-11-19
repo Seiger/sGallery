@@ -10,7 +10,7 @@ if (!class_exists(BaseWorker::class) || !interface_exists(\Seiger\sTask\Contract
     return;
 }
 
-/** Execute deferred image transformations without the frontend deadline. @since 1.6.0 */
+/** Replay deferred transformations through the available Builder backend without the frontend deadline. @since 1.6.0 */
 class ImageOptimizationWorker extends BaseWorker
 {
     /** Return the immutable queue identifier. @since 1.6.0 */
