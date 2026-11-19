@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Facade;
 use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Services\ImageColor;
 use Seiger\sGallery\Services\NativeImage;
+use Spatie\Image\Enums\Fit;
+use Spatie\Image\Enums\ImageDriver;
 use Spatie\Image\Image;
 
 function config($key, $default = null) { return $default; }
@@ -61,6 +63,8 @@ try {
     file_put_contents($root . 'p3.png', $png($icc));
     file_put_contents($root . 'p3-alpha.png', $png($icc, [180, 90, 70, 128]));
     file_put_contents($root . 'p3-neutral.png', $png($icc, [150, 150, 150]));
+    $neutralAlpha = $png($icc, [150, 150, 150, 128]);
+    file_put_contents($root . 'p3-neutral-alpha.png', $neutralAlpha);
     file_put_contents($root . 'linear.png', $png($chunk('gAMA', pack('N', 100000))));
 
     $jpegPath = $root . 'p3.jpg';
@@ -113,7 +117,7 @@ try {
             'A non-sRGB PNG without a supported profile keeps its original color metadata');
     }
 
-    foreach (['p3.png' => 'png', 'p3.jpg' => 'jpg', 'p3-alpha.png' => 'png', 'p3-neutral.png' => 'png'] as $source => $format) {
+    foreach (['p3.png' => 'png', 'p3.jpg' => 'jpg', 'p3-alpha.png' => 'png', 'p3-neutral.png' => 'png', 'p3-neutral-alpha.png' => 'png'] as $source => $format) {
         $render = static fn (): string => $builder($source, $format)->fit('fill', 120, 60)->getFile();
         $url = $render();
         if (!$withSpatie && !$lcms) {
@@ -126,14 +130,65 @@ try {
         $sample = $pixel($output, 60, 30);
         if ($withSpatie) {
             echo "Spatie $source " . json_encode([$sample, $imagick ? (new Imagick($output))->getImageProfiles('icc', false) : []]) . PHP_EOL;
+            if ($imagick && $format === 'png') {
+                $types = str_starts_with($source, 'p3-neutral') ? [2, 6] : [2, 3, 6];
+                $check(in_array(ord(file_get_contents($output)[25]), $types, true) && (new Imagick($output))->getImageProfile('icc') === $p3,
+                    "$source keeps compatible PNG samples with its original RGB ICC profile");
+                if (str_starts_with($source, 'p3-neutral')) {
+                    $check($near($sample, [150, 150, 150]), "$source keeps its neutral RGB pixel values");
+                }
+                if (str_contains($source, 'alpha')) {
+                    $check(abs($sample[3] - 0.5) < 0.03, "$source retains partial alpha with an RGB profile");
+                }
+            }
             continue;
         }
-        $expected = $source === 'p3-neutral.png' ? [150, 150, 150] : [193, 83, 63];
+        $expected = str_starts_with($source, 'p3-neutral') ? [150, 150, 150] : [193, 83, 63];
         $check($near($sample, $expected) && $hasSrgb($output), "$source converts its pixels and retains the sRGB profile after padding");
         $check($near($pixel($output, 2, 2), [255, 255, 255]), "$source has white sRGB padding");
-        if ($source === 'p3-alpha.png') {
+        if (str_contains($source, 'alpha')) {
             $check(abs($sample[3] - 0.5) < 0.03, 'ICC conversion preserves partial alpha');
         }
+    }
+
+    if ($withSpatie && $imagick) {
+        $writer = new ReflectionMethod(sGalleryBuilder::class, 'saveEncodedImage');
+        $descriptor = new ReflectionMethod(sGalleryBuilder::class, 'optimizationDescriptor');
+        foreach (['p3-neutral.png', 'p3-neutral-alpha.png'] as $source) {
+            foreach ([false, true] as $optimize) {
+                $url = $builder($source, 'png')->fit('fill', 120, 60)->optimize($optimize)->getFile();
+                $output = $path($url);
+                $check(in_array(ord(file_get_contents($output)[25]), [2, 6], true) && (new Imagick($output))->getImageProfile('icc') === $p3 &&
+                    $near($pixel($output, 60, 30), [150, 150, 150]),
+                    "$source optimized=$optimize PNG decodes with RGB ICC and unchanged pixels");
+            }
+            $image = $builder($source, 'png')->fit('stretch', 41, 23);
+            $job = $descriptor->invoke($image, 'png');
+            $url = (new sGalleryBuilder())->processOptimization($job);
+            $check($image->getFile() === $url && array_slice(getimagesize($path($url)), 0, 2) === [41, 23] &&
+                $near($pixel($path($url), 20, 11), [150, 150, 150]) && (new Imagick($path($url)))->getImageProfile('icc') === $p3,
+                "$source cold worker publishes the same valid ICC PNG as the frontend");
+
+            $legacy = Image::useImageDriver(ImageDriver::Imagick)->loadFile($root . $source)->fit(Fit::Stretch, 48, 24);
+            $legacyOutput = $root . 'legacy-' . $source;
+            $writer->invoke($image, $legacy, $legacyOutput, 'png', 90);
+            $check(in_array(ord(file_get_contents($legacyOutput)[25]), [2, 6], true) && (new Imagick($legacyOutput))->getImageProfile('icc') === $p3 &&
+                $near($pixel($legacyOutput, 24, 12), [150, 150, 150]), "$source legacy Spatie writer preserves its RGB ICC");
+        }
+        $image = $builder('p3-neutral.png', 'png')->fit('fill', 120, 60);
+        $url = $image->getFile();
+        $oldUrl = str_replace('-upright-icc.png', '-upright.png', $url);
+        $check($oldUrl !== $url, 'Spatie PNG cache identity changes after the ICC correction');
+        $oldBytes = "\x89PNG\r\n\x1a\n" . $chunk('IHDR', pack('NNCCCCC', 120, 60, 8, 0, 0, 0, 0)) . $icc
+            . $chunk('IDAT', gzcompress(str_repeat("\0" . str_repeat(chr(150), 120), 60))) . $chunk('IEND', '');
+        file_put_contents($path($oldUrl), $oldBytes);
+        unlink($path($url));
+        $check($image->getFile() === $url && $near($pixel($path($url), 60, 30), [150, 150, 150]) &&
+            (new Imagick($path($url)))->getImageProfile('icc') === $p3, 'An old grayscale PNG with RGB ICC is regenerated under the corrected key');
+        $check(file_get_contents($path($oldUrl)) === $oldBytes, 'ICC cache migration preserves the old file');
+        touch($path($url), 1700000000);
+        clearstatcache(true, $path($url));
+        $check($image->getFile() === $url && filemtime($path($url)) === 1700000000, 'The corrected ICC PNG is reused');
     }
 
     if (!$withSpatie && $lcms) {
@@ -183,6 +238,7 @@ try {
             'A legacy unprofiled cache entry cannot serve an ICC-tagged source');
     }
     $check(file_get_contents($jpegPath) === $tagged, 'The source JPEG profile remains intact');
+    $check(file_get_contents($root . 'p3-neutral-alpha.png') === $neutralAlpha, 'The neutral source retains its ICC and alpha bytes');
 } finally {
     $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
     foreach ($files as $file) {

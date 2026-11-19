@@ -22,6 +22,13 @@ With the EXIF extension disabled, also run `PACKAGE_AUTOLOAD=/path/to/core/vendo
 
 `color-profile-test.php` compares Display P3 JPEG and PNG sources before and after native sRGB conversion. With Imagick and LittleCMS it checks output pixels, profiles, alpha and padding. On GD-only installations it verifies that profiled sources keep their original URL. Run it with each Composer runtime to compare the Spatie path.
 
+The Spatie/Imagick checks also cover opaque and partially transparent neutral
+RGB PNGs with Display P3 profiles. They require RGB/RGBA samples with the original
+profile, warning-free decoding, optimization on/off, cold worker replay and
+the legacy Spatie writer. An earlier grayscale PNG with RGB ICC is seeded under
+the old `upright` key; the frontend regenerates it under `upright-icc` and reuses
+the corrected derivative while preserving the old file and source bytes.
+
 `still-formats-test.php` checks static GIF and AVIF output, GIF palette transparency, cache reuse and native WebP fallback on a build that cannot encode AVIF. It also verifies that native still-format requests return animated PNG sources intact.
 
 `static-inputs-test.php` checks fixed GIF, WebP, AVIF, BMP and TIFF sources with

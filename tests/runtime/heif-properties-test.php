@@ -31,6 +31,11 @@ $container->instance('log', new class {
     {
         if (empty($GLOBALS['heifAllowDecodeFailure'])) throw new RuntimeException($message);
     }
+    /** The isolated fixture replays descriptors directly and does not boot the optional queue. @since 1.9.0 */
+    public function warning(string $message): void
+    {
+        if (!str_starts_with($message, 'sGallery could not enqueue image optimization: ')) throw new RuntimeException($message);
+    }
 });
 $root = sys_get_temp_dir() . '/sgallery-heif-' . bin2hex(random_bytes(6)) . '/';
 mkdir($root, 0700);
@@ -114,7 +119,7 @@ try {
         $check([$displayed->getImageWidth(), $displayed->getImageHeight()] === [8, 16],
             "$source PNG remains portrait when a viewer applies its orientation");
         if ($withSpatie && str_ends_with($source, '.heif')) {
-            $legacyUrl = str_replace('-upright.png', '.png', $url);
+            $legacyUrl = str_replace('-upright-icc.png', '.png', $url);
             $check($legacyUrl !== $url, 'Spatie PNGs use a new cache identity after the orientation correction');
             $check($png->getImageProfiles('exif', false) === [], 'The corrected PNG has no stale EXIF profile');
             $pngBytes = file_get_contents($path($url));

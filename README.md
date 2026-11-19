@@ -46,8 +46,11 @@ original stays available if the requested output cannot preserve animation.
 Native codec availability depends on the installed GD or Imagick build.
 
 Spatie PNG derivatives discard stale EXIF metadata after the pixels are oriented.
-They use an `upright` cache suffix so earlier PNGs are regenerated without deleting
-the old cache files. ICC profiles and pixel transparency are retained.
+An RGB ICC profile keeps RGB/RGBA PNG samples even when all pixels are neutral;
+this prevents an invalid RGB profile on grayscale samples. They use an
+`upright-icc` cache suffix so earlier PNGs, including the previous `upright`
+version, are regenerated without deleting the old cache files. ICC profiles,
+pixel values and transparency are retained.
 
 | Format | Native GD | Native Imagick |
 | --- | --- | --- |

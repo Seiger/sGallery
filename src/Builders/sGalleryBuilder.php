@@ -552,8 +552,8 @@ class sGalleryBuilder
                     $ext .= '-adaptive';
                 }
                 $ext .= $withSpatie ? '' : '-native';
-                // Earlier Spatie PNGs can carry an EXIF rotation after their pixels were oriented.
-                $ext .= $withSpatie && $format === 'png' ? '-upright' : '';
+                // Replace earlier PNGs with stale EXIF or an RGB ICC attached to grayscale samples.
+                $ext .= $withSpatie && $format === 'png' ? '-upright-icc' : '';
                 if (isset($this->params['watermark'])) {
                     $sourceHash = hash_file('sha256', $localPath);
                     $cacheParams = $this->params;
@@ -910,7 +910,7 @@ class sGalleryBuilder
         }
     }
 
-    /** Encode a candidate, removing stale PNG EXIF after Spatie has oriented its pixels. @since 1.9.0 */
+    /** Encode a Spatie candidate with upright PNG pixels and a sample type matching its RGB ICC. @since 1.9.0 */
     private function saveEncodedImage(Image $image, string $path, string $format, int $quality): void
     {
         if ($format === 'png' && ($frame = $image->image()) instanceof \Imagick) {
@@ -918,6 +918,11 @@ class sGalleryBuilder
                 ($frame->getImageProperty('exif:Orientation') !== false && !$frame->deleteImageProperty('exif:Orientation')) ||
                 !$frame->setImageOrientation(\Imagick::ORIENTATION_TOPLEFT)) {
                 throw new \RuntimeException('Cannot remove the stale gallery PNG orientation.');
+            }
+            if ($frame->getImageProfiles('icc', false) !== [] && substr($frame->getImageProfile('icc'), 16, 4) === 'RGB ' &&
+                (!$frame->setOption('png:color-type', $frame->getImageAlphaChannel() ? '6' : '2') ||
+                    !$frame->setOption('png:exclude-chunk', 'sRGB'))) {
+                throw new \RuntimeException('Cannot preserve the gallery PNG RGB color profile.');
             }
         }
         if ($image instanceof BuilderImage) {
