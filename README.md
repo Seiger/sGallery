@@ -60,6 +60,11 @@ lookups still require reading the source. Both processing paths recheck the
 revision before and after publication, and sTask rejects stale hashed jobs.
 Earlier size/mtime-only jobs validate their available metadata and then pin
 the current contents before processing.
+Gallery optimization descriptors are normalized to their persisted JSON types
+before sTask compares active jobs. Integral floats such as sharpening `0.0`
+match stored `0`; fractional strengths, booleans and strings remain distinct.
+Existing active tasks retain their attempt counts and progress; completed or
+failed work follows the existing retry and cooldown rules.
 
 | Format | Native GD | Native Imagick |
 | --- | --- | --- |

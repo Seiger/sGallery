@@ -1,0 +1,281 @@
+{
+    "date": "2026-11-19",
+    "package_commit": "0ba7f8a+12d-working",
+    "legacy_tag": "v1.8.1",
+    "run_suffix": "12d-final",
+    "evolution": "3.5.9",
+    "stask_commit": "6355cf2",
+    "runtime_script_runs": 219,
+    "runtime_failed": [],
+    "site_checks": [
+        {
+            "php": "8.4.27",
+            "driver": "both",
+            "upgrade": false,
+            "passed": 31,
+            "failed": [],
+            "imagick": "3.8.0",
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.4.27",
+            "driver": "both",
+            "upgrade": true,
+            "passed": 45,
+            "failed": [],
+            "imagick": "3.8.0",
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.4.27",
+            "driver": "gd",
+            "upgrade": false,
+            "passed": 31,
+            "failed": [],
+            "imagick": null,
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.4.27",
+            "driver": "gd",
+            "upgrade": true,
+            "passed": 45,
+            "failed": [],
+            "imagick": null,
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.4.27",
+            "driver": "imagick",
+            "upgrade": false,
+            "passed": 31,
+            "failed": [],
+            "imagick": "3.8.0",
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.4.27",
+            "driver": "imagick",
+            "upgrade": true,
+            "passed": 45,
+            "failed": [],
+            "imagick": "3.8.0",
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.4.27",
+            "driver": "none",
+            "upgrade": false,
+            "passed": 26,
+            "failed": [],
+            "imagick": null,
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.4.27",
+            "driver": "none",
+            "upgrade": true,
+            "passed": 40,
+            "failed": [],
+            "imagick": null,
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.5.10",
+            "driver": "both",
+            "upgrade": false,
+            "passed": 31,
+            "failed": [],
+            "imagick": "3.8.1",
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.5.10",
+            "driver": "both",
+            "upgrade": true,
+            "passed": 45,
+            "failed": [],
+            "imagick": "3.8.1",
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.5.10",
+            "driver": "gd",
+            "upgrade": false,
+            "passed": 31,
+            "failed": [],
+            "imagick": null,
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.5.10",
+            "driver": "gd",
+            "upgrade": true,
+            "passed": 45,
+            "failed": [],
+            "imagick": null,
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.5.10",
+            "driver": "imagick",
+            "upgrade": false,
+            "passed": 31,
+            "failed": [],
+            "imagick": "3.8.1",
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.5.10",
+            "driver": "imagick",
+            "upgrade": true,
+            "passed": 45,
+            "failed": [],
+            "imagick": "3.8.1",
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.5.10",
+            "driver": "none",
+            "upgrade": false,
+            "passed": 26,
+            "failed": [],
+            "imagick": null,
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.5.10",
+            "driver": "none",
+            "upgrade": true,
+            "passed": 40,
+            "failed": [],
+            "imagick": null,
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.6.0RC7",
+            "driver": "both",
+            "upgrade": false,
+            "passed": 31,
+            "failed": [],
+            "imagick": "@PACKAGE_VERSION@",
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.6.0RC7",
+            "driver": "both",
+            "upgrade": true,
+            "passed": 45,
+            "failed": [],
+            "imagick": "@PACKAGE_VERSION@",
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.6.0RC7",
+            "driver": "gd",
+            "upgrade": false,
+            "passed": 31,
+            "failed": [],
+            "imagick": null,
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.6.0RC7",
+            "driver": "gd",
+            "upgrade": true,
+            "passed": 45,
+            "failed": [],
+            "imagick": null,
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.6.0RC7",
+            "driver": "imagick",
+            "upgrade": false,
+            "passed": 31,
+            "failed": [],
+            "imagick": "@PACKAGE_VERSION@",
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.6.0RC7",
+            "driver": "imagick",
+            "upgrade": true,
+            "passed": 45,
+            "failed": [],
+            "imagick": "@PACKAGE_VERSION@",
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.6.0RC7",
+            "driver": "none",
+            "upgrade": false,
+            "passed": 26,
+            "failed": [],
+            "imagick": null,
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        },
+        {
+            "php": "8.6.0RC7",
+            "driver": "none",
+            "upgrade": true,
+            "passed": 40,
+            "failed": [],
+            "imagick": null,
+            "framework_spatie_packages": [
+                "spatie/once"
+            ]
+        }
+    ],
+    "changed_production_sha256": {
+        "src/Builders/sGalleryBuilder.php": "d39e54e8da7de42bde0d6fb7f9b928911ebfff9e329daf636fc4e2e76c2c6761",
+        "src/Services/ImageOptimizationQueue.php": "9d59b541d3d23c15948ccdf01eb02b3d543a930e779064118cd6629ee1d5c3b7"
+    },
+    "accepted": true
+}

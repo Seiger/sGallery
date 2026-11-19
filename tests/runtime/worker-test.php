@@ -244,19 +244,23 @@ try {
     file_put_contents($root . 'assets/source.png', $png);
     touch($root . 'assets/source.png', $sourceMtime);
 
-    foreach (['crop', 'manual', 'focal', 'optimize'] as $mode) {
+    foreach (['crop', 'manual', 'focal', 'optimize', 'fractional'] as $mode) {
         $image = (new sGalleryBuilder())->file('assets/source.png')->format('png')->quality(83);
         $image = match ($mode) {
             'crop' => $image->crop('bottomRight', 20, 16)->sharpen(5)->watermark('assets/mark.png'),
             'manual' => $image->manualCrop(20, 16, 7, 4),
             'focal' => $image->focalCrop(20, 16, 35, 21),
             'optimize' => $image->optimize(),
+            'fractional' => $image->fit('max', 21, 21)->sharpen(37.5),
         };
         $meta = $descriptor->invoke($image, 'png');
         $queued = $service->create(ImageOptimizationQueue::IDENTIFIER, 'optimize', $meta);
         $check($runner->handle() === TaskWorker::SUCCESS, "Runner replays $mode parameters");
         $queued->refresh();
         $front = $image->getFile();
+        if ($mode === 'fractional') {
+            $check($queued->meta['params']['sharpen'] === 37.5, 'JSON persistence and worker replay preserve fractional sharpening');
+        }
         $check($queued->status === sTaskModel::TASK_STATUS_FINISHED && $front === $queued->result && (getimagesize($path($queued->result))[2] ?? null) === IMAGETYPE_PNG,
             "Queued $mode keeps the same derivative identity as the frontend");
     }

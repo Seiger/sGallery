@@ -14,6 +14,16 @@ class ImageOptimizationQueue
 {
     public const IDENTIFIER = 'sgallery.image-optimization';
 
+    /**
+     * Match the JSON representation sTask stores before it strictly compares active metadata.
+     * Integral floats become integers; fractional values, booleans and numeric strings retain their types.
+     * @since 1.9.0
+     */
+    public static function normalizeDescriptor(array $job): array
+    {
+        return json_decode(json_encode($job, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+    }
+
     /** Check required runtime contracts and recent runner invocation. @since 1.6.0 */
     public function available(): bool
     {
@@ -64,6 +74,7 @@ class ImageOptimizationQueue
         }
         $lock = null;
         try {
+            $job = self::normalizeDescriptor($job);
             $prefix = $this->prefix($job);
             $directory = dirname($prefix);
             if (!is_dir($directory) && !@mkdir($directory, 0775, true) && !is_dir($directory)) {

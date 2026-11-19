@@ -2,7 +2,7 @@
 
 Task 12 also has a [real-installation acceptance suite](../acceptance/README.md)
 for clean CMS installations, upgrades from 1.8.1 and the PHP/driver matrix.
-Its integration gate currently fails; see the [recorded results](../../docs/testing/native-image-acceptance-2026-11.md).
+The final local matrix after fixes 12-A–12-D passes; see the [recorded results](../../docs/testing/native-image-acceptance-2026-11.md), including the earlier rejected snapshot.
 
 Run each `*-test.php` with `PACKAGE_AUTOLOAD` pointing at an installed Evolution CMS 3.6.x `core/vendor/autoload.php`. The test bootstrap loads this package from the checkout ahead of any consumer classmap. Fixtures use isolated SQLite databases and temporary files; no site database is used. The CI matrix executes PHP 8.4 and 8.5.
 
@@ -23,6 +23,14 @@ The stale worker must fail without leaving its result or harming either earlier
 valid caches or the newer revision. Frontend races return the current original.
 `worker-test.php` also runs a stale hashed job followed by a current job through
 the real sTask runner and checks failure isolation and cache identity.
+
+`queue-dedup-test.php` uses real sTask models and an isolated SQLite database to
+check gallery descriptors after JSON persistence. It covers default/integral
+sharpening, preserved fractional strengths, reordered keys, earlier active rows,
+queued/preparing/running states, attempts/progress preservation, finished/failed
+records and retry cooldowns. It also exercises `defer()` with earlier integral
+float descriptors. Only known PHP 8.6 deprecations from Illuminate's `mb_split()`
+and Carbon's `spl_object_hash()` are recorded separately; other warnings stay strict.
 
 `crop-test.php` checks the nine crop positions, manual and focal coordinates, edge clipping and pixel transparency. It also checks that equal-sized native manual crops from different coordinates have separate cache entries.
 

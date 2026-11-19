@@ -959,7 +959,7 @@ class sGalleryBuilder
     }
 
     /**
-     * Build a scalar descriptor for a local source and the resolved output format.
+     * Build a JSON-stable scalar descriptor for the source and resolved output format.
      *
      * Source metadata separates replaced files from old pending jobs. Remote inputs
      * are not queued because their identity and availability cannot be verified here.
@@ -983,9 +983,9 @@ class sGalleryBuilder
         unset($value);
         ksort($params);
         clearstatcache();
-        return ['file' => $this->file, 'params' => $params, 'quality' => $this->quality,
+        return ImageOptimizationQueue::normalizeDescriptor(['file' => $this->file, 'params' => $params, 'quality' => $this->quality,
             'quality_explicit' => $this->qualityExplicit,
-            'source_version' => $sourceVersion ?? ImageSource::version(EVO_BASE_PATH . $this->file)];
+            'source_version' => $sourceVersion ?? ImageSource::version(EVO_BASE_PATH . $this->file)]);
     }
 
     /** Reject a replaced source at the publication boundary for either image backend. @since 1.9.0 */

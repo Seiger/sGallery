@@ -1,7 +1,8 @@
 # Native installation and upgrade acceptance
 
 This suite boots real Evolution CMS installations. It is separate from the
-isolated runtime scripts and currently reports an **unaccepted** task 12.
+isolated runtime scripts. The final local matrix after fixes 12-A–12-D is **accepted**;
+the initial rejected snapshot is retained for comparison.
 See [the Ukrainian report](../../docs/testing/native-image-acceptance-2026-11.md).
 
 Use disposable Linux containers and a named volume mounted at `/lab`. Mount this
@@ -98,7 +99,18 @@ php /pkg/tests/acceptance/summarize.php
 
 Each command runs in its respective PHP image. Use unique labels on retries.
 `summarize.php` selects the three `phpXX-acceptance` labels for the final site
-results. `SGALLERY_SITE_ONLY=1` reruns the integration gate without repeating
+and runtime results. To summarize another run without including earlier retries
+from different runs, pass its suffix and source revision explicitly:
+
+```sh
+php /pkg/tests/acceptance/summarize.php 12d-final 0ba7f8a+12d-working
+```
+
+This reads `php84-12d-final`, `php85-12d-final` and `php86-12d-final`, uses the
+last status per test, and writes `summary-12d-final.json`. The revision identifies
+the base commit plus uncommitted changes; the two changed production files are
+also fingerprinted. The default baseline summary is not overwritten.
+`SGALLERY_SITE_ONLY=1` reruns the integration gate without repeating
 the runtime scripts. Failed scripts can be rerun in the same profile and their
 new status appended to `status.tsv`; the summary uses the last result per key.
 
@@ -116,5 +128,6 @@ and following tasks must still be processed. Original images remain unchanged.
 After changing package code, refresh the copied package in both current sites
 with `composer reinstall seiger/sgallery --no-scripts --no-interaction` before
 taking new snapshots. The path repositories deliberately use copies, not links
-to the working checkout. Update the recorded revision metadata in `summarize.php`
-when producing a report for another commit.
+to the working checkout. Pass the matching revision to `summarize.php` when
+producing a report for another commit. The final result is checked in as
+[the 12-D acceptance summary](../../docs/testing/native-image-acceptance-12d-2026-11.json).
