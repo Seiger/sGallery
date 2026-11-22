@@ -43,7 +43,6 @@ Record image digests and `capabilities.php` output when reproducing the matrix.
 The 1.9.0 release preparation uses PHP 8.4.28 and 8.5.13 for fresh Composer
 installs. The framework's advisory constraints reject the older 8.4.27/8.5.10
 images used in the historical task 12 report. Keep those constraints enabled.
-See [the release validation report](../../docs/releases/1.9.0-readiness-2026-11-22.md).
 
 ## Installation and upgrade fixtures
 

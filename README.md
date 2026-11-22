@@ -14,8 +14,6 @@ them in the manager and generate image derivatives through a fluent PHP Builder.
 GD and Imagick provide native processing when the optional Spatie Image package
 is absent. Existing Spatie installations keep their transformation path in 1.x.
 
-[1.9.0 release notes and upgrade instructions](docs/releases/1.9.0.md)
-
 ## Features
 
 - [x] Image and Video Attachment.
