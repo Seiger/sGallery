@@ -9,9 +9,8 @@ function evo() {return new class { public function hasPermission($p) {return $GL
 function csrf_token(){return 'csrf-fixture';}
 function route($name) {return '/sgallery/' . $name;}
 function response() {return new class {public function json($data,$status=200){return new \Illuminate\Http\JsonResponse($data,$status);} };}
-$loader = require getenv('SGALLERY_AUTOLOAD');
+require __DIR__ . '/bootstrap.php';
 class_alias(\Illuminate\Support\Facades\View::class, 'View');
-$loader->setPsr4('Seiger\\sGallery\\', dirname(__DIR__) . '/src');
 $container = new \Illuminate\Container\Container(); \Illuminate\Support\Facades\Facade::setFacadeApplication($container);
 $capsule = new \Illuminate\Database\Capsule\Manager($container);
 $capsule->addConnection(['driver'=>'sqlite','database'=>':memory:','prefix'=>'']);$capsule->setAsGlobal();$capsule->bootEloquent();

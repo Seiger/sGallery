@@ -1,1 +1,2 @@
 tests/acceptance/*.sh text eol=lf
+tests/ci/*.sh text eol=lf

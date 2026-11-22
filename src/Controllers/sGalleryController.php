@@ -343,7 +343,7 @@ class sGalleryController
             Log::error('Could not clean up a detached gallery file.');
         }
 
-        return response()->json(['success' => 1, 'message' => __('sGallery::manager.deleted_successfully')]);
+        return response()->json(['success' => 1, 'message' => __('sGallery::manager.deleted')]);
     }
 
     /**

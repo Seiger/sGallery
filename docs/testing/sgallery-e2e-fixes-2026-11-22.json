@@ -1,0 +1,597 @@
+{
+  "date": "2026-11-22",
+  "base_commit": "d425a36f113b2ce5a897386e62fed94ab787ab61",
+  "revision": "d425a36+working-gallery-fixes",
+  "evolution": "3.5.9",
+  "volume": "sgallery-e2e-20261122-d425a36",
+  "production_sha256": {
+    "database/migrations/2022_05_15_185152_create_s_gallery_table.php": "d1f16d57ca76cbde2cca37324e95c7380f5781c2bcef822b421dbc670f8ad18b",
+    "database/migrations/2024_04_18_115416_add_block_column_to_s_galleries.php": "82c0a4cc17b13e7ab45fc8731c36cff5325820eba68f61f366b299e1f18e0f0b",
+    "database/migrations/2024_05_09_155805_rename_resource_type_column_in_s_galleries.php": "7b599bf5f5b10da27be96a6846f782b6e0f982b1d1f8e5b7ee11b9bbe1bf1f57",
+    "src/Services/GalleryMigration.php": "4a5ebc4d4d3b2b05f2e2f0dd8a42790411f4266181d3b5962a4a824295076e94",
+    "src/Controllers/sGalleryController.php": "e2e490d6c4cc56e57ea7d15ec3e0dec6b506a8cd5646fc83a395a9f2b1f3a536",
+    "views/partials/scripts.blade.php": "6caaeccbb84e447dc6be0a150663c32896e8ee1c1c63fdcc90a7c6da0849d509",
+    "lang/ru/manager.php": "9be098ae3e1d7e87f5c35d7e2bc3f4e620afa45849a74bae1838feb74dfb2d30"
+  },
+  "runtime": [
+    {
+      "php": "8.4.28",
+      "backend": "native",
+      "scripts": 29,
+      "exit": 0,
+      "log": "sgallery-fix190-php84-clean-runtime.log"
+    },
+    {
+      "php": "8.4.28",
+      "backend": "spatie",
+      "scripts": 31,
+      "exit": 0,
+      "log": "sgallery-fix190-php84-spatie-runtime.log"
+    },
+    {
+      "php": "8.5.13",
+      "backend": "native",
+      "scripts": 29,
+      "exit": 0,
+      "log": "sgallery-fix190-php85-clean-runtime.log"
+    },
+    {
+      "php": "8.5.13",
+      "backend": "spatie",
+      "scripts": 31,
+      "exit": 0,
+      "log": "sgallery-fix190-php85-spatie-runtime.log"
+    },
+    {
+      "php": "8.6.0",
+      "backend": "native",
+      "scripts": 29,
+      "exit": 0,
+      "log": "sgallery-fix190-php86-clean-runtime.log"
+    },
+    {
+      "php": "8.6.0",
+      "backend": "spatie",
+      "scripts": 31,
+      "exit": 0,
+      "log": "sgallery-fix190-php86-spatie-runtime.log"
+    }
+  ],
+  "runtime_runs": 180,
+  "migration_checks": [
+    {
+      "php": "8.4.28",
+      "site": "/lab/cases/fix190-php84-clean",
+      "commands": [
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate:rollback",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        }
+      ],
+      "registered": [
+        "2022_05_15_185152_create_s_gallery_table",
+        "2024_04_18_115416_add_block_column_to_s_galleries",
+        "2024_05_09_155805_rename_resource_type_column_in_s_galleries"
+      ],
+      "data_preserved": true,
+      "assets_preserved": 449,
+      "spatie": false
+    },
+    {
+      "php": "8.4.28",
+      "site": "/lab/cases/fix190-php84-spatie",
+      "commands": [
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate:rollback",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        }
+      ],
+      "registered": [
+        "2022_05_15_185152_create_s_gallery_table",
+        "2024_04_18_115416_add_block_column_to_s_galleries",
+        "2024_05_09_155805_rename_resource_type_column_in_s_galleries"
+      ],
+      "data_preserved": true,
+      "assets_preserved": 454,
+      "spatie": true
+    },
+    {
+      "php": "8.4.28",
+      "site": "/lab/cases/fix190-php84-upgrade",
+      "commands": [
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate:rollback",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        }
+      ],
+      "registered": [
+        "2022_05_15_185152_create_s_gallery_table",
+        "2024_04_18_115416_add_block_column_to_s_galleries",
+        "2024_05_09_155805_rename_resource_type_column_in_s_galleries"
+      ],
+      "data_preserved": true,
+      "assets_preserved": 460,
+      "spatie": false
+    },
+    {
+      "php": "8.5.13",
+      "site": "/lab/cases/fix190-php85-clean",
+      "commands": [
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate:rollback",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        }
+      ],
+      "registered": [
+        "2022_05_15_185152_create_s_gallery_table",
+        "2024_04_18_115416_add_block_column_to_s_galleries",
+        "2024_05_09_155805_rename_resource_type_column_in_s_galleries"
+      ],
+      "data_preserved": true,
+      "assets_preserved": 449,
+      "spatie": false
+    },
+    {
+      "php": "8.5.13",
+      "site": "/lab/cases/fix190-php85-spatie",
+      "commands": [
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate:rollback",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        }
+      ],
+      "registered": [
+        "2022_05_15_185152_create_s_gallery_table",
+        "2024_04_18_115416_add_block_column_to_s_galleries",
+        "2024_05_09_155805_rename_resource_type_column_in_s_galleries"
+      ],
+      "data_preserved": true,
+      "assets_preserved": 454,
+      "spatie": true
+    },
+    {
+      "php": "8.5.13",
+      "site": "/lab/cases/fix190-php85-upgrade",
+      "commands": [
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate:rollback",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        }
+      ],
+      "registered": [
+        "2022_05_15_185152_create_s_gallery_table",
+        "2024_04_18_115416_add_block_column_to_s_galleries",
+        "2024_05_09_155805_rename_resource_type_column_in_s_galleries"
+      ],
+      "data_preserved": true,
+      "assets_preserved": 460,
+      "spatie": false
+    },
+    {
+      "php": "8.6.0",
+      "site": "/lab/cases/fix190-php86-clean",
+      "commands": [
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate:rollback",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        }
+      ],
+      "registered": [
+        "2022_05_15_185152_create_s_gallery_table",
+        "2024_04_18_115416_add_block_column_to_s_galleries",
+        "2024_05_09_155805_rename_resource_type_column_in_s_galleries"
+      ],
+      "data_preserved": true,
+      "assets_preserved": 449,
+      "spatie": false
+    },
+    {
+      "php": "8.6.0",
+      "site": "/lab/cases/fix190-php86-spatie",
+      "commands": [
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate:rollback",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        }
+      ],
+      "registered": [
+        "2022_05_15_185152_create_s_gallery_table",
+        "2024_04_18_115416_add_block_column_to_s_galleries",
+        "2024_05_09_155805_rename_resource_type_column_in_s_galleries"
+      ],
+      "data_preserved": true,
+      "assets_preserved": 454,
+      "spatie": true
+    },
+    {
+      "php": "8.6.0",
+      "site": "/lab/cases/fix190-php86-upgrade",
+      "commands": [
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate:rollback",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        },
+        {
+          "command": "migrate",
+          "exit": 0
+        }
+      ],
+      "registered": [
+        "2022_05_15_185152_create_s_gallery_table",
+        "2024_04_18_115416_add_block_column_to_s_galleries",
+        "2024_05_09_155805_rename_resource_type_column_in_s_galleries"
+      ],
+      "data_preserved": true,
+      "assets_preserved": 460,
+      "spatie": false
+    }
+  ],
+  "migration_cells": 9,
+  "targeted_commands": 45,
+  "resolved": [
+    "E2E-02 sGallery migrations",
+    "E2E-03 uploads without manager shell",
+    "E2E-04 delete translation"
+  ],
+  "sgallery_fix_checks_passed": true,
+  "release_gate_passed": false,
+  "remaining_external": [
+    "Evolution CMS 3.5.9 Pest/ParaTest resolution on PHP 8.6",
+    "sTask migration recreates installer-owned s_workers",
+    "CMS 3.5.9 document_onunload references missing top.mainMenu in standalone forms; recorded separately"
+  ],
+  "browser": [
+    {
+      "profile": "84native",
+      "baseUrl": "http://127.0.0.1:18094",
+      "results": [
+        {
+          "shell": true,
+          "imageUpload": 200,
+          "downloadUpload": 200,
+          "invalidImage": 422,
+          "emptySelection": true,
+          "loaderHidden": true,
+          "deleteMessage": "Видалено",
+          "originalRemoved": true,
+          "galleryPreserved": true
+        },
+        {
+          "shell": false,
+          "imageUpload": 200,
+          "downloadUpload": 200,
+          "invalidImage": 422,
+          "emptySelection": true,
+          "loaderHidden": true,
+          "deleteMessage": "Видалено",
+          "originalRemoved": true,
+          "galleryPreserved": true
+        }
+      ],
+      "pageErrors": [],
+      "coreUnloadNotices": [
+        {
+          "message": "Cannot read properties of undefined (reading 'work')",
+          "stack": "TypeError: Cannot read properties of undefined (reading 'work')\n    at document_onunload (http://127.0.0.1:18094/manager/media/script/main.js:426:18)\n    at http://127.0.0.1:18094/manager/media/script/main.js:488:9"
+        }
+      ]
+    },
+    {
+      "profile": "84spatie",
+      "baseUrl": "http://127.0.0.1:18093",
+      "results": [
+        {
+          "shell": true,
+          "imageUpload": 200,
+          "downloadUpload": 200,
+          "invalidImage": 422,
+          "emptySelection": true,
+          "loaderHidden": true,
+          "deleteMessage": "Видалено",
+          "originalRemoved": true,
+          "galleryPreserved": true
+        },
+        {
+          "shell": false,
+          "imageUpload": 200,
+          "downloadUpload": 200,
+          "invalidImage": 422,
+          "emptySelection": true,
+          "loaderHidden": true,
+          "deleteMessage": "Видалено",
+          "originalRemoved": true,
+          "galleryPreserved": true
+        }
+      ],
+      "pageErrors": [],
+      "coreUnloadNotices": [
+        {
+          "message": "Cannot read properties of undefined (reading 'work')",
+          "stack": "TypeError: Cannot read properties of undefined (reading 'work')\n    at document_onunload (http://127.0.0.1:18093/manager/media/script/main.js:426:18)\n    at http://127.0.0.1:18093/manager/media/script/main.js:488:9"
+        }
+      ]
+    },
+    {
+      "profile": "85native",
+      "baseUrl": "http://127.0.0.1:18096",
+      "results": [
+        {
+          "shell": true,
+          "imageUpload": 200,
+          "downloadUpload": 200,
+          "invalidImage": 422,
+          "emptySelection": true,
+          "loaderHidden": true,
+          "deleteMessage": "Видалено",
+          "originalRemoved": true,
+          "galleryPreserved": true
+        },
+        {
+          "shell": false,
+          "imageUpload": 200,
+          "downloadUpload": 200,
+          "invalidImage": 422,
+          "emptySelection": true,
+          "loaderHidden": true,
+          "deleteMessage": "Видалено",
+          "originalRemoved": true,
+          "galleryPreserved": true
+        }
+      ],
+      "pageErrors": [],
+      "coreUnloadNotices": [
+        {
+          "message": "Cannot read properties of undefined (reading 'work')",
+          "stack": "TypeError: Cannot read properties of undefined (reading 'work')\n    at document_onunload (http://127.0.0.1:18096/manager/media/script/main.js:426:18)\n    at http://127.0.0.1:18096/manager/media/script/main.js:488:9"
+        }
+      ]
+    },
+    {
+      "profile": "85spatie",
+      "baseUrl": "http://127.0.0.1:18095",
+      "results": [
+        {
+          "shell": true,
+          "imageUpload": 200,
+          "downloadUpload": 200,
+          "invalidImage": 422,
+          "emptySelection": true,
+          "loaderHidden": true,
+          "deleteMessage": "Видалено",
+          "originalRemoved": true,
+          "galleryPreserved": true
+        },
+        {
+          "shell": false,
+          "imageUpload": 200,
+          "downloadUpload": 200,
+          "invalidImage": 422,
+          "emptySelection": true,
+          "loaderHidden": true,
+          "deleteMessage": "Видалено",
+          "originalRemoved": true,
+          "galleryPreserved": true
+        }
+      ],
+      "pageErrors": [],
+      "coreUnloadNotices": [
+        {
+          "message": "Cannot read properties of undefined (reading 'work')",
+          "stack": "TypeError: Cannot read properties of undefined (reading 'work')\n    at document_onunload (http://127.0.0.1:18095/manager/media/script/main.js:426:18)\n    at http://127.0.0.1:18095/manager/media/script/main.js:488:9"
+        }
+      ]
+    },
+    {
+      "profile": "86native",
+      "baseUrl": "http://127.0.0.1:18090",
+      "results": [
+        {
+          "shell": true,
+          "imageUpload": 200,
+          "downloadUpload": 200,
+          "invalidImage": 422,
+          "emptySelection": true,
+          "loaderHidden": true,
+          "deleteMessage": "Видалено",
+          "originalRemoved": true,
+          "galleryPreserved": true
+        },
+        {
+          "shell": false,
+          "imageUpload": 200,
+          "downloadUpload": 200,
+          "invalidImage": 422,
+          "emptySelection": true,
+          "loaderHidden": true,
+          "deleteMessage": "Видалено",
+          "originalRemoved": true,
+          "galleryPreserved": true
+        }
+      ],
+      "pageErrors": [],
+      "coreUnloadNotices": [
+        {
+          "message": "Cannot read properties of undefined (reading 'work')",
+          "stack": "TypeError: Cannot read properties of undefined (reading 'work')\n    at document_onunload (http://127.0.0.1:18090/manager/media/script/main.js:426:18)\n    at http://127.0.0.1:18090/manager/media/script/main.js:488:9"
+        }
+      ]
+    },
+    {
+      "profile": "86spatie",
+      "baseUrl": "http://127.0.0.1:18091",
+      "results": [
+        {
+          "shell": true,
+          "imageUpload": 200,
+          "downloadUpload": 200,
+          "invalidImage": 422,
+          "emptySelection": true,
+          "loaderHidden": true,
+          "deleteMessage": "Видалено",
+          "originalRemoved": true,
+          "galleryPreserved": true
+        },
+        {
+          "shell": false,
+          "imageUpload": 200,
+          "downloadUpload": 200,
+          "invalidImage": 422,
+          "emptySelection": true,
+          "loaderHidden": true,
+          "deleteMessage": "Видалено",
+          "originalRemoved": true,
+          "galleryPreserved": true
+        }
+      ],
+      "pageErrors": [],
+      "coreUnloadNotices": [
+        {
+          "message": "Cannot read properties of undefined (reading 'work')",
+          "stack": "TypeError: Cannot read properties of undefined (reading 'work')\n    at document_onunload (http://127.0.0.1:18091/manager/media/script/main.js:426:18)\n    at http://127.0.0.1:18091/manager/media/script/main.js:488:9"
+        }
+      ]
+    }
+  ],
+  "browser_contexts": 12,
+  "audit_lint_php_jobs": 3
+}

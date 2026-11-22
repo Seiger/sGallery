@@ -1,4 +1,4 @@
-ARG BASE=php:8.5.10-cli
+ARG BASE=php:8.5.13-cli
 FROM ${BASE}
 ARG IMAGICK_REF=3.8.1
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \

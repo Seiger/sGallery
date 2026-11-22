@@ -5,6 +5,17 @@ isolated runtime scripts. The final local matrix after fixes 12-A–12-D is **ac
 the initial rejected snapshot is retained for comparison.
 See [the Ukrainian report](../../docs/testing/native-image-acceptance-2026-11.md).
 
+The subsequent [fresh-install and browser validation](../../docs/testing/sgallery-e2e-3.5.9-2026-11-22.md)
+passed the image/runtime matrix and reported Composer, migration and direct-window
+upload findings. Their latest status is recorded below.
+
+The [follow-up validation](../../docs/testing/sgallery-e2e-fixes-2026-11-22.md)
+closes the sGallery migration, upload and translation findings; CMS/sTask issues
+remain separate. `manager-regressions.mjs` exports `runManagerRegressions(browser,
+{baseUrl, username, password, documentId})` for a caller-supplied Playwright browser
+and disposable manager session. It tests media/download handlers in the shell and
+a standalone resource form. No Node dependencies are installed into this package.
+
 Use disposable Linux containers and a named volume mounted at `/lab`. Mount this
 checkout at `/pkg` and the tested sTask checkout at `/stask`, both read-only.
 Never mount an existing site's database or configuration into `/lab`.
@@ -16,16 +27,23 @@ The Dockerfile builds GD and Imagick. `with-driver.sh` selects `both`, `gd`,
 verified by `capabilities.php`; PHP's other extensions remain enabled.
 
 ```sh
-docker build -f tests/acceptance/Dockerfile --build-arg BASE=php:8.4.27-cli -t sgallery-acceptance-php84:local .
-docker build -f tests/acceptance/Dockerfile --build-arg BASE=php:8.5.10-cli -t sgallery-acceptance-php85:local .
-docker build -f tests/acceptance/Dockerfile --build-arg BASE=php:8.6-rc-cli --build-arg IMAGICK_REF=55ed2e9fda264395636a2e27e51f31673f5566ab -t sgallery-acceptance-php86:local .
+docker build -f tests/acceptance/Dockerfile --build-arg BASE=php:8.4.28-cli -t sgallery-acceptance-php84:local .
+docker build -f tests/acceptance/Dockerfile --build-arg BASE=php:8.5.13-cli -t sgallery-acceptance-php85:local .
+docker build -f tests/acceptance/Dockerfile --build-arg BASE=php:8.6.0-cli --build-arg IMAGICK_REF=55ed2e9fda264395636a2e27e51f31673f5566ab -t sgallery-release-php86:local .
 ```
 
 The recorded 8.4 run used the existing local ImageMagick build with JPEG XL.
 The Dockerfile's distribution library may have fewer codecs; unavailable codecs
-must retain originals. PHP 8.6 RC7 was tested with the pinned upstream Imagick
-commit because PECL 3.8.1 failed to compile against its API. Record image digests
-and `capabilities.php` output when reproducing the matrix.
+must retain originals. The current PHP 8.6 target is the stable 8.6.0 release,
+using the pinned upstream Imagick commit. The historical task 12 report used
+RC7 with that commit because PECL 3.8.1 failed to compile against its API.
+The same PECL build failure was reproduced on stable 8.6.0 during release validation.
+Record image digests and `capabilities.php` output when reproducing the matrix.
+
+The 1.9.0 release preparation uses PHP 8.4.28 and 8.5.13 for fresh Composer
+installs. The framework's advisory constraints reject the older 8.4.27/8.5.10
+images used in the historical task 12 report. Keep those constraints enabled.
+See [the release validation report](../../docs/releases/1.9.0-readiness-2026-11-22.md).
 
 ## Installation and upgrade fixtures
 

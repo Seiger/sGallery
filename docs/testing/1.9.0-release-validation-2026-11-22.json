@@ -1,0 +1,334 @@
+{
+  "date": "2026-11-22",
+  "base_commit": "d425a36f113b2ce5a897386e62fed94ab787ab61",
+  "production_tree": "e026275d76226cae61fedc463732f98f1333c87f",
+  "scope": "Uncommitted CI, test harness and release documentation; production sources and package requirements unchanged",
+  "evolution": "3.5.9",
+  "stask_commit": "6355cf293422d43885d803cdd43637c0896f63cd",
+  "composer": "2.10.2",
+  "images": [
+    {
+      "name": "sgallery-release-php84:local",
+      "id": "sha256:a819ee876722904cbe571de701f6615c59ed218162f4c3e5989ad8ae70700668"
+    },
+    {
+      "name": "sgallery-release-php85:local",
+      "id": "sha256:7fb48cdce73064837b96f30249051414a66dfc6b84da9e5e069e9ffbde58d787"
+    },
+    {
+      "name": "sgallery-release-php86:local",
+      "id": "sha256:98959dc45536c7273b31e669a63e425be811fa2768dc93d6ec2018178ce5bfee"
+    }
+  ],
+  "imagick_php86_ref": "55ed2e9fda264395636a2e27e51f31673f5566ab",
+  "runtime": [
+    {
+      "php": "8.4.28",
+      "backend": "spatie",
+      "driver": "both",
+      "scripts": 29,
+      "passed": true,
+      "log": "sgallery-190-84-spatie.log"
+    },
+    {
+      "php": "8.4.28",
+      "backend": "native",
+      "driver": "both",
+      "scripts": 27,
+      "passed": true,
+      "log": "sgallery-190-84-native.log"
+    },
+    {
+      "php": "8.5.13",
+      "backend": "spatie",
+      "driver": "both",
+      "scripts": 29,
+      "passed": true,
+      "log": "sgallery-190-85-spatie.log"
+    },
+    {
+      "php": "8.5.13",
+      "backend": "native",
+      "driver": "both",
+      "scripts": 27,
+      "passed": true,
+      "log": "sgallery-190-85-native.log"
+    },
+    {
+      "php": "8.6.0",
+      "backend": "spatie",
+      "driver": "gd",
+      "scripts": 29,
+      "passed": true,
+      "log": "sgallery-190-86-stable-spatie-gd.log"
+    },
+    {
+      "php": "8.6.0",
+      "backend": "native",
+      "driver": "gd",
+      "scripts": 27,
+      "passed": true,
+      "log": "sgallery-190-86-stable-native-gd.log"
+    }
+  ],
+  "runtime_script_runs": 168,
+  "without_exif_runs": 6,
+  "standalone_php_jobs": 3,
+  "standalone_driver_profiles": [
+    "gd",
+    "both"
+  ],
+  "installation_cells": 24,
+  "installation_assertions": 882,
+  "site_checks": [
+    {
+      "label": "php84-release190-both-clean",
+      "php": "8.4.28",
+      "driver": "both",
+      "upgrade": false,
+      "passed": 31,
+      "failed": [],
+      "imagick": "3.8.1"
+    },
+    {
+      "label": "php84-release190-both-upgrade",
+      "php": "8.4.28",
+      "driver": "both",
+      "upgrade": true,
+      "passed": 45,
+      "failed": [],
+      "imagick": "3.8.1"
+    },
+    {
+      "label": "php84-release190-gd-clean",
+      "php": "8.4.28",
+      "driver": "gd",
+      "upgrade": false,
+      "passed": 31,
+      "failed": [],
+      "imagick": null
+    },
+    {
+      "label": "php84-release190-gd-upgrade",
+      "php": "8.4.28",
+      "driver": "gd",
+      "upgrade": true,
+      "passed": 45,
+      "failed": [],
+      "imagick": null
+    },
+    {
+      "label": "php84-release190-imagick-clean",
+      "php": "8.4.28",
+      "driver": "imagick",
+      "upgrade": false,
+      "passed": 31,
+      "failed": [],
+      "imagick": "3.8.1"
+    },
+    {
+      "label": "php84-release190-imagick-upgrade",
+      "php": "8.4.28",
+      "driver": "imagick",
+      "upgrade": true,
+      "passed": 45,
+      "failed": [],
+      "imagick": "3.8.1"
+    },
+    {
+      "label": "php84-release190-none-clean",
+      "php": "8.4.28",
+      "driver": "none",
+      "upgrade": false,
+      "passed": 26,
+      "failed": [],
+      "imagick": null
+    },
+    {
+      "label": "php84-release190-none-upgrade",
+      "php": "8.4.28",
+      "driver": "none",
+      "upgrade": true,
+      "passed": 40,
+      "failed": [],
+      "imagick": null
+    },
+    {
+      "label": "php85-release190-both-clean",
+      "php": "8.5.13",
+      "driver": "both",
+      "upgrade": false,
+      "passed": 31,
+      "failed": [],
+      "imagick": "3.8.1"
+    },
+    {
+      "label": "php85-release190-both-upgrade",
+      "php": "8.5.13",
+      "driver": "both",
+      "upgrade": true,
+      "passed": 45,
+      "failed": [],
+      "imagick": "3.8.1"
+    },
+    {
+      "label": "php85-release190-gd-clean",
+      "php": "8.5.13",
+      "driver": "gd",
+      "upgrade": false,
+      "passed": 31,
+      "failed": [],
+      "imagick": null
+    },
+    {
+      "label": "php85-release190-gd-upgrade",
+      "php": "8.5.13",
+      "driver": "gd",
+      "upgrade": true,
+      "passed": 45,
+      "failed": [],
+      "imagick": null
+    },
+    {
+      "label": "php85-release190-imagick-clean",
+      "php": "8.5.13",
+      "driver": "imagick",
+      "upgrade": false,
+      "passed": 31,
+      "failed": [],
+      "imagick": "3.8.1"
+    },
+    {
+      "label": "php85-release190-imagick-upgrade",
+      "php": "8.5.13",
+      "driver": "imagick",
+      "upgrade": true,
+      "passed": 45,
+      "failed": [],
+      "imagick": "3.8.1"
+    },
+    {
+      "label": "php85-release190-none-clean",
+      "php": "8.5.13",
+      "driver": "none",
+      "upgrade": false,
+      "passed": 26,
+      "failed": [],
+      "imagick": null
+    },
+    {
+      "label": "php85-release190-none-upgrade",
+      "php": "8.5.13",
+      "driver": "none",
+      "upgrade": true,
+      "passed": 40,
+      "failed": [],
+      "imagick": null
+    },
+    {
+      "label": "php86-release190-stable-both-clean",
+      "php": "8.6.0",
+      "driver": "both",
+      "upgrade": false,
+      "passed": 31,
+      "failed": [],
+      "imagick": "@PACKAGE_VERSION@"
+    },
+    {
+      "label": "php86-release190-stable-both-upgrade",
+      "php": "8.6.0",
+      "driver": "both",
+      "upgrade": true,
+      "passed": 45,
+      "failed": [],
+      "imagick": "@PACKAGE_VERSION@"
+    },
+    {
+      "label": "php86-release190-stable-gd-clean",
+      "php": "8.6.0",
+      "driver": "gd",
+      "upgrade": false,
+      "passed": 31,
+      "failed": [],
+      "imagick": null
+    },
+    {
+      "label": "php86-release190-stable-gd-upgrade",
+      "php": "8.6.0",
+      "driver": "gd",
+      "upgrade": true,
+      "passed": 45,
+      "failed": [],
+      "imagick": null
+    },
+    {
+      "label": "php86-release190-stable-imagick-clean",
+      "php": "8.6.0",
+      "driver": "imagick",
+      "upgrade": false,
+      "passed": 31,
+      "failed": [],
+      "imagick": "@PACKAGE_VERSION@"
+    },
+    {
+      "label": "php86-release190-stable-imagick-upgrade",
+      "php": "8.6.0",
+      "driver": "imagick",
+      "upgrade": true,
+      "passed": 45,
+      "failed": [],
+      "imagick": "@PACKAGE_VERSION@"
+    },
+    {
+      "label": "php86-release190-stable-none-clean",
+      "php": "8.6.0",
+      "driver": "none",
+      "upgrade": false,
+      "passed": 26,
+      "failed": [],
+      "imagick": null
+    },
+    {
+      "label": "php86-release190-stable-none-upgrade",
+      "php": "8.6.0",
+      "driver": "none",
+      "upgrade": true,
+      "passed": 40,
+      "failed": [],
+      "imagick": null
+    }
+  ],
+  "local_validation_passed": true,
+  "remote_ci_for_working_changes": "not_run",
+  "limitations": [
+    "Known Illuminate/Carbon/Composer PHP 8.6 deprecations remain in dependencies",
+    "Real-installation snapshots reuse isolated task 12 base data and dependencies; new CI Composer fixtures were installed separately",
+    "Unavailable codecs explicitly exercise original-file fallback",
+    "Production sites were not tested",
+    "PHP 8.6 results cover stable 8.6.0 and the recorded codec builds"
+  ],
+  "runtime_driver_controls": [
+    {
+      "php": "8.6.0",
+      "backend": "spatie",
+      "driver": "both",
+      "scripts": 29,
+      "passed": true,
+      "log": "sgallery-190-86-stable-spatie-both.log"
+    },
+    {
+      "php": "8.6.0",
+      "backend": "native",
+      "driver": "both",
+      "scripts": 27,
+      "passed": true,
+      "log": "sgallery-190-86-stable-native-both.log"
+    }
+  ],
+  "runtime_driver_control_runs": 56,
+  "php86_release": "https://www.php.net/releases/8.6/en.php",
+  "php86_base_image": "php:8.6.0-cli@sha256:d84acf3155d907afaa5afa9b9457c5f12016b6dc7ade84659f40cdc505cc087d",
+  "imagick_pecl_381_php86": "Compilation fails on stable PHP 8.6.0; tests use the pinned upstream commit",
+  "release_gate_passed": false,
+  "subsequent_validation": "sgallery-e2e-3.5.9-2026-11-22.json"
+}

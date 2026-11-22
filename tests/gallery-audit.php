@@ -18,8 +18,7 @@ use Seiger\sGallery\Services\GalleryMedia;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /** Use stand-alone dependencies and a temporary, in-memory CMS fixture. */
-$loader = require getenv('SGALLERY_AUTOLOAD');
-$loader->setPsr4('Seiger\\sGallery\\', dirname(__DIR__) . '/src');
+require __DIR__ . '/bootstrap.php';
 class_alias((new class extends Model {
     protected $table = 'site_content';
 })::class, \EvolutionCMS\Models\SiteContent::class);

@@ -91,10 +91,10 @@
     // Initialize upload buttons for the gallery images
     document.addEventListener("change", event => {
         if (event.target && event.target.id === "filesToUpload{{$blockId}}") {
-            window.parent.document.getElementById('mainloader').classList.add('show');
+            setMainLoader{{$blockId}}(true);
             doUploadFile{{$blockId}}(event);
         } else if(event.target && event.target.id === "filesToUploadDownload{{$blockId}}") {
-            window.parent.document.getElementById('mainloader').classList.add('show');
+            setMainLoader{{$blockId}}(true);
             doUploadDownload{{$blockId}}(event);
         }
     });
@@ -134,11 +134,19 @@
         }
     }
 
-    function hideMainLoader{{$blockId}}() {
-        const mainloader = window.parent.document.getElementById('mainloader');
-        if (mainloader) {
-            mainloader.classList.remove('show');
+    function setMainLoader{{$blockId}}(visible) {
+        let mainloader;
+        try {
+            mainloader = window.parent.document.getElementById('mainloader');
+        } catch {
+            // An embedded gallery may not have access to the parent document.
         }
+        mainloader ??= document.getElementById('mainloader');
+        mainloader?.classList.toggle('show', visible);
+    }
+
+    function hideMainLoader{{$blockId}}() {
+        setMainLoader{{$blockId}}(false);
     }
 
     function showUploadError{{$blockId}}(message) {

@@ -1,7 +1,6 @@
 <?php
 /** Verify Evolution config loading and the provider fallback without duplicate reads. @since 1.7.0 */
-$loader = require getenv('SGALLERY_AUTOLOAD');
-$loader->setPsr4('Seiger\\sGallery\\', dirname(__DIR__) . '/src');
+require __DIR__ . '/bootstrap.php';
 $repository = new \Illuminate\Config\Repository();
 function config($key, $default = null) {
     global $repository;

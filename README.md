@@ -9,15 +9,12 @@
 [![License](https://img.shields.io/packagist/l/seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
 ![Made in Ukraine](https://img.shields.io/badge/made_in-Ukraine-ffd700.svg?labelColor=0057b7)
 
-**sGallery** emerges as a versatile and indispensable plugin tailor-made for Evolution CMS,
-revolutionizing the way you manage media assets within your website. Specifically
-designed for the Evolution CMS admin panel, this dynamic plugin introduces a host
-of powerful features to elevate your content presentation.
+Attach images, downloads and YouTube videos to Evolution CMS resources, manage
+them in the manager and generate image derivatives through a fluent PHP Builder.
+GD and Imagick provide native processing when the optional Spatie Image package
+is absent. Existing Spatie installations keep their transformation path in 1.x.
 
-**sGallery** stands as a testament to Evolution CMS's commitment to robust and user-friendly
-content management. Whether you are a content creator or an administrator, this plugin
-empowers you to curate a visually stunning and engaging website with unparalleled ease.
-Elevate your media management experience with **sGallery** today.
+[1.9.0 release notes and upgrade instructions](docs/releases/1.9.0.md)
 
 ## Features
 
@@ -168,7 +165,7 @@ Spatie is absent, including geometry, watermarks, sharpening and output settings
 If a transformation or codec is unavailable without
 Spatie, the Builder returns the original URL. Missing files use the normal placeholder.
 
-To enable image transformations, install version 3 from the site's `core/` directory:
+To use the Spatie transformation path, install version 3 from the site's `core/` directory:
 
 ```console
 composer require spatie/image:^3

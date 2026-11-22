@@ -1,10 +1,35 @@
 # Runtime regression checks
 
+`migrations-test.php` uses the real Illuminate Migrator with prefixed SQLite
+tables to check fresh/partial installs, installer history, preserved data,
+repeat migrations and rollback. `manager-message-test.php` checks the delete
+controller with the shipped en/uk/ru lexicons and a real Translator.
+See [the follow-up CMS validation](../../docs/testing/sgallery-e2e-fixes-2026-11-22.md).
+
 Task 12 also has a [real-installation acceptance suite](../acceptance/README.md)
 for clean CMS installations, upgrades from 1.8.1 and the PHP/driver matrix.
 The final local matrix after fixes 12-A–12-D passes; see the [recorded results](../../docs/testing/native-image-acceptance-2026-11.md), including the earlier rejected snapshot.
 
-Run each `*-test.php` with `PACKAGE_AUTOLOAD` pointing at an installed Evolution CMS 3.6.x `core/vendor/autoload.php`. The test bootstrap loads this package from the checkout ahead of any consumer classmap. Fixtures use isolated SQLite databases and temporary files; no site database is used. The CI matrix executes PHP 8.4 and 8.5.
+Run each `*-test.php` with `PACKAGE_AUTOLOAD` pointing at an installed Evolution CMS 3.5+ `core/vendor/autoload.php`. The shared `tests/bootstrap.php` loads this package from the checkout ahead of any consumer classmap, including authoritative maps. `bootstrap-test.php` checks this precedence. Fixtures use isolated SQLite databases and temporary files; no site database is used.
+
+CI checks PHP 8.4, 8.5 and 8.6, each with two separate Composer installations:
+Spatie Image installed and native processing with neither `spatie/image` nor
+`spatie/image-optimizer`. The fixture uses Evolution CMS 3.5.9 and sTask
+`6355cf293422d43885d803cdd43637c0896f63cd`. PHP 8.4/8.5 use GD and Imagick;
+PHP 8.6 CI uses GD because the tested Imagick PECL release does not build there.
+The separate acceptance matrix covers Imagick on stable PHP 8.6.0.
+
+`tests/ci/prepare-runtime.php` configures only the disposable `.test-core` fixture.
+Composer resolves CMS 3.5.9 on PHP 8.4 before CI switches to the target runtime
+and checks its installed platform requirements. A direct fresh resolution on
+8.6 is blocked by the CMS's Pest/ParaTest dev constraints even with `--no-dev`;
+see [the fresh-install report](../../docs/testing/sgallery-e2e-3.5.9-2026-11-22.md).
+`tests/ci/check-runtime.php` verifies the actual backend and source paths before
+`SGALLERY_TEST_BACKEND=spatie` or `native` selects `tests/ci/run-runtime.sh`.
+This script runs every runtime test and the root regression scripts; the
+phpThumb/Spatie baseline and legacy Spatie writer checks run only with Spatie.
+The standalone PHP compatibility job installs its own dependencies, including
+`illuminate/view`, then runs syntax, gallery audit and watermark checks.
 
 Install the optional `spatie/image:^3` package for transformation tests. `optional-image-test.php` excludes every `Spatie\Image\` class from autoloading and verifies original-file fallbacks, watermark settings validation and background-job behavior without the package.
 

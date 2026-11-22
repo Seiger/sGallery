@@ -12,7 +12,7 @@ foreach (file('/lab/results/status.tsv', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY
     $units[implode(':', [$label, $driver, $scenario, $test])] = (int) $code;
 }
 $summary = [
-    'date' => '2026-11-19', 'package_commit' => $argv[2] ?? '27bfc23', 'legacy_tag' => 'v1.8.1',
+    'date' => $argv[3] ?? gmdate('Y-m-d'), 'package_commit' => $argv[2] ?? '27bfc23', 'legacy_tag' => 'v1.8.1',
     'run_suffix' => $run,
     'evolution' => '3.5.9', 'stask_commit' => '6355cf2',
     'runtime_script_runs' => count($units), 'runtime_failed' => array_filter($units, static fn ($code) => $code !== 0),

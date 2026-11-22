@@ -72,15 +72,7 @@ namespace {
             public function clearCache(): void { $GLOBALS['page_cache_clears'] = ($GLOBALS['page_cache_clears'] ?? 0) + 1; }
         };
     }
-    $autoload = getenv('SGALLERY_AUTOLOAD');
-    if (!$autoload || !is_file($autoload)) { throw new RuntimeException('Set SGALLERY_AUTOLOAD to the site Composer autoload.php'); }
-    $loader = require $autoload;
-    $loader->setPsr4('Seiger\\sGallery\\', dirname(__DIR__) . '/src');
-    $loader->addClassMap([
-        \Seiger\sGallery\Builders\sGalleryBuilder::class => dirname(__DIR__) . '/src/Builders/sGalleryBuilder.php',
-        GalleryCache::class => dirname(__DIR__) . '/src/Services/GalleryCache.php',
-        \Seiger\sGallery\Workers\ImageOptimizationWorker::class => dirname(__DIR__) . '/src/Workers/ImageOptimizationWorker.php',
-    ]);
+    require __DIR__ . '/bootstrap.php';
     $container = new \Illuminate\Container\Container();
     \Illuminate\Container\Container::setInstance($container);
     \Illuminate\Support\Facades\Facade::setFacadeApplication($container);
@@ -261,13 +253,13 @@ namespace {
         $failedTask->refresh();
         $nextTask->refresh();
         $check($failedTask->status === sTaskModel::TASK_STATUS_FAILED && $failedTask->result === null &&
-            str_contains($failedTask->message, 'did not publish'), 'sTask must report the publication error as a failed job');
+            str_contains($failedTask->message, 'Simulated derivative publication failure.'), 'sTask must report the publication error as a failed job');
         $check($nextTask->status === sTaskModel::TASK_STATUS_FINISHED && $nextTask->progress === 100, 'sTask must complete the next job in the same run');
         $nextOutput = EVO_BASE_PATH . substr($nextTask->result, strlen(EVO_SITE_URL));
         $check((getimagesize($nextOutput)['mime'] ?? null) === 'image/webp', 'Next job must publish a valid WebP');
         $check(isset($GLOBALS['failed_encoding_path']) && !is_file($GLOBALS['failed_encoding_path']) &&
             glob($cacheDirectory . '*.pending-*') === [] && glob($cacheDirectory . '.sgallery-webp-*') === [],
-            'The renderer must remove temporary files after both attempts');
+            'The renderer must remove temporary files after a failed publication');
         $check(array_values(array_diff(glob($cacheDirectory . '*.webp'), $cachedBefore)) === [$nextOutput] &&
             count(glob(EVO_BASE_PATH . 'derived/.sgallery-index/*.json')) === count($markersBefore) + 1,
             'Only the successful job may publish and register a new derivative');
@@ -322,8 +314,8 @@ namespace {
         touch($source, time() + 60);
         try { (new \Seiger\sGallery\Builders\sGalleryBuilder())->processOptimization($job); throw new LogicException('Changed source accepted'); }
         catch (RuntimeException $error) { $check(str_contains($error->getMessage(), 'changed'), 'Queued source replacement must be rejected'); }
-        $check(count($GLOBALS['errors']) === 2 && str_contains($GLOBALS['errors'][0], 'Simulated derivative publication failure.') &&
-            str_contains($GLOBALS['errors'][1], 'did not publish'), 'The Builder and sTask must log the simulated publication failure');
+        $check(count($GLOBALS['errors']) === 1 && str_contains($GLOBALS['errors'][0], 'Simulated derivative publication failure.'),
+            'sTask must log the propagated publication failure once');
         echo "sGallery image optimization OK\n";
     } finally {
         $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);

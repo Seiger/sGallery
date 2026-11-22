@@ -20,7 +20,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: fileinfo, mbstring, pdo_sqlite, gd, exif
+          extensions: fileinfo, mbstring, pdo_sqlite, gd, exif, :imagick
           coverage: none
       - name: Validate package metadata
         run: composer validate --strict --no-check-publish --no-plugins --no-scripts
@@ -28,7 +28,7 @@ jobs:
         run: |
           mkdir "$RUNNER_TEMP/sgallery-tests"
           composer --working-dir="$RUNNER_TEMP/sgallery-tests" require --no-interaction --no-plugins --no-scripts \
-            'illuminate/database:^12' 'illuminate/http:^12' 'symfony/http-kernel:^7' 'symfony/mime:^7' 'spatie/image:^3'
+            'illuminate/database:^12' 'illuminate/http:^12' 'illuminate/view:^12' 'symfony/http-kernel:^7' 'symfony/mime:^7' 'spatie/image:^3'
       - name: Check syntax and run gallery regressions
         run: |
           php -v
