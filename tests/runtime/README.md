@@ -10,17 +10,16 @@ Task 12 also has a [real-installation acceptance suite](../acceptance/README.md)
 for clean CMS installations, upgrades from 1.8.1 and the PHP/driver matrix.
 The 1.x matrix passed after fixes 12-A–12-D; see the [recorded results](../../docs/testing/native-image-acceptance-2026-11.md), including the earlier rejected snapshot.
 
-Run each `*-test.php` with `PACKAGE_AUTOLOAD` pointing at an installed Evolution CMS 3.5+ `core/vendor/autoload.php`. The shared `tests/bootstrap.php` loads this package from the checkout ahead of any consumer classmap, including authoritative maps. `bootstrap-test.php` checks this precedence. Fixtures use isolated SQLite databases and temporary files; no site database is used.
+Run each `*-test.php` with `PACKAGE_AUTOLOAD` pointing at an installed Evolution CMS 3.6+ `core/vendor/autoload.php`. The shared `tests/bootstrap.php` loads this package from the checkout ahead of any consumer classmap, including authoritative maps. `bootstrap-test.php` checks this precedence. Fixtures use isolated SQLite databases and temporary files; no site database is used.
 
 CI checks PHP 8.4, 8.5 and 8.6 with native processing. The fixture uses
-Evolution CMS 3.5.9 and sTask `6355cf293422d43885d803cdd43637c0896f63cd`.
+Evolution CMS 3.6.0 at `6d3a58974` and sTask `6355cf293422d43885d803cdd43637c0896f63cd`.
 PHP 8.4 and 8.5 use GD and Imagick. PHP 8.6 CI uses GD because the pinned
 Imagick PECL release does not build there.
 
 `tests/ci/prepare-runtime.php` configures only the disposable `.test-core` fixture.
-Composer resolves CMS 3.5.9 on PHP 8.4 before CI switches to the target runtime
-and checks its platform requirements. See the [3.5.9 installation report](../../docs/testing/sgallery-e2e-3.5.9-2026-11-22.md)
-for the earlier direct Composer resolution on PHP 8.6.
+On PHP 8.4, Composer resolves the local sGallery and sTask packages against
+the pinned CMS checkout. CI then checks platform requirements on the target PHP version.
 `tests/ci/run-runtime.sh` verifies the Composer fixture and runs every runtime
 test, including the phpThumb comparison and sTask job replay.
 

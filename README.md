@@ -67,7 +67,7 @@ failed work follows the existing retry and cooldown rules.
 
 ### Compatibility
 
-- Evolution CMS **3.5 or later in the 3.x series**
+- Evolution CMS **3.6 or later in the 3.x series**
 - PHP **8.4, 8.5 and 8.6** (minimum 8.4)
 - Composer **2.2+**
 - One of: **MySQL 8.0+** / **MariaDB 10.5+** / **PostgreSQL 10+** / **SQLite 3.25+**

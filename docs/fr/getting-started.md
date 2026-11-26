@@ -9,9 +9,7 @@ sidebar_position: 2
 
 ## Installation dans Evolution CMS
 
-sGallery 2.x nécessite PHP à partir de 8.4 dans la série 8.x, Evolution CMS à partir de 3.5 dans la série 3.x et Composer. Installez GD ou Imagick pour les miniatures. sTask est facultatif.
-
-Une installation neuve sous PHP 8.6 a été vérifiée avec [Evolution CMS 3.5.x, commit ea42b18c](https://github.com/evolution-cms/evolution/commit/ea42b18c8bbadbcb9b994c8f8cb61e824398bb17). Si vous utilisez sTask pour traiter les images sous Evolution CMS 3.5.9, passez à la [version 2.3.2](https://github.com/Seiger/sTask/releases/tag/v2.3.2), qui corrige la répétition de la migration.
+sGallery 2.x nécessite PHP à partir de 8.4 dans la série 8.x, Evolution CMS à partir de 3.6 dans la série 3.x et Composer. Installez GD ou Imagick pour les miniatures. sTask est facultatif.
 
 À la racine du projet Evolution, exécutez les commandes suivantes.
 
