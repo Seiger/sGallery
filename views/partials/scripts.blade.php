@@ -150,7 +150,7 @@
     }
 
     function showUploadError{{$blockId}}(message) {
-        alertify.alert('@lang('sGallery::manager.file_upload_error')', message || 'Upload failed.');
+        alertify.alert('@lang('sGallery::manager.file_upload_error')', message || @json(__('sGallery::manager.upload_failed')));
     }
 
     async function readUploadResponse{{$blockId}}(resp) {
@@ -194,7 +194,7 @@
             return data;
         }
 
-        throw new Error(responseMessage || 'Unexpected server response.');
+        throw new Error(responseMessage || @json(__('sGallery::manager.unexpected_server_response')));
     }
 
     async function handleUploadResult{{$blockId}}(data) {
@@ -371,7 +371,7 @@
                     .then(response => readUploadResponse{{$blockId}}(response))
                     .then(data => {
                         if (data.success != 1) {
-                            throw new Error(data.error || data.message || 'Delete failed.');
+                            throw new Error(data.error || data.message || @json(__('sGallery::manager.delete_failed')));
                         }
 
                         alertify.success(data.message || "@lang('sGallery::manager.deleted')");

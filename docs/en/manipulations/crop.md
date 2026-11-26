@@ -10,7 +10,7 @@ sidebar_position: 3
 ## Crop
 
 By calling the crop method part of the image will be cropped to the given $width and $height dimensions (pixels).
-Use the $cropMethod to specify which part will be cropped out.
+Use `$position` to choose the crop location.
 
 ### Parameters:
 - **`$position`** (string): The method of adjusting the image to the dimensions. specify which part will be cropped.
@@ -37,7 +37,7 @@ to the source size.
 - **`$height`** (int|null) The crop height in pixels. It defaults to `$width`.
 
 ```php
-$image = sGallery::file($item->src)->focalCrop(50, 50, 250, 200);
+$url = sGallery::file($item->src)->focalCrop(50, 50, 250, 200)->getFile();
 ```
 ---
 

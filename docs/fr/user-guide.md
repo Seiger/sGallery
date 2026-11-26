@@ -6,8 +6,16 @@ sidebar_position: 5
 
 # Guide de rédaction
 
-Ouvrez la ressource et sa galerie dans le gestionnaire. Téléversez une image, sélectionnez un fichier de la bibliothèque si votre rôle le permet, ou ajoutez un lien YouTube. Faites glisser les entrées pour définir leur ordre.
+## Ajouter et ordonner les médias
 
-Modifiez le texte alternatif, le titre, la description et le lien dans le formulaire de l’entrée. Utilisez les onglets de langue disponibles. Détacher un fichier partagé conserve l’original dans la bibliothèque.
+1. Ouvrez la ressource dans le gestionnaire d’Evolution CMS. Sélectionnez l’onglet de galerie ou le bloc nommé associé au modèle.
+2. Téléversez une photo ou sélectionnez un fichier existant dans la bibliothèque si votre rôle le permet. Utilisez l’action YouTube pour ajouter une vidéo. Le téléversement de fichiers est disponible dans les intégrations disposant d’une section de téléchargement.
+3. Faites glisser les entrées dans l’ordre souhaité et vérifiez l’image dans l’aperçu.
 
-Si un onglet ou une action manque, vérifiez le modèle et les [autorisations](./configuration.md).
+## Légendes et suppression
+
+Dans le formulaire d’édition, renseignez le texte alternatif, le titre, la description ou le lien. Si sLang est installé, remplissez les onglets des langues nécessaires. Pour une image qui transmet une information, rédigez un texte alternatif qui permet de la comprendre sans la voir.
+
+La suppression d’une entrée téléversée supprime son fichier. Le retrait d’une référence à un fichier de la bibliothèque partagée conserve l’original.
+
+Si l’onglet ou un bouton manque, vérifiez l’[association au modèle et les autorisations](./configuration.md#manager-gallery-permissions).

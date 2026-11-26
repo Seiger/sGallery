@@ -7,7 +7,7 @@ sidebar_position: 1
 
 # sGallery for Evolution CMS
 
-sGallery adds galleries to Evolution CMS resources and modules such as sCommerce. Editors can attach images, download files and YouTube videos, arrange them in named blocks and localize the title, description and alternative text.
+sGallery adds galleries to Evolution CMS resources and modules such as sCommerce. In the Manager, editors can attach images, downloadable files and YouTube videos, reorder them and fill in fields in several languages.
 
 ![Resource gallery in Evolution CMS](https://user-images.githubusercontent.com/12029039/169609394-08ea36d6-2393-4261-aff2-348f73a6103c.png)
 

@@ -1,17 +1,17 @@
 ---
 id: crop
-title: Zuschneiden
+title: Zuschnitt
 slug: /manipulations/crop/
 sidebar_position: 3
 ---
 
-# Zuschneiden
+# Zuschnitt
 
-- Mit `crop($position, $width, $height)` wählen Sie einen Ausschnitt. Die Positionen sind `topLeft`, `top`, `topRight`, `left`, `center`, `right`, `bottomLeft`, `bottom`, `bottomRight`.
-- `focalCrop($x, $y, $width, $height)` zentriert den Ausschnitt auf einem Bildpunkt und verschiebt ihn am Rand nach innen.
-- `manualCrop($x, $y, $width, $height)` setzt die linke obere Ecke. Die native Verarbeitung begrenzt Überstände und gibt bei einem Ausgangspunkt außerhalb des Bildes das Original zurück.
+- `crop($position, $width, $height)` schneidet einen Bereich an der gewählten Position aus. Mögliche Positionen sind `topLeft`, `top`, `topRight`, `left`, `center`, `right`, `bottomLeft`, `bottom` und `bottomRight`.
+- `focalCrop($x, $y, $width, $height)` versucht, den angegebenen Punkt im Ausschnitt zu zentrieren. Am Rand verschiebt es den Rahmen ins Bild.
+- `manualCrop($x, $y, $width, $height)` schneidet ab der oberen linken Ecke des Bereichs aus. Der native Treiber schneidet am rechten oder unteren Bildrand ab. Liegt der Startpunkt außerhalb des Bildes, gibt er das Original zurück.
 
-Koordinaten werden in Quellpixeln von der linken oberen Ecke aus gemessen. Ohne Höhe wird die Breite verwendet.
+Die Koordinaten werden in Pixeln ab der oberen linken Bildecke gemessen. Ohne Höhenangabe entspricht die Höhe der Breite.
 
 ```php
 $url = sGallery::file($item->src)->focalCrop(50, 50, 250, 200)->getFile();

@@ -31,4 +31,4 @@ Animation transforms for GIF and WebP use Imagick. A missing decoder or unsuppor
 | `format()`, `quality()`, `optimize()` | Select the encoder, quality and optimization |
 | `watermark()`, `sharpen()` | Add a watermark or adjust sharpness |
 
-See [configuration](./configuration.md) for permissions, supported link schemes and cache locations.
+Find worked examples in the [image manipulation guides](./manipulations/index.md). See [configuration](./configuration.md) for permissions, supported link schemes and cache locations.

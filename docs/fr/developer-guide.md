@@ -1,12 +1,26 @@
 ---
 id: developer-guide
-title: Guide du développeur
+title: Guide de développement
 sidebar_position: 6
 ---
 
-# Guide du développeur
+# Guide de développement
 
-Utilisez `collections()` pour parcourir les entrées. Pour une intégration, sélectionnez le type, l’identifiant du parent, le bloc et la langue. Associez aux types personnalisés une [politique d’accès](./configuration.md). Voir les [exemples Blade](./use-in-blade.md).
+## Lire une galerie
+
+`collections()` renvoie un Builder. `itemType()`, `documentId()` et `blockName()` sélectionnent l’enregistrement parent et la galerie. `lang()` précise la langue si nécessaire. Le [guide Blade](./use-in-blade.md) fournit des exemples pour les ressources et les produits.
+
+Pour un type personnalisé, utilisez le même type et le même bloc dans le gestionnaire et sur le site. La [règle d’accès](./configuration.md#manager-gallery-permissions) doit vérifier l’autorisation d’exécuter l’action et l’accès à l’enregistrement parent désigné.
+
+Un modèle de module peut afficher le formulaire du gestionnaire fourni par le paquet.
+
+```blade
+{!! sGallery::initialiseView()->viewType('section')->itemType('product')->idType('i')->blockName('photo') !!}
+```
+
+`idType()` désigne le champ de la requête contenant l’identifiant du parent. Les vues disponibles sont `tab`, `section` et `sectionDownloads`. Si sGallery est une intégration facultative, vérifiez `evo()->bound('sGallery')` avant d’afficher le formulaire.
+
+## Traiter une image
 
 ```php
 $url = sGallery::file($item->src)
@@ -15,4 +29,4 @@ $url = sGallery::file($item->src)
     ->getFile();
 ```
 
-`getFile()` retourne l’URL générée. Un runner sTask disponible peut prendre en charge les images trop longues à traiter dans la requête web.
+Sans Spatie, le Builder choisit automatiquement GD ou Imagick selon les formats source et cible. Consultez les [guides de traitement des images](./manipulations/index.md) pour les transformations et l’[optimisation en arrière-plan](./background-image-optimization.md) pour les images volumineuses ou lentes à traiter.

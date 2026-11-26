@@ -7,7 +7,7 @@ sidebar_position: 4
 
 # Bildoptimierung
 
-Der Builder optimiert erzeugte Bilder standardmäßig. `quality()` setzt eine feste Qualität. Bei WebP kann der Builder ohne feste Qualität einen geeigneten Wert wählen. `sharpen()` akzeptiert 0 bis 100. Mit `optimize(false)` deaktivieren Sie die Optimierung für diesen Aufruf.
+Builder optimiert abgeleitete Bilder standardmäßig nach einer Größenänderung oder einem Zuschnitt. Qualität, Schärfe und Optimierung wirken sich auf den Cache-Schlüssel aus.
 
 ```php
 $url = sGallery::file($item->src)
@@ -18,4 +18,6 @@ $url = sGallery::file($item->src)
     ->getFile();
 ```
 
-- [Bildoptimierung im Hintergrund](../background-image-optimization.md)
+`quality()` legt eine feste Qualität fest. Ohne expliziten Wert kann Builder die WebP-Qualität automatisch wählen. `sharpen()` akzeptiert Werte von 0 bis 100. `optimize(false)` deaktiviert die Optimierung für das aktuelle Bild.
+
+Langsame Verarbeitungen kann der [sTask-Worker](../background-image-optimization.md) übernehmen.

@@ -9,7 +9,7 @@ sidebar_position: 3
 
 ## Config file
 
-The configuration file is located here:
+The Manager writes settings to the following file. If it is missing, sGallery uses the package defaults.
 
 ```console
 ../core/custom/config/seiger/settings/sGallery.php

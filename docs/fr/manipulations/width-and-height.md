@@ -7,7 +7,7 @@ sidebar_position: 5
 
 # Largeur et hauteur
 
-Les méthodes `resize()`, `fit()` et `crop()` prennent des valeurs en pixels. La hauteur omise prend la valeur de la largeur. Un ajustement qui conserve les proportions peut produire une image rectangulaire.
+`resize()`, `fit()` et `crop()` reçoivent les dimensions en pixels. Sans hauteur, la largeur et la hauteur du cadre sont égales. La taille réelle du dérivé dépend du [mode d’ajustement](./fit.md) et des proportions de la source.
 
 ```php
 $url = sGallery::file($item->src)->fit('max', 500, 300)->getFile();

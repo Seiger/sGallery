@@ -57,10 +57,17 @@ try {
     $check(str_contains($html,'sgallery-settings') && str_contains($html,'top-sales') && str_contains($html,'Типова якість'),'Complete form renders');
     $check(!str_contains($html, 'data-sg="defaultFit"'), 'Fit method is absent from the settings form');
     $check(preg_match('//u', $html) === 1 && str_contains($html, 'Типовий водяний знак'), 'UTF-8 labels and final controls render');
-    foreach (['en' => 'Default watermark', 'ru' => 'Водяной знак по умолчанию'] as $locale => $label) {
+    foreach ([
+        'en' => ['Default watermark', 'Invalid output format.'],
+        'uk' => ['Типовий водяний знак', 'Некоректний формат результату.'],
+        'ru' => ['Типовий водяний знак', 'Некоректний формат результату.'],
+    ] as $locale => [$label, $formatError]) {
         $translator->setLocale($locale);
         $localized = $factory->make('sGallery::settings', ['settings'=>$saved,'resourceTemplates'=>\EvolutionCMS\Models\SiteTemplate::all(),'token'=>'test-token'])->render();
         $check(str_contains($localized, $label) && !str_contains($localized, 'sGallery::settings.'), 'Settings translations render for ' . $locale);
+        $validation = $controller->save($request($bad));
+        $check($validation->getStatusCode() === 422 && $validation->getData(true)['error'] === $formatError, 'Settings validation is localized for ' . $locale);
+        if ($locale === 'ru') $check($localized === $html, 'RU and UK settings views are identical');
     }
     $translator->setLocale('uk');
     $check(!isset($saved['optimizationBudgetSeconds']) && !isset($saved['views']), 'Obsolete package-controlled settings removed and input overrides ignored');

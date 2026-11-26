@@ -11,6 +11,36 @@ Select a gallery by parent, block and locale. Use the media type to choose marku
 
 ---
 
+## Resource images
+
+Iterate over the collection and check each entry’s type. Use escaped Blade output for the URL and alternative text.
+
+```blade
+@foreach (sGallery::collections()->get() as $item)
+    @if (sGallery::hasImage($item->type))
+        <img src="{{ sGallery::file($item->src)->fit('max', 800, 600)->format('webp')->getFile() }}"
+             alt="{{ $item->alt }}" loading="lazy">
+    @endif
+@endforeach
+```
+
+## Product gallery or named block
+
+```php
+$items = sGallery::collections()
+    ->itemType('product')
+    ->documentId((int) $product->id)
+    ->blockName('slider')
+    ->lang('en')
+    ->get();
+```
+
+Omit the type and ID for the current resource. Use `sGallery::first($itemType, $parentId, $lang, $block)` for a single entry. It returns a model even when no row matches, so check that the entry exists before rendering it.
+
+Use `sGallery::hasYoutube($item->type)` to identify videos and output the escaped `$item->src` URL for attachments. See the [developer guide](./developer-guide.md).
+
+---
+
 ## Display Mixed Gallery Items
 
 Use this pattern when one gallery can contain different media types and each needs its own markup.
@@ -101,7 +131,7 @@ To display all media files associated with a specific product, you can filter by
 This is particularly useful for eCommerce or product catalog pages.
 
 ```php
-@foreach(sGallery::collections()->documentId($product->id)->itemType('product')->get() as $item)
+@foreach(sGallery::collections()->documentId($product->id)->itemType('product')->mediaType('image')->get() as $item)
     <div class="swiper-slide">
         <a class="js-trigger-fancybox" href="{{$item->src}}" data-fancybox="product-gallery">
             <img loading="lazy" src="{{$item->src}}" width="440" height="440" />
@@ -189,7 +219,7 @@ the sGallery system:
                 <div class="intro__inner">
                     <div class="h1__title">{{$item->title}}</div>
                     <p class="intro__text">{{$item->description}}</p>
-                    @if(trim($item->link_text)) 
+                    @if(trim($item->link_text))
                         <div class="btn background__mod">{{$item->link_text}}</div>
                     @endif
                 </div>

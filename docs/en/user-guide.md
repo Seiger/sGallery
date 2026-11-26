@@ -9,7 +9,7 @@ sidebar_position: 5
 ## Add and order media
 
 1. Open the resource in the Evolution CMS Manager, then open its gallery tab or the named block assigned to its template.
-2. Select a local image or add an existing file from the Manager file browser if your role allows it. Use the YouTube action for a video link. Download controls are available in integrations that expose a downloads section.
+2. Select a local image or add an existing file from the Manager file browser if your role allows it. Use the YouTube action for a video link. You can upload downloadable files in integrations that provide a downloads section.
 3. Drag the items into order. Use the preview to check an image before saving its text or link.
 
 ## Edit and remove items

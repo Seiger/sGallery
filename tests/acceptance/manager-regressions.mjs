@@ -74,7 +74,7 @@ export async function runManagerRegressions(browser, {baseUrl, username, passwor
             await frame.getByRole('button', {name: /^(Видалити|Delete|Удалить)$/}).click();
             const response = await deleted;
             const message = await response.json();
-            check(response.status() === 200 && message.success === 1 && ['Deleted', 'Видалено', 'Удалено'].includes(message.message), 'Delete did not return a localized success message');
+            check(response.status() === 200 && message.success === 1 && ['Deleted', 'Видалено'].includes(message.message), 'Delete did not return a localized success message');
             const removed = await context.request.get(baseUrl + '/assets/sgallery/resource/' + documentId + '/' + filename);
             check(removed.status() === 404, 'Deleted upload still exists over HTTP');
             const detached = await frame.evaluate(async id => {

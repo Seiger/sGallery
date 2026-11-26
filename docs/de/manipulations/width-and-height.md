@@ -7,7 +7,7 @@ sidebar_position: 5
 
 # Breite und Höhe
 
-Die Methoden `resize()`, `fit()` und `crop()` erwarten Pixelwerte. Eine fehlende Höhe übernimmt die Breite. Ein Modus mit festem Seitenverhältnis kann dennoch ein nicht quadratisches Ergebnis liefern.
+`resize()`, `fit()` und `crop()` erwarten die Abmessungen in Pixeln. Ohne Höhenangabe sind Rahmenbreite und -höhe gleich. Die tatsächliche Größe des abgeleiteten Bildes hängt vom [Anpassungsmodus](./fit.md) und den Proportionen des Originals ab.
 
 ```php
 $url = sGallery::file($item->src)->fit('max', 500, 300)->getFile();

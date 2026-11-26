@@ -6,7 +6,10 @@ sidebar_position: 9
 
 # Dépannage
 
-- **Galerie absente :** vérifiez le modèle et les droits dans la [configuration](./configuration.md).
-- **Fichier refusé :** vérifiez le contenu, l’extension et les règles de téléversement d’Evolution CMS.
-- **Original affiché :** vérifiez le décodeur, le format de sortie et le runner sTask pour les traitements lents.
-- **Composer échoue sous PHP 8.6 :** utilisez la version d’Evolution indiquée dans [Premiers pas](./getting-started.md).
+| Symptôme | Points à vérifier |
+| --- | --- |
+| Une ressource n’a pas d’onglet de galerie | Vérifiez l’[identifiant du modèle dans les paramètres](./configuration.md). |
+| Un membre de l’équipe de rédaction ne peut pas ajouter ou supprimer une photo | Vérifiez les [autorisations de l’action et l’accès à la ressource](./configuration.md#manager-gallery-permissions). Pour un produit, vérifiez aussi la règle d’intégration. |
+| Le site affiche l’original | Vérifiez le codec et le format demandé. Pour une transformation lente ou une grande image, vérifiez le [runner sTask](./background-image-optimization.md). |
+| Un fichier est refusé | Vérifiez le type de contenu, l’extension et les téléversements autorisés par le CMS. Pour un fichier de la bibliothèque, vérifiez ses paramètres et les autorisations. |
+| Composer s’arrête sous PHP 8.6 | Vérifiez que le CMS intègre le [correctif d’installation](./getting-started.md). |
