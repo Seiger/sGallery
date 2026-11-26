@@ -17,7 +17,7 @@ npm run serve -- --port 3018
 
 Open `http://localhost:3018/sGallery/` or `/sGallery/uk/`. Use `npm start -- --locale uk` for one locale during editing. The production build checks the links for all configured languages.
 
-CI checks out the canonical documentation from each branch in `docs.config.json` and builds the linked trees in `.generated/`. Keep translations on the package branch so dDocs and the site see the same content.
+CI checks out the canonical documentation from each branch in `docs.config.json` and builds the linked trees in `.generated/`. Keep translations on the package branch so dDocs and the site see the same content. The registry also maps the public `/sGallery/ru/` routes to Ukrainian guides and interface text.
 
 ## Add a new major line
 

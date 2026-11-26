@@ -1,4 +1,19 @@
 {
+  "docs.status.current": {
+    "message": "Aktuell"
+  },
+  "docs.status.previous": {
+    "message": "Vorherige Version"
+  },
+  "docs.status.legacy": {
+    "message": "Veraltet"
+  },
+  "docs.legacy.message": {
+    "message": "Sie lesen die Dokumentation einer früheren Version."
+  },
+  "docs.legacy.current": {
+    "message": "Zur aktuellen Dokumentation"
+  },
   "gallery.carousel": {
     "message": "Karussell"
   },

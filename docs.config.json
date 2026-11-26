@@ -6,8 +6,9 @@
     "de": "Deutsch",
     "fr": "Français",
     "pl": "Polski",
-    "ru": "Русский"
+    "ru": "Українська (ru)"
   },
+  "localeSources": {"ru": "uk"},
   "lines": [
     {"version": "1.x", "branch": "1.x", "label": "1.x", "status": "current"}
   ]
