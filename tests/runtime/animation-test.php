@@ -6,7 +6,6 @@ use Illuminate\Support\Facades\Facade;
 use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Services\ImageAnimation;
 use Seiger\sGallery\Services\NativeImage;
-use Spatie\Image\Image;
 
 function config($key, $default = null) { return $default; }
 function storage_path($path = '') { return EVO_BASE_PATH . 'storage/' . $path; }
@@ -20,9 +19,8 @@ $container->instance('log', new class {
     public function error(string $message): void { throw new RuntimeException($message); }
 });
 
-$withSpatie = class_exists(Image::class);
 $imagick = NativeImage::canEncode('gif', 'imagick') && NativeImage::canEncode('webp', 'imagick');
-printf("PHP %s, Spatie %s, Imagick GIF and WebP %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off', $imagick ? 'on' : 'off');
+printf("PHP %s, Imagick GIF and WebP %s\n", PHP_VERSION, $imagick ? 'on' : 'off');
 
 $root = sys_get_temp_dir() . '/sgallery-animation-' . bin2hex(random_bytes(6)) . '/';
 mkdir($root, 0700);
@@ -60,12 +58,9 @@ try {
         $check(array_slice(getimagesize($output), 0, 3) === [6, 4, $type], "$format basic animation is resized");
         $timing = ImageAnimation::timing($output, $type);
         $check($timing === ImageAnimation::timing($root . $source, $type), "$format keeps the basic animation timing and infinite loop");
-        if ($withSpatie) {
-            echo 'Spatie ' . $format . ' ' . json_encode($timing) . ' ' . hash_file('sha256', $output) . PHP_EOL;
-        }
         $check(file_get_contents($root . $source) === $bytes, "$format original file is unchanged");
     }
-    if ($withSpatie || !$imagick) {
+    if (!$imagick) {
         return;
     }
 

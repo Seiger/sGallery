@@ -28,7 +28,7 @@ jobs:
         run: |
           mkdir "$RUNNER_TEMP/sgallery-tests"
           composer --working-dir="$RUNNER_TEMP/sgallery-tests" require --no-interaction --no-plugins --no-scripts \
-            'illuminate/database:^12' 'illuminate/http:^12' 'illuminate/view:^12' 'symfony/http-kernel:^7' 'symfony/mime:^7' 'spatie/image:^3'
+            'illuminate/database:^12' 'illuminate/http:^12' 'illuminate/view:^12' 'symfony/http-kernel:^7' 'symfony/mime:^7'
       - name: Check syntax and run gallery regressions
         run: |
           php -v

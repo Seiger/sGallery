@@ -4,12 +4,10 @@ declare(strict_types=1);
 use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Facade;
 use Seiger\sGallery\Builders\sGalleryBuilder;
-use Seiger\sGallery\Models\sGalleryModel;
 use Seiger\sGallery\Services\GalleryFiles;
 use Seiger\sGallery\Services\GalleryMedia;
 use Seiger\sGallery\Services\ImageColor;
 use Seiger\sGallery\Services\NativeImage;
-use Spatie\Image\Image;
 
 function config($key, $default = null) { return $key === 'seiger.settings.sGallery.optimize' ? false : $default; }
 function storage_path($path = '') { return EVO_BASE_PATH . 'storage/' . $path; }
@@ -22,8 +20,7 @@ function evo()
 }
 
 require __DIR__ . '/bootstrap.php';
-$withSpatie = class_exists(Image::class);
-printf("PHP %s, Spatie %s, Imagick %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off', extension_loaded('imagick') ? 'on' : 'off');
+printf("PHP %s, Imagick %s\n", PHP_VERSION, extension_loaded('imagick') ? 'on' : 'off');
 $container = new Container();
 Facade::setFacadeApplication($container);
 $container->instance('log', new class {
@@ -81,20 +78,6 @@ try {
         }
         echo "$label decoder " . ($canRead ? 'on' : 'off') . PHP_EOL;
         $url = $build($source)->getFile();
-        if ($withSpatie) {
-            // Existing Spatie processing is synchronous when PHP can read the HEIF dimensions.
-            // Older header readers defer the same source; both behaviors also occur at 27bfc23.
-            if ($codec === 'HEIC' && $canRead && @getimagesize($root . $source) !== false && NativeImage::canEncode('png', 'imagick')) {
-                $check($url !== EVO_SITE_URL . $source && is_file($path($url)) &&
-                    array_slice(getimagesize($path($url)), 0, 3) === [16, 8, IMAGETYPE_PNG],
-                    "Spatie $label renders when PHP provides its dimensions");
-            } else {
-                $expected = $codec === 'HEIC' && class_exists(Imagick::class) ? EVO_SITE_URL . $source : sGalleryModel::NOIMAGE;
-                $check($url === $expected, "Spatie $label keeps its existing result contract");
-            }
-            echo "Spatie $label result " . ($url === EVO_SITE_URL . $source ? 'original' : ($url === sGalleryModel::NOIMAGE ? 'placeholder' : 'derivative')) . PHP_EOL;
-            continue;
-        }
         $check($build($source)->format('original')->getFile() === EVO_SITE_URL . $source,
             "$label original format returns the source file");
         if (!$canRead || !NativeImage::canEncode('png', 'imagick')) {
@@ -154,40 +137,38 @@ try {
     }
     file_put_contents($root . 'fake.jxl', 'not an image');
     $check(NativeImage::imagickInputFormat($root . 'fake.jxl') === null, 'A filename suffix cannot disguise invalid contents as JPEG XL');
-    if (!$withSpatie) {
-        file_put_contents($root . 'truncated.jxl', substr($jxl, 0, 16));
-        $check($build('truncated.jxl')->getFile() === EVO_SITE_URL . 'truncated.jxl', 'An undecodable JPEG XL returns its original URL');
-        // Independently encoded with libjxl: two GIF frames, and a Display P3 PNG.
-        file_put_contents($root . 'animated.jxl', base64_decode('/wrBBQFYEwgQoAIAAHQASxKlQgVSYMPFGEzKGGPGGO8AiE0+QLgZqo/k3X0IEKBCAAB0AEsSpUIFUmDDxRhMyhhjxhjvAIhNPkC4GWqP5N19', true));
-        if (class_exists(Imagick::class) && Imagick::queryFormats('JXL') !== []) {
-            $animation = new Imagick($root . 'animated.jxl');
-            $check($animation->getNumberImages() === 2, 'The JPEG XL animation fixture contains two decoded frames');
+    file_put_contents($root . 'truncated.jxl', substr($jxl, 0, 16));
+    $check($build('truncated.jxl')->getFile() === EVO_SITE_URL . 'truncated.jxl', 'An undecodable JPEG XL returns its original URL');
+    // Independently encoded with libjxl: two GIF frames, and a Display P3 PNG.
+    file_put_contents($root . 'animated.jxl', base64_decode('/wrBBQFYEwgQoAIAAHQASxKlQgVSYMPFGEzKGGPGGO8AiE0+QLgZqo/k3X0IEKBCAAB0AEsSpUIFUmDDxRhMyhhjxhjvAIhNPkC4GWqP5N19', true));
+    if (class_exists(Imagick::class) && Imagick::queryFormats('JXL') !== []) {
+        $animation = new Imagick($root . 'animated.jxl');
+        $check($animation->getNumberImages() === 2, 'The JPEG XL animation fixture contains two decoded frames');
+    }
+    $check($build('animated.jxl')->getFile() === EVO_SITE_URL . 'animated.jxl', 'Animated JPEG XL returns its original instead of losing frames');
+    file_put_contents($root . 'exif.jxl', base64_decode('AAAADEpYTCANCocKAAAAFGZ0eXBqeGwgAAAAAGp4bCAAAAASanhscAAAAAD/CsMtEBMAAAAuYnJvYkV4aWYbHQAABJxjE0HML/GpCRtwIgFCGuAid4A0qfDb0xfATk4IAAAAwWp4bHCAAAABCAIBALwCSxibnHGEAziAAzggSsA5BQEAIESACBABIkDkeeSevqBz762qqnpJkiQE1N3d3d3dMzPzqv7u7u4uz79/z38PjbXm2nufe5MkSQjoVFVVVf3/////3ve6u7u74f/9e/57aMw551r73JskSUJAVVVVVVX1////3Pu6u7u74f/9e/57aMw551r73JskSUJAVVVVVVX1////3Pu6u7u7LxADAE9/nv2e/s/+AHAXwP8ABw==', true));
+    $oriented = (new sGalleryBuilder())->file('exif.jxl')->fit('max', 32, 32)->format('png')->optimize(false)->getFile();
+    if (class_exists(Imagick::class) && Imagick::queryFormats('JXL') !== []) {
+        $check(array_slice(getimagesize($path($oriented)), 0, 2) === [32, 16], 'JPEG XL does not apply EXIF rotation after decoding its codestream');
+    } else {
+        $check($oriented === EVO_SITE_URL . 'exif.jxl', 'JPEG XL with EXIF returns the original without its decoder');
+    }
+    file_put_contents($root . 'p3.jxl', base64_decode('/wrBQQh3CgMSZgGwmevzwHVeR2NUcN3TEyr/rAghqKSQWHwsqwoF1gXMlNFTXpfW2FnSarWGziBA2IxpM7OAT9wVUxmiQ5tpgDS8yZwwd+aMoSOH5Sfk6z/GHe5drTOX+FguDWURGz2Xq4GE8C8pU8GbQzNuJq4MZw6087fZDBkW8qBdK4cHp9s4zQhw0+vfv/MtjzknYF+If//uDfn3b18RVLkgMC448Avb/fn3798dRPEHxvZCyxwsWgwTLRBp7jEOJWZSUO4JuslgRii0sgEIAgEAqAJLGJuccYQDOIADOCBKwDkFAQAgRIAIEAEiQOT/kXv6HlpnV1VVVSVJkhBQd3d3d3f///+/VW9mZmaG57+/5/8LGmuutfY+90ZEREQQUGZmZmZmVlXVfe93d3d3w//79/z30JhzzrX2uTdJkoSAqqqqqqrq////ufd1d3d3w//79/z30JhzzrX2uTdJkoSAqqqqqqrq////ufd1d3d3XyAEAA8095nrCYBvGA==', true));
+    $profiled = $build('p3.jxl')->getFile();
+    $lcms = class_exists(Imagick::class) && Imagick::queryFormats('JXL') !== [] &&
+        preg_match('/\blcms2?\b/i', Imagick::getConfigureOptions('DELEGATES')['DELEGATES'] ?? '');
+    if ($lcms) {
+        $check($profiled !== EVO_SITE_URL . 'p3.jxl', 'Profiled JPEG XL produces a native derivative');
+        $reference = new Imagick($root . 'p3.jxl');
+        $reference->profileImage('icc', ImageColor::srgbProfile());
+        $actual = new Imagick($path($profiled));
+        foreach ([Imagick::COLOR_RED, Imagick::COLOR_GREEN, Imagick::COLOR_BLUE] as $channel) {
+            $check(abs($actual->getImagePixelColor(2, 2)->getColorValue($channel) -
+                $reference->getImagePixelColor(2, 2)->getColorValue($channel)) < 0.02, 'JPEG XL profile conversion keeps the sRGB channel ' . $channel);
         }
-        $check($build('animated.jxl')->getFile() === EVO_SITE_URL . 'animated.jxl', 'Animated JPEG XL returns its original instead of losing frames');
-        file_put_contents($root . 'exif.jxl', base64_decode('AAAADEpYTCANCocKAAAAFGZ0eXBqeGwgAAAAAGp4bCAAAAASanhscAAAAAD/CsMtEBMAAAAuYnJvYkV4aWYbHQAABJxjE0HML/GpCRtwIgFCGuAid4A0qfDb0xfATk4IAAAAwWp4bHCAAAABCAIBALwCSxibnHGEAziAAzggSsA5BQEAIESACBABIkDkeeSevqBz762qqnpJkiQE1N3d3d3dMzPzqv7u7u4uz79/z38PjbXm2nufe5MkSQjoVFVVVf3/////3ve6u7u74f/9e/57aMw551r73JskSUJAVVVVVVX1////3Pu6u7u74f/9e/57aMw551r73JskSUJAVVVVVVX1////3Pu6u7u7LxADAE9/nv2e/s/+AHAXwP8ABw==', true));
-        $oriented = (new sGalleryBuilder())->file('exif.jxl')->fit('max', 32, 32)->format('png')->optimize(false)->getFile();
-        if (class_exists(Imagick::class) && Imagick::queryFormats('JXL') !== []) {
-            $check(array_slice(getimagesize($path($oriented)), 0, 2) === [32, 16], 'JPEG XL does not apply EXIF rotation after decoding its codestream');
-        } else {
-            $check($oriented === EVO_SITE_URL . 'exif.jxl', 'JPEG XL with EXIF returns the original without its decoder');
-        }
-        file_put_contents($root . 'p3.jxl', base64_decode('/wrBQQh3CgMSZgGwmevzwHVeR2NUcN3TEyr/rAghqKSQWHwsqwoF1gXMlNFTXpfW2FnSarWGziBA2IxpM7OAT9wVUxmiQ5tpgDS8yZwwd+aMoSOH5Sfk6z/GHe5drTOX+FguDWURGz2Xq4GE8C8pU8GbQzNuJq4MZw6087fZDBkW8qBdK4cHp9s4zQhw0+vfv/MtjzknYF+If//uDfn3b18RVLkgMC448Avb/fn3798dRPEHxvZCyxwsWgwTLRBp7jEOJWZSUO4JuslgRii0sgEIAgEAqAJLGJuccYQDOIADOCBKwDkFAQAgRIAIEAEiQOT/kXv6HlpnV1VVVSVJkhBQd3d3d3f///+/VW9mZmaG57+/5/8LGmuutfY+90ZEREQQUGZmZmZmVlXVfe93d3d3w//79/z30JhzzrX2uTdJkoSAqqqqqqrq////ufd1d3d3w//79/z30JhzzrX2uTdJkoSAqqqqqqrq////ufd1d3d3XyAEAA8095nrCYBvGA==', true));
-        $profiled = $build('p3.jxl')->getFile();
-        $lcms = class_exists(Imagick::class) && Imagick::queryFormats('JXL') !== [] &&
-            preg_match('/\blcms2?\b/i', Imagick::getConfigureOptions('DELEGATES')['DELEGATES'] ?? '');
-        if ($lcms) {
-            $check($profiled !== EVO_SITE_URL . 'p3.jxl', 'Profiled JPEG XL produces a native derivative');
-            $reference = new Imagick($root . 'p3.jxl');
-            $reference->profileImage('icc', ImageColor::srgbProfile());
-            $actual = new Imagick($path($profiled));
-            foreach ([Imagick::COLOR_RED, Imagick::COLOR_GREEN, Imagick::COLOR_BLUE] as $channel) {
-                $check(abs($actual->getImagePixelColor(2, 2)->getColorValue($channel) -
-                    $reference->getImagePixelColor(2, 2)->getColorValue($channel)) < 0.02, 'JPEG XL profile conversion keeps the sRGB channel ' . $channel);
-            }
-            $check($actual->getImageProfile('icc') === ImageColor::srgbProfile(), 'JPEG XL derivative carries its sRGB profile');
-        } else {
-            $check($profiled === EVO_SITE_URL . 'p3.jxl', 'Profiled JPEG XL returns the original without decoder and color support');
-        }
+        $check($actual->getImageProfile('icc') === ImageColor::srgbProfile(), 'JPEG XL derivative carries its sRGB profile');
+    } else {
+        $check($profiled === EVO_SITE_URL . 'p3.jxl', 'Profiled JPEG XL returns the original without decoder and color support');
     }
 } finally {
     $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);

@@ -11,7 +11,7 @@ sGallery додає галереї до ресурсів Evolution CMS і мод
 
 ![Галерея ресурсу в менеджері Evolution CMS](https://user-images.githubusercontent.com/12029039/169609394-08ea36d6-2393-4261-aff2-348f73a6103c.png)
 
-На сайті Builder створює та кешує мініатюри, WebP і AVIF. Без Spatie Image обробка працює через GD або Imagick. Для повільних перетворень можна підключити sTask.
+На сайті Builder створює та кешує мініатюри, WebP і AVIF. Зображення обробляють GD або Imagick. Для повільних перетворень можна підключити sTask.
 
 - [Встановлення та перша галерея](./getting-started.md)
 - [Посібник редактора](./user-guide.md)

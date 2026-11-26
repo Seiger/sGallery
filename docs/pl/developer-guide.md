@@ -29,4 +29,4 @@ $url = sGallery::file($item->src)
     ->getFile();
 ```
 
-Bez Spatie Builder automatycznie wybiera GD lub Imagick na podstawie formatu źródła i wyniku. Szczegóły przekształceń znajdziesz w [poradniku przetwarzania obrazów](./manipulations/index.md). W przypadku dużych obrazów lub powolnych przekształceń zobacz [optymalizację w tle](./background-image-optimization.md).
+Builder automatycznie wybiera GD lub Imagick na podstawie formatu źródła i wyniku. Szczegóły przekształceń znajdziesz w [poradniku przetwarzania obrazów](./manipulations/index.md). W przypadku dużych obrazów lub powolnych przekształceń zobacz [optymalizację w tle](./background-image-optimization.md).

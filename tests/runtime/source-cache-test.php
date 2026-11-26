@@ -35,7 +35,6 @@ use Illuminate\Support\Facades\Facade;
 use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Services\GalleryCache;
 use Seiger\sGallery\Services\NativeImage;
-use Spatie\Image\Image;
 
 function config($key, $default = null) { return $key === 'seiger.settings.sGallery.optimize' ? false : $default; }
 function storage_path($path = '') { return EVO_BASE_PATH . 'storage/' . $path; }
@@ -44,8 +43,7 @@ function evo() { return new class {
     public function getConfig($key, $default = null) { return $default; }
 }; }
 require __DIR__ . '/bootstrap.php';
-$withSpatie = class_exists(Image::class);
-printf("PHP %s, Spatie %s, GD %s, Imagick %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off', extension_loaded('gd') ? 'on' : 'off', class_exists(Imagick::class) ? 'on' : 'off');
+printf("PHP %s, GD %s, Imagick %s\n", PHP_VERSION, extension_loaded('gd') ? 'on' : 'off', class_exists(Imagick::class) ? 'on' : 'off');
 $container = new Container();
 Facade::setFacadeApplication($container);
 $container->instance('log', new class {
@@ -143,16 +141,12 @@ try {
     $transparent = $metadata->getFile();
     $fresh = (new sGalleryBuilder())->file('metadata.png')->fit('max', 16)->optimize(false);
     $check($opaque !== $transparent && $fresh->getFile() === $transparent, 'A reused Builder follows the current auto-format policy after replacement');
-    if (!$withSpatie || function_exists('imagecreatefrompng')) {
-        $check((new ReflectionProperty($metadata, 'sourceHasAlpha'))->getValue($metadata) === true,
-            'The reused Builder discards its earlier opaque-source metadata');
-    }
-    if (!$withSpatie) {
-        $frame = NativeImage::open(rawurldecode(substr($transparent, strlen(EVO_SITE_URL))), 'png')->frame();
-        $opacity = $frame instanceof Imagick ? $frame->getImagePixelColor(1, 1)->getColorValue(Imagick::COLOR_ALPHA)
-            : 1 - imagecolorsforindex($frame, imagecolorat($frame, 1, 1))['alpha'] / 127;
-        $check(getimagesize($path($transparent))[2] === IMAGETYPE_PNG && $opacity < 0.01, 'Native auto format retains the replacement alpha');
-    }
+    $check((new ReflectionProperty($metadata, 'sourceHasAlpha'))->getValue($metadata) === true,
+        'The reused Builder discards its earlier opaque-source metadata');
+    $frame = NativeImage::open(rawurldecode(substr($transparent, strlen(EVO_SITE_URL))), 'png')->frame();
+    $opacity = $frame instanceof Imagick ? $frame->getImagePixelColor(1, 1)->getColorValue(Imagick::COLOR_ALPHA)
+        : 1 - imagecolorsforindex($frame, imagecolorat($frame, 1, 1))['alpha'] / 127;
+    $check(getimagesize($path($transparent))[2] === IMAGETYPE_PNG && $opacity < 0.01, 'Native auto format retains the replacement alpha');
 
     $replace('legacy.png', $red);
     $legacy = $descriptor->invoke($build('legacy.png', 13), 'png');

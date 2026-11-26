@@ -11,7 +11,7 @@ sGallery ajoute des galeries aux ressources d’Evolution CMS et aux modules tel
 
 ![Galerie d’une ressource dans le gestionnaire Evolution CMS](https://user-images.githubusercontent.com/12029039/169609394-08ea36d6-2393-4261-aff2-348f73a6103c.png)
 
-Sur le site, le Builder génère et met en cache les miniatures et les fichiers WebP et AVIF. Sans Spatie Image, GD ou Imagick assure le traitement. Vous pouvez utiliser sTask pour les transformations lentes.
+Sur le site, le Builder génère et met en cache les miniatures et les fichiers WebP et AVIF. GD ou Imagick assure le traitement. Vous pouvez utiliser sTask pour les transformations lentes.
 
 - [Installation et première galerie](./getting-started.md)
 - [Guide de rédaction](./user-guide.md)

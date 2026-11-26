@@ -26,7 +26,7 @@ $strictHandler = set_error_handler(static function (int $severity, string $messa
     }
     return $strictHandler($severity, $message, $file, $line);
 });
-printf("PHP %s, Spatie %s\n", PHP_VERSION, class_exists(Spatie\Image\Image::class) ? 'on' : 'off');
+printf("PHP %s\n", PHP_VERSION);
 if (!method_exists(Seiger\sTask\sTask::class, 'heartbeat')) throw new RuntimeException('Use the current sTask with its heartbeat API.');
 $root = sys_get_temp_dir() . '/sgallery-dedup-' . bin2hex(random_bytes(6)) . '/';
 mkdir($root . 'storage/logs', 0700, true);

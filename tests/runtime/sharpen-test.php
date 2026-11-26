@@ -6,7 +6,6 @@ use Illuminate\Support\Facades\Facade;
 use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Services\ImageAnimation;
 use Seiger\sGallery\Services\NativeImage;
-use Spatie\Image\Image;
 
 function config($key, $default = null)
 {
@@ -27,11 +26,10 @@ $container->instance('log', new class {
     public function error(string $message): void { throw new RuntimeException($message); }
 });
 
-$withSpatie = class_exists(Image::class);
 $gd = NativeImage::canEncode('png', 'gd');
 $imagick = NativeImage::canEncode('png', 'imagick');
-printf("PHP %s, Spatie %s, GD PNG %s, Imagick PNG %s\n", PHP_VERSION,
-    $withSpatie ? 'on' : 'off', $gd ? 'on' : 'off', $imagick ? 'on' : 'off');
+printf("PHP %s, GD PNG %s, Imagick PNG %s\n", PHP_VERSION,
+    $gd ? 'on' : 'off', $imagick ? 'on' : 'off');
 if (!$gd && !$imagick) {
     return;
 }
@@ -90,10 +88,8 @@ try {
     $more = $read($path($strong), $points);
     $check($less[0][0] < $base[0][0] && $less[1][0] > $base[1][0] &&
         $more[1][0] - $more[0][0] > $less[1][0] - $less[0][0], 'Strength increases contrast on both sides of the edge');
-    if (!$withSpatie) {
-        foreach ($base as $i => [, , , $alpha]) {
-            $check(abs($more[$i][3] - $alpha) < 0.005, "Native sharpening preserves sample $i opacity");
-        }
+    foreach ($base as $i => [, , , $alpha]) {
+        $check(abs($more[$i][3] - $alpha) < 0.005, "Native sharpening preserves sample $i opacity");
     }
 
     $render = static fn (float $strength): string => $builder()->fit('stretch', 48, 32)->sharpen($strength)->getFile();
@@ -114,19 +110,8 @@ try {
     clearstatcache(true, $path($strong));
     $check($builder()->sharpen(37.5)->getFile() === $strong && filemtime($path($strong)) === 1700000000, 'Warm sharpened cache is reused without encoding');
     $check(file_get_contents($root . 'edge.png') === $source, 'Sharpening leaves the original file intact');
-    if ($withSpatie) {
-        $grid = [];
-        for ($y = 0; $y < 16; $y++) {
-            for ($x = 0; $x < 24; $x++) {
-                $grid[] = [$x, $y];
-            }
-        }
-        // Compare the pixels independently of timestamp metadata added by the encoder.
-        $digest = hash('sha256', json_encode($read($path($strong), $grid), JSON_THROW_ON_ERROR));
-        echo 'Spatie ' . basename($strong) . ' RGBA sha256 ' . $digest . PHP_EOL;
-    }
 
-    if (!$withSpatie && NativeImage::canEncode('gif', 'imagick')) {
+    if (NativeImage::canEncode('gif', 'imagick')) {
         $sequence = new Imagick();
         $left = new ImagickDraw();
         $left->setFillColor('rgb(104,104,104)');

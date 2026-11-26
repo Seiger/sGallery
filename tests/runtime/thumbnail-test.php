@@ -28,24 +28,6 @@ function evo()
     return $GLOBALS['evo'];
 }
 require __DIR__ . '/bootstrap.php';
-/**
- * Provide a controlled fixture for package behavior comparison.
- *
- * @since 1.8.0
- */
-class NewReady extends Seiger\sGallery\Builders\sGalleryBuilder
-{
-    /**
-     * Let the Spatie path check the AVIF cache regardless of the local AVIF encoder.
-     *
-     * @since 1.8.0
-     */
-    protected function isAvifSupported(): bool
-    {
-        self::$avifSupportDriver = 'gd';
-        return true;
-    }
-}
 $root = sys_get_temp_dir() . '/ewt-ready-image-' . getmypid() . '/';
 mkdir($root . 'media', 0755, true);
 mkdir($root . 'assets/cache/m', 0755, true);
@@ -85,9 +67,8 @@ $GLOBALS['evo'] = new class
         return $default;
     }
 };
-$withSpatie = class_exists(Spatie\Image\Image::class);
 $cacheTimestamp = 1700000000;
-printf("PHP %s, Spatie %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off');
+printf("PHP %s\n", PHP_VERSION);
 
 if (function_exists('imagecreatetruecolor')) {
     $im = imagecreatetruecolor(128, 128);
@@ -112,7 +93,7 @@ if (function_exists('imagecreatetruecolor')) {
 $jpeg = file_get_contents($root . 'media/photo.jpg');
 unset($im);
 // Seed corrupt/ready cache cases under the current source revision selected by the Builder.
-$probe = (string) (new NewReady())->file('media/photo.jpg')->fit('max', 768, 504)->quality(85)->format('webp');
+$probe = (string) (new Seiger\sGallery\Builders\sGalleryBuilder())->file('media/photo.jpg')->fit('max', 768, 504)->quality(85)->format('webp');
 $cachePrefix = substr($probe, strlen(EVO_SITE_URL), -strlen('.webp'));
 file_put_contents($root . 'media/icon.svg', '<svg/>');
 use Seiger\sGallery\Services\GalleryCache as G;
@@ -153,9 +134,9 @@ function seedReady($files)
  *
  * @since 1.8.0
  */
-function runReady($class, $format, $file = 'media/photo.jpg')
+function runReady($format, $file = 'media/photo.jpg')
 {
-    return (string) (new $class())->file($file)->fit('max', 768, 504)->quality(85)->format($format);
+    return (string) (new Seiger\sGallery\Builders\sGalleryBuilder())->file($file)->fit('max', 768, 504)->quality(85)->format($format);
 }
 $cases = [
     ['avif', ['avif' => $jpeg, 'webp' => $webp], 'webp', 'mislabeled AVIF uses cached WebP'],
@@ -168,7 +149,7 @@ $cases = [
 ];
 foreach ($cases as [$format, $files, $ext, $label]) {
     seedReady($files);
-    $b = runReady(NewReady::class, $format);
+    $b = runReady($format);
     $output = $cachePrefix . '.' . $ext;
     ckReady($b === EVO_SITE_URL . $output, 'expected URL: ' . $label);
     $path = $root . $output;
@@ -178,30 +159,28 @@ foreach ($cases as [$format, $files, $ext, $label]) {
         ckReady(is_file($path) && (getimagesize($path)[2] ?? null) === IMAGETYPE_WEBP, 'generated output validated: ' . $label);
     }
 }
-if (!$withSpatie) {
-    seedReady(['avif' => $jpeg, 'webp' => $jpeg]);
-    $url = runReady(NewReady::class, 'avif');
-    $ext = str_ends_with($url, '.avif') ? 'avif' : 'webp';
-    $output = $cachePrefix . '.' . $ext;
-    $type = $ext === 'avif' ? IMAGETYPE_AVIF : IMAGETYPE_WEBP;
-    ckReady($url === EVO_SITE_URL . $output && (@getimagesize($root . $output)[2] ?? null) === $type,
-        'native AVIF request rejects JPEG bytes cached as WebP');
-}
+seedReady(['avif' => $jpeg, 'webp' => $jpeg]);
+$url = runReady('avif');
+$ext = str_ends_with($url, '.avif') ? 'avif' : 'webp';
+$output = $cachePrefix . '.' . $ext;
+$type = $ext === 'avif' ? IMAGETYPE_AVIF : IMAGETYPE_WEBP;
+ckReady($url === EVO_SITE_URL . $output && (@getimagesize($root . $output)[2] ?? null) === $type,
+    'native AVIF request rejects JPEG bytes cached as WebP');
 foreach (['media/icon.svg', 'absent.jpg'] as $f) {
-    ckReady(runReady(NewReady::class, 'webp', $f) === ($f === 'media/icon.svg' ? EVO_SITE_URL . $f : Seiger\sGallery\Models\sGalleryModel::NOIMAGE), 'SVG/missing source unchanged');
+    ckReady(runReady('webp', $f) === ($f === 'media/icon.svg' ? EVO_SITE_URL . $f : Seiger\sGallery\Models\sGalleryModel::NOIMAGE), 'SVG/missing source unchanged');
 }
 file_put_contents($root . 'media/broken.jpg', 'not an image');
-$broken = $withSpatie ? Seiger\sGallery\Models\sGalleryModel::NOIMAGE : EVO_SITE_URL . 'media/broken.jpg';
-ckReady(runReady(NewReady::class, 'webp', 'media/broken.jpg') === $broken, 'corrupt source does not produce an unchecked derivative');
+$broken = EVO_SITE_URL . 'media/broken.jpg';
+ckReady(runReady('webp', 'media/broken.jpg') === $broken, 'corrupt source does not produce an unchecked derivative');
 seedReady(['webp' => $webp]);
-runReady(NewReady::class, 'webp');
+runReady('webp');
 // Removing the index behind the memo must recover on the next registration.
 $index = $root . 'assets/cache/.sgallery-index/';
 foreach (glob($index . '*.json') as $f) {
     unlink($f);
 }
 rmdir($index);
-runReady(NewReady::class, 'webp');
+runReady('webp');
 ckReady(count(glob($index . '*.json')) === 1, 'externally removed index repaired');
 $count = G::clear();
 ckReady($count > 0 && is_file($root . 'media/photo.jpg'), 'owned derivatives cleared, original retained');

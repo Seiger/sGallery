@@ -5,7 +5,6 @@ use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Facade;
 use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Services\NativeImage;
-use Spatie\Image\Image;
 
 function config($key, $default = null) { return $default; }
 function storage_path($path = '') { return EVO_BASE_PATH . 'storage/' . $path; }
@@ -22,10 +21,9 @@ $container->instance('log', new class {
     }
 });
 
-$withSpatie = class_exists(Image::class);
 $gd = NativeImage::canEncode('png', 'gd') && NativeImage::canEncode('jpg', 'gd');
 $imagick = NativeImage::canEncode('png', 'imagick') && NativeImage::canEncode('jpg', 'imagick');
-printf("PHP %s, Spatie %s, GD %s, Imagick %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off',
+printf("PHP %s, GD %s, Imagick %s\n", PHP_VERSION,
     $gd ? 'on' : 'off', $imagick ? 'on' : 'off');
 if (!$gd && !$imagick) {
     echo "SKIP transparency fixtures require PNG and JPEG support\n";
@@ -94,55 +92,44 @@ try {
             $output = $path($render($source, $format));
             $check(array_slice(getimagesize($output), 0, 3) === [48, 24, $type], "$source $format dimensions and format");
             $samples = $pixels($output, $points);
-            if (!$withSpatie || $source === 'rgba') {
-                $expectedMiddle = $source === 'color-key' ? 1.0 : 0.5;
-                $check($samples[0][3] < 0.03 && abs($samples[1][3] - $expectedMiddle) < 0.04 && $samples[2][3] > 0.97,
-                    "$source $format preserves alpha");
-            }
-            if ($withSpatie) {
-                echo "Spatie $source $format pixels " . json_encode($samples) . PHP_EOL;
-            }
+            $expectedMiddle = $source === 'color-key' ? 1.0 : 0.5;
+            $check($samples[0][3] < 0.03 && abs($samples[1][3] - $expectedMiddle) < 0.04 && $samples[2][3] > 0.97,
+                "$source $format preserves alpha");
         }
         $jpeg = $path($render($source, 'jpeg'));
         $check(array_slice(getimagesize($jpeg), 0, 3) === [48, 24, IMAGETYPE_JPEG], "$source JPEG dimensions and format");
         $samples = $pixels($jpeg, $points);
-        if ($withSpatie) {
-            echo "Spatie $source JPEG pixels " . json_encode($samples) . PHP_EOL;
-        } else {
-            $middle = $source === 'color-key' ? [0, 0, 255] : [127, 127, 255];
-            $check($isColor($samples[0], [255, 255, 255]) && $isColor($samples[1], $middle) && $isColor($samples[2], [0, 255, 0]),
-                "$source JPEG uses white and blends partial alpha");
-        }
+        $middle = $source === 'color-key' ? [0, 0, 255] : [127, 127, 255];
+        $check($isColor($samples[0], [255, 255, 255]) && $isColor($samples[1], $middle) && $isColor($samples[2], [0, 255, 0]),
+            "$source JPEG uses white and blends partial alpha");
     }
 
-    if (!$withSpatie) {
-        $padded = $path($builder('color-key')->fit('fill', 120, 60)->format('png')->getFile());
-        [$padding, $inside] = $pixels($padded, [[4, 4], [25, 15]]);
-        $check($isColor($padding, [255, 255, 255]) && $padding[3] > 0.97 && $inside[3] < 0.03,
-            'White fill padding preserves the transparent region inside the image');
+    $padded = $path($builder('color-key')->fit('fill', 120, 60)->format('png')->getFile());
+    [$padding, $inside] = $pixels($padded, [[4, 4], [25, 15]]);
+    $check($isColor($padding, [255, 255, 255]) && $padding[3] > 0.97 && $inside[3] < 0.03,
+        'White fill padding preserves the transparent region inside the image');
 
-        $_SESSION['supported_image_format'] = 'jpg';
-        $_COOKIE['sgallery_supported_image_format'] = 'jpg';
-        $auto = $path($builder('indexed')->fit('stretch', 48, 24)->getFile());
-        $check(getimagesize($auto)[2] === IMAGETYPE_PNG && $pixels($auto, $points)[0][3] < 0.03,
-            'Auto format preserves alpha despite a cached JPEG preference');
-        $check(getimagesize($path($builder('opaque')->fit('stretch', 48, 24)->getFile()))[2] === IMAGETYPE_JPEG,
-            'An alpha-preserving PNG fallback does not change the cached JPEG preference for opaque images');
+    $_SESSION['supported_image_format'] = 'jpg';
+    $_COOKIE['sgallery_supported_image_format'] = 'jpg';
+    $auto = $path($builder('indexed')->fit('stretch', 48, 24)->getFile());
+    $check(getimagesize($auto)[2] === IMAGETYPE_PNG && $pixels($auto, $points)[0][3] < 0.03,
+        'Auto format preserves alpha despite a cached JPEG preference');
+    $check(getimagesize($path($builder('opaque')->fit('stretch', 48, 24)->getFile()))[2] === IMAGETYPE_JPEG,
+        'An alpha-preserving PNG fallback does not change the cached JPEG preference for opaque images');
 
-        $_GET['sgallery-format'] = 'jpg';
-        $override = $path($builder('indexed')->fit('stretch', 48, 24)->getFile());
-        unset($_GET['sgallery-format']);
-        $check(getimagesize($override)[2] === IMAGETYPE_JPEG && $isColor($pixels($override, $points)[0], [255, 255, 255]),
-            'An explicit JPEG preference keeps white compositing');
+    $_GET['sgallery-format'] = 'jpg';
+    $override = $path($builder('indexed')->fit('stretch', 48, 24)->getFile());
+    unset($_GET['sgallery-format']);
+    $check(getimagesize($override)[2] === IMAGETYPE_JPEG && $isColor($pixels($override, $points)[0], [255, 255, 255]),
+        'An explicit JPEG preference keeps white compositing');
 
-        file_put_contents($root . 'cached.png', $opaque);
-        $stored = $render('cached', 'jpg');
-        file_put_contents($root . 'cached.png', $rgba);
-        $corrected = $render('cached', 'jpg');
-        $check($stored !== $corrected && is_file($path($stored)) &&
-            $isColor($pixels($path($corrected), $points)[0], [255, 255, 255]) && $render('cached', 'jpg') === $corrected,
-            'The new JPEG result bypasses the old cache key and is reused');
-    }
+    file_put_contents($root . 'cached.png', $opaque);
+    $stored = $render('cached', 'jpg');
+    file_put_contents($root . 'cached.png', $rgba);
+    $corrected = $render('cached', 'jpg');
+    $check($stored !== $corrected && is_file($path($stored)) &&
+        $isColor($pixels($path($corrected), $points)[0], [255, 255, 255]) && $render('cached', 'jpg') === $corrected,
+        'The new JPEG result bypasses the old cache key and is reused');
     $check(file_get_contents($root . 'rgba.png') === $rgba, 'The source PNG is preserved');
 } finally {
     $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);

@@ -9,7 +9,6 @@ jobs:
       fail-fast: false
       matrix:
         php: ['8.4', '8.5', '8.6.0']
-        backend: ['spatie', 'native']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -29,8 +28,6 @@ jobs:
           extensions: mbstring, dom, xml, sqlite3, pdo_sqlite, gd, exif, intl, zip, imagick
           coverage: none
       - name: Prepare isolated package dependencies
-        env:
-          SGALLERY_TEST_BACKEND: ${{ matrix.backend }}
         run: |
           php tests/ci/prepare-runtime.php
           composer update --working-dir=.test-core/core --no-dev --no-interaction --no-scripts --prefer-dist
@@ -47,7 +44,6 @@ jobs:
         env:
           SGALLERY_AUTOLOAD: ${{ github.workspace }}/.test-core/core/vendor/autoload.php
           PACKAGE_AUTOLOAD: ${{ github.workspace }}/.test-core/core/vendor/autoload.php
-          SGALLERY_TEST_BACKEND: ${{ matrix.backend }}
         run: sh tests/ci/run-runtime.sh
       - name: Select GD without EXIF
         uses: shivammathur/setup-php@v2

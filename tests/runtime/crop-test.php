@@ -5,7 +5,6 @@ use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Facade;
 use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Services\NativeImage;
-use Spatie\Image\Image;
 
 function config($key, $default = null) { return $default; }
 function storage_path($path = '') { return EVO_BASE_PATH . 'storage/' . $path; }
@@ -22,10 +21,9 @@ $container->instance('log', new class {
     }
 });
 
-$withSpatie = class_exists(Image::class);
 $gd = NativeImage::canEncode('png', 'gd');
 $imagick = NativeImage::canEncode('png', 'imagick');
-printf("PHP %s, Spatie %s, GD %s, Imagick %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off', $gd ? 'on' : 'off', $imagick ? 'on' : 'off');
+printf("PHP %s, GD %s, Imagick %s\n", PHP_VERSION, $gd ? 'on' : 'off', $imagick ? 'on' : 'off');
 
 $root = sys_get_temp_dir() . '/sgallery-crop-' . bin2hex(random_bytes(6)) . '/';
 mkdir($root, 0700);
@@ -55,9 +53,7 @@ try {
     $builder = static fn (): sGalleryBuilder => (new sGalleryBuilder())->file('source.png')->format('png')->optimize(false);
 
     if (!$gd && !$imagick) {
-        if (!$withSpatie) {
-            $check($builder()->crop('left', 50)->getFile() === EVO_SITE_URL . 'source.png', 'Crop serves the original without a codec');
-        }
+        $check($builder()->crop('left', 50)->getFile() === EVO_SITE_URL . 'source.png', 'Crop serves the original without a codec');
         return;
     }
 
@@ -71,12 +67,12 @@ try {
         $color = $pixel->getColor();
         return [$color['r'], $color['g'], $pixel->getColorValue(Imagick::COLOR_ALPHA)];
     };
-    $verify = static function (string $url, int $x, int $y, int $w, int $h, string $label) use ($root, $pixel, $check, $withSpatie): string {
+    $verify = static function (string $url, int $x, int $y, int $w, int $h, string $label) use ($root, $pixel, $check): string {
         $path = $root . rawurldecode(substr($url, strlen(EVO_SITE_URL)));
         $info = is_file($path) ? getimagesize($path) : false;
         $check($info !== false && array_slice($info, 0, 3) === [$w, $h, IMAGETYPE_PNG] && $url !== EVO_SITE_URL . 'source.png', "$label dimensions");
         $check(array_slice($pixel($path, 0, 0), 0, 2) === [$x, $y], "$label starts at ($x, $y)");
-        $check(str_ends_with(pathinfo($path, PATHINFO_FILENAME), '-native') === !$withSpatie, "$label cache namespace");
+        $check(str_ends_with(pathinfo($path, PATHINFO_FILENAME), '-native'), "$label cache namespace");
         return $path;
     };
 
@@ -100,18 +96,16 @@ try {
     $fitPath = $root . rawurldecode(substr($fitUrl, strlen(EVO_SITE_URL)));
     $check(array_slice(getimagesize($fitPath), 0, 3) === [25, 17, IMAGETYPE_PNG], 'Fit takes precedence over positional crop');
 
-    if (!$withSpatie) {
-        $manual = static fn (int $x, int $y): string => $builder()->manualCrop($x, $y, 11, 9)->getFile();
-        $a = $manual(5, 7);
-        $b = $manual(11, 13);
-        $check($a !== $b, 'Equal-sized manual crops use different coordinate-based cache keys');
-        $path = $verify($a, 5, 7, 11, 9, 'First cached manual crop');
-        $verify($b, 11, 13, 11, 9, 'Second cached manual crop');
-        touch($path, 1700000000);
-        clearstatcache(true, $path);
-        $check($manual(5, 7) === $a && filemtime($path) === 1700000000, 'Manual crop reuses the matching cache file');
-        $check($manual(201, 0) === EVO_SITE_URL . 'source.png', 'Manual crop starting outside the source serves the original');
-    }
+    $manual = static fn (int $x, int $y): string => $builder()->manualCrop($x, $y, 11, 9)->getFile();
+    $a = $manual(5, 7);
+    $b = $manual(11, 13);
+    $check($a !== $b, 'Equal-sized manual crops use different coordinate-based cache keys');
+    $path = $verify($a, 5, 7, 11, 9, 'First cached manual crop');
+    $verify($b, 11, 13, 11, 9, 'Second cached manual crop');
+    touch($path, 1700000000);
+    clearstatcache(true, $path);
+    $check($manual(5, 7) === $a && filemtime($path) === 1700000000, 'Manual crop reuses the matching cache file');
+    $check($manual(201, 0) === EVO_SITE_URL . 'source.png', 'Manual crop starting outside the source serves the original');
     $check(file_get_contents($root . 'source.png') === $png, 'Crop leaves the source bytes intact');
 } finally {
     $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);

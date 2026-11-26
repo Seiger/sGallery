@@ -11,7 +11,7 @@ sGallery dodaje galerie do zasobów Evolution CMS i modułów takich jak sCommer
 
 ![Galeria zasobu w panelu Evolution CMS](https://user-images.githubusercontent.com/12029039/169609394-08ea36d6-2393-4261-aff2-348f73a6103c.png)
 
-Builder tworzy i zapisuje w pamięci podręcznej miniatury oraz pliki WebP i AVIF. Gdy Spatie Image nie jest zainstalowany, przetwarzanie obsługuje GD lub Imagick. Powolne przekształcenia można przekazać do sTask.
+Builder tworzy i zapisuje w pamięci podręcznej miniatury oraz pliki WebP i AVIF. Przetwarzanie obsługuje GD lub Imagick. Powolne przekształcenia można przekazać do sTask.
 
 - [Instalacja i pierwsza galeria](./getting-started.md)
 - [Poradnik redaktora](./user-guide.md)

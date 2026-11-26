@@ -29,4 +29,4 @@ $url = sGallery::file($item->src)
     ->getFile();
 ```
 
-За відсутності Spatie Builder автоматично підбирає GD або Imagick за форматом джерела та результату. Деталі перетворень є в [посібниках з обробки](./manipulations/index.md). Для повільних або великих зображень дивіться [фонову оптимізацію](./background-image-optimization.md).
+Builder автоматично підбирає GD або Imagick за форматом джерела та результату. Деталі перетворень є в [посібниках з обробки](./manipulations/index.md). Для повільних або великих зображень дивіться [фонову оптимізацію](./background-image-optimization.md).

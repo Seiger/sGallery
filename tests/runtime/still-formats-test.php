@@ -6,7 +6,6 @@ use Illuminate\Support\Facades\Facade;
 use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Services\ImageAnimation;
 use Seiger\sGallery\Services\NativeImage;
-use Spatie\Image\Image;
 
 function config($key, $default = null) { return $default; }
 function storage_path($path = '') { return EVO_BASE_PATH . 'storage/' . $path; }
@@ -23,12 +22,11 @@ $container->instance('log', new class {
     public function warning(string $message): void { echo "$message\n"; }
 });
 
-$withSpatie = class_exists(Image::class);
 $avif = NativeImage::canEncode('avif', 'gd') || NativeImage::canEncode('avif', 'imagick');
 $webp = NativeImage::canEncode('webp', 'gd') || NativeImage::canEncode('webp', 'imagick');
 $gif = NativeImage::canEncode('gif', 'gd') || NativeImage::canEncode('gif', 'imagick');
-printf("PHP %s, Spatie %s, GD %s, Imagick %s, AVIF %s, GIF %s\n", PHP_VERSION,
-    $withSpatie ? 'on' : 'off', extension_loaded('gd') ? 'on' : 'off', extension_loaded('imagick') ? 'on' : 'off',
+printf("PHP %s, GD %s, Imagick %s, AVIF %s, GIF %s\n", PHP_VERSION,
+    extension_loaded('gd') ? 'on' : 'off', extension_loaded('imagick') ? 'on' : 'off',
     $avif ? 'on' : 'off', $gif ? 'on' : 'off');
 
 $root = sys_get_temp_dir() . '/sgallery-still-formats-' . bin2hex(random_bytes(6)) . '/';
@@ -78,23 +76,17 @@ try {
         $file = $path($url);
         $check($size($file) === [48, 24, IMAGETYPE_GIF] && !ImageAnimation::isAnimated($file, IMAGETYPE_GIF), 'GIF output is a decoded still frame');
         $pixels = $samples($file, 'gif', [6, 18, 30, 42], 12);
-        if ($withSpatie) {
-            echo 'Spatie GIF pixels ' . json_encode($pixels) . PHP_EOL;
-        } else {
-            $check(array_map('floatval', array_column($pixels, 3)) === [0.0, 0.0, 1.0, 1.0], 'GIF quantizes alpha to a transparent index');
-            $check($pixels[2][2] > 190 && $pixels[3][1] > 190, 'GIF keeps the colors of opaque pixels');
-        }
+        $check(array_map('floatval', array_column($pixels, 3)) === [0.0, 0.0, 1.0, 1.0], 'GIF quantizes alpha to a transparent index');
+        $check($pixels[2][2] > 190 && $pixels[3][1] > 190, 'GIF keeps the colors of opaque pixels');
         touch($file, 1700000000);
         clearstatcache(true, $file);
         $check($builder('gif')->fit('stretch', 48, 24)->getFile() === $url && filemtime($file) === 1700000000, 'A valid cached GIF is reused');
-        if (!$withSpatie) {
-            // Supply valid PNG bytes under the old GIF name.
-            file_put_contents($file, $png);
-            $check($builder('gif')->fit('stretch', 48, 24)->getFile() === $url && $size($file) === [48, 24, IMAGETYPE_GIF],
-                'A different format in the GIF cache is regenerated');
-            $check($size($path($builder('gif')->getFile())) === [96, 48, IMAGETYPE_GIF], 'GIF conversion works at the source dimensions');
-        }
-    } elseif (!$withSpatie) {
+        // Supply valid PNG bytes under the old GIF name.
+        file_put_contents($file, $png);
+        $check($builder('gif')->fit('stretch', 48, 24)->getFile() === $url && $size($file) === [48, 24, IMAGETYPE_GIF],
+            'A different format in the GIF cache is regenerated');
+        $check($size($path($builder('gif')->getFile())) === [96, 48, IMAGETYPE_GIF], 'GIF conversion works at the source dimensions');
+    } else {
         $check($builder('gif')->getFile() === EVO_SITE_URL . 'source.png', 'Native GIF serves the original when no encoder is available');
     }
 
@@ -106,35 +98,27 @@ try {
         $type = $avif ? IMAGETYPE_AVIF : IMAGETYPE_WEBP;
         $check(str_ends_with($url, ".$format") && $size($file) === [36, 18, $type], "AVIF request produces valid $format bytes");
         $pixels = $samples($file, $format, [4, 13, 22, 31], 9);
-        if ($withSpatie) {
-            echo "Spatie $format pixels " . json_encode($pixels) . PHP_EOL;
-        } else {
-            $alpha = array_column($pixels, 3);
-            $check($alpha[0] < 0.03 && abs($alpha[1] - 0.25) < 0.06 && abs($alpha[2] - 0.75) < 0.06 && $alpha[3] > 0.97,
-                "Native $format keeps full and partial alpha");
-            file_put_contents($file, $png);
-            $check($render() === $url && $size($file) === [36, 18, $type], "A falsely labelled $format cache is regenerated");
-        }
+        $alpha = array_column($pixels, 3);
+        $check($alpha[0] < 0.03 && abs($alpha[1] - 0.25) < 0.06 && abs($alpha[2] - 0.75) < 0.06 && $alpha[3] > 0.97,
+            "Native $format keeps full and partial alpha");
+        file_put_contents($file, $png);
+        $check($render() === $url && $size($file) === [36, 18, $type], "A falsely labelled $format cache is regenerated");
         touch($file, 1700000000);
         clearstatcache(true, $file);
         $check($render() === $url && filemtime($file) === 1700000000, "A valid cached $format result is reused");
-        if (!$withSpatie) {
-            $check($size($path($builder('avif')->getFile())) === [96, 48, $type], 'Format-only AVIF request keeps the original dimensions');
-        }
-    } elseif (!$withSpatie) {
+        $check($size($path($builder('avif')->getFile())) === [96, 48, $type], 'Format-only AVIF request keeps the original dimensions');
+    } else {
         $check($builder('avif')->getFile() === EVO_SITE_URL . 'source.png', 'AVIF serves the original without AVIF or WebP support');
     }
-    if (!$withSpatie) {
-        $frame = static fn (int $sequence): string => pack('NNNNNnnCC', $sequence, 96, 48, 0, 0, 1, 10, 0, 0);
-        $data = gzcompress(str_repeat($row, 48));
-        $apng = substr($png, 0, 33) . $chunk('acTL', pack('NN', 2, 0))
-            . $chunk('fcTL', $frame(0)) . $chunk('IDAT', $data)
-            . $chunk('fcTL', $frame(1)) . $chunk('fdAT', pack('N', 2) . $data) . $chunk('IEND', '');
-        file_put_contents($root . 'animated.png', $apng);
-        foreach (['avif', 'gif'] as $format) {
-            $check((new sGalleryBuilder())->file('animated.png')->format($format)->getFile() === EVO_SITE_URL . 'animated.png',
-                "A native still $format request keeps the animated PNG source");
-        }
+    $frame = static fn (int $sequence): string => pack('NNNNNnnCC', $sequence, 96, 48, 0, 0, 1, 10, 0, 0);
+    $data = gzcompress(str_repeat($row, 48));
+    $apng = substr($png, 0, 33) . $chunk('acTL', pack('NN', 2, 0))
+        . $chunk('fcTL', $frame(0)) . $chunk('IDAT', $data)
+        . $chunk('fcTL', $frame(1)) . $chunk('fdAT', pack('N', 2) . $data) . $chunk('IEND', '');
+    file_put_contents($root . 'animated.png', $apng);
+    foreach (['avif', 'gif'] as $format) {
+        $check((new sGalleryBuilder())->file('animated.png')->format($format)->getFile() === EVO_SITE_URL . 'animated.png',
+            "A native still $format request keeps the animated PNG source");
     }
     $check(file_get_contents($root . 'source.png') === $png, 'The source PNG remains intact');
 } finally {

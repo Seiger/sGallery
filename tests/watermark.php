@@ -12,8 +12,7 @@ if (!getenv('PACKAGE_AUTOLOAD') && getenv('SGALLERY_AUTOLOAD')) {
     putenv('PACKAGE_AUTOLOAD=' . getenv('SGALLERY_AUTOLOAD'));
 }
 require __DIR__ . '/runtime/bootstrap.php';
-$withSpatie = class_exists(\Spatie\Image\Image::class);
-printf("PHP %s, Spatie %s, Imagick %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off', extension_loaded('imagick') ? 'on' : 'off');
+printf("PHP %s, Imagick %s\n", PHP_VERSION, extension_loaded('imagick') ? 'on' : 'off');
 $container = new \Illuminate\Container\Container();
 \Illuminate\Support\Facades\Facade::setFacadeApplication($container);
 $container->instance('log', new class {public function warning($m) {} public function error($m) {throw new RuntimeException($m);} });
@@ -33,7 +32,7 @@ try {
     $check($pixel['red'] > 200 && $pixel['blue'] < 50, 'Watermark pixels appear in bottom-right');
     $check($build()->watermark([])->getFile() === $url, 'Options-only call uses default watermark');
     $check($build()->watermark('assets/mark.png', [])->getFile() === $url, 'Explicit watermark call matches default');
-    // Fractional percentage results previously raised PHP float-to-int deprecations in Spatie.
+    // Fractional percentage sizes are resolved to integer pixels.
     $fractional = imagecreatetruecolor(306, 270);
     imagefill($fractional, 0, 0, imagecolorallocate($fractional, 0, 0, 255));
     imagepng($fractional, $root . '/assets/fractional.png'); unset($fractional);
@@ -56,11 +55,6 @@ try {
     $reusable = $build()->format('original')->watermark('assets/mark.png');
     $reusableUrl = $reusable->getFile();
     $check($reusable->getFile() === $reusableUrl, 'Reusing Builder does not watermark a derivative again');
-    if ($withSpatie) {
-        $descriptor = new ReflectionMethod($reusable, 'optimizationDescriptor');
-        $job = $descriptor->invoke($reusable, 'png');
-        $check((new \Seiger\sGallery\Builders\sGalleryBuilder())->processOptimization($job) === $reusableUrl, 'Background replay reuses the same cache identity');
-    }
     $settings['watermark']['file'] = '';
     $check($build()->watermark()->getFile() === $build()->getFile(), 'Missing default is a no-op');
     try {$build()->watermark('assets/missing.png');throw new RuntimeException('Missing explicit watermark accepted');} catch (InvalidArgumentException $expected) {}
@@ -85,47 +79,45 @@ try {
     }
     imagepng($mark, $root . '/assets/alpha-mark.png');
     unset($mark);
-    if (!$withSpatie) {
-        $options = ['position' => 'centerCenter', 'width' => '24px', 'padding' => '5px', 'opacity' => 50];
-        $url = $build()->watermark('assets/alpha-mark.png', $options)->getFile();
-        $result = imagecreatefrompng($root . '/' . substr($url, strlen(EVO_SITE_URL)));
-        $pixelAt = static fn (int $x, int $y): array => imagecolorsforindex($result, imagecolorat($result, $x, $y));
-        $opaqueMark = $pixelAt(36, 42);
-        $translucentMark = $pixelAt(45, 42);
-        $transparentMark = $pixelAt(53, 42);
-        $base = $pixelAt(32, 42);
-        $check(abs($opaqueMark['alpha'] - 40) <= 2 && abs($translucentMark['alpha'] - 60) <= 2 &&
-            $opaqueMark['red'] > $translucentMark['red'] && $transparentMark === $base && $base['alpha'] === 80,
-            'Native opacity multiplies each mark pixel opacity and preserves the base alpha');
-        $check($pixelAt(36, 38) === $base && $pixelAt(36, 50) === $opaqueMark && $pixelAt(36, 51) === $base,
-            'Native center alias, pixel padding and watermark aspect ratio match the placement contract');
-        $url = $build()->watermark('assets/alpha-mark.png', array_replace($options, ['opacity' => 0]))->getFile();
-        $zero = imagecreatefrompng($root . '/' . substr($url, strlen(EVO_SITE_URL)));
-        $check(imagecolorsforindex($zero, imagecolorat($zero, 36, 42)) === $base, 'Zero opacity leaves the pixels unchanged');
-        unset($result, $pixelAt, $zero);
+    $options = ['position' => 'centerCenter', 'width' => '24px', 'padding' => '5px', 'opacity' => 50];
+    $url = $build()->watermark('assets/alpha-mark.png', $options)->getFile();
+    $result = imagecreatefrompng($root . '/' . substr($url, strlen(EVO_SITE_URL)));
+    $pixelAt = static fn (int $x, int $y): array => imagecolorsforindex($result, imagecolorat($result, $x, $y));
+    $opaqueMark = $pixelAt(36, 42);
+    $translucentMark = $pixelAt(45, 42);
+    $transparentMark = $pixelAt(53, 42);
+    $base = $pixelAt(32, 42);
+    $check(abs($opaqueMark['alpha'] - 40) <= 2 && abs($translucentMark['alpha'] - 60) <= 2 &&
+        $opaqueMark['red'] > $translucentMark['red'] && $transparentMark === $base && $base['alpha'] === 80,
+        'Native opacity multiplies each mark pixel opacity and preserves the base alpha');
+    $check($pixelAt(36, 38) === $base && $pixelAt(36, 50) === $opaqueMark && $pixelAt(36, 51) === $base,
+        'Native center alias, pixel padding and watermark aspect ratio match the placement contract');
+    $url = $build()->watermark('assets/alpha-mark.png', array_replace($options, ['opacity' => 0]))->getFile();
+    $zero = imagecreatefrompng($root . '/' . substr($url, strlen(EVO_SITE_URL)));
+    $check(imagecolorsforindex($zero, imagecolorat($zero, 36, 42)) === $base, 'Zero opacity leaves the pixels unchanged');
+    unset($result, $pixelAt, $zero);
 
-        if (\Seiger\sGallery\Services\NativeImage::canEncode('gif', 'imagick')) {
-            $sequence = new Imagick();
-            foreach (['blue', 'lime'] as $index => $color) {
-                $frame = new Imagick();
-                $frame->newImage(32, 24, $color, 'GIF');
-                $frame->setImageDelay(12 + 8 * $index);
-                $frame->setImageIterations(3);
-                $sequence->addImage($frame);
-            }
-            $sequence->setFirstIterator();
-            $sequence->writeImages($root . '/assets/source.gif', true);
-            foreach (['gif' => IMAGETYPE_GIF, 'webp' => IMAGETYPE_WEBP] as $format => $type) {
-                if (!\Seiger\sGallery\Services\NativeImage::canEncode($format, 'imagick')) continue;
-                $url = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/source.gif')->format($format)
-                    ->quality(90)->watermark('assets/alpha-mark.png', ['position' => 'top-left', 'width' => 12, 'padding' => 0])->getFile();
-                $file = $root . '/' . substr($url, strlen(EVO_SITE_URL));
-                $check($url !== EVO_SITE_URL . 'assets/source.gif' &&
-                    \Seiger\sGallery\Services\ImageAnimation::timing($file, $type) === ['loops' => 3, 'delays' => [120, 200]],
-                    "Native $format watermark preserves frame count, delays and looping");
-                foreach ((new Imagick($file))->coalesceImages() as $frame) {
-                    $check($frame->getImagePixelColor(1, 1)->getColor()['r'] > 220, "Native $format watermark appears in each frame");
-                }
+    if (\Seiger\sGallery\Services\NativeImage::canEncode('gif', 'imagick')) {
+        $sequence = new Imagick();
+        foreach (['blue', 'lime'] as $index => $color) {
+            $frame = new Imagick();
+            $frame->newImage(32, 24, $color, 'GIF');
+            $frame->setImageDelay(12 + 8 * $index);
+            $frame->setImageIterations(3);
+            $sequence->addImage($frame);
+        }
+        $sequence->setFirstIterator();
+        $sequence->writeImages($root . '/assets/source.gif', true);
+        foreach (['gif' => IMAGETYPE_GIF, 'webp' => IMAGETYPE_WEBP] as $format => $type) {
+            if (!\Seiger\sGallery\Services\NativeImage::canEncode($format, 'imagick')) continue;
+            $url = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/source.gif')->format($format)
+                ->quality(90)->watermark('assets/alpha-mark.png', ['position' => 'top-left', 'width' => 12, 'padding' => 0])->getFile();
+            $file = $root . '/' . substr($url, strlen(EVO_SITE_URL));
+            $check($url !== EVO_SITE_URL . 'assets/source.gif' &&
+                \Seiger\sGallery\Services\ImageAnimation::timing($file, $type) === ['loops' => 3, 'delays' => [120, 200]],
+                "Native $format watermark preserves frame count, delays and looping");
+            foreach ((new Imagick($file))->coalesceImages() as $frame) {
+                $check($frame->getImagePixelColor(1, 1)->getColor()['r'] > 220, "Native $format watermark appears in each frame");
             }
         }
     }

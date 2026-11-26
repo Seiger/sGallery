@@ -11,13 +11,13 @@ sidebar_position: 7
 
 sGallery przetwarza obrazy spoza pamięci podręcznej synchronicznie, o ile proces WWW ma wystarczająco dużo pamięci. Pakiet wyznacza domyślny, kooperacyjny limit pięciu sekund. Jego wartość udostępnia `Seiger\sGallery\sGallery::optimizationBudgetSeconds()`. Gotowy, niepusty plik z pamięci podręcznej jest zwracany od razu. Puste pliki są generowane ponownie.
 
-Automatyczny dobór jakości WebP sprawdza 15 wartości. `99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80`. Wybierana jest pierwsza wartość mieszcząca się w docelowym rozmiarze. Jeśli żadna nie mieści się w limicie, wybierana jest ostatnia. Jawne wywołanie `quality()` używa jednej określonej wartości. Natywne przetwarzanie obsługuje jawną jakość WebP 100. Jakość domyślna z konfiguracji i przetwarzanie przez Spatie mają limit 99. Gotowy, niepusty WebP jest publikowany atomowo z pliku tymczasowego.
+Automatyczny dobór jakości WebP sprawdza 15 wartości. `99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80`. Wybierana jest pierwsza wartość mieszcząca się w docelowym rozmiarze. Jeśli żadna nie mieści się w limicie, wybierana jest ostatnia. Jawne wywołanie `quality()` używa jednej określonej wartości. Natywne przetwarzanie obsługuje jawną jakość WebP 100. Domyślna jakość z konfiguracji ma limit 99. Gotowy, niepusty WebP jest publikowany atomowo z pliku tymczasowego.
 
 Pakiet sprawdza limit między przekształceniami i próbami kodowania. Nie przerywa już uruchomionego natywnego kodera. Pierwsze przetwarzanie może przekroczyć pięć sekund lub bieżący limit czasu PHP. Współdzielona przestrzeń przechowuje znacznik powolnego przekształcenia. Kolejne żądania pomijają przetwarzanie synchroniczne. Niedokończone pliki tymczasowe nie są udostępniane jako wyniki.
 
 ## Opcjonalna integracja z sTask
 
-Bez Spatie sTask wykonuje obsługiwane przekształcenia natywne przez GD lub Imagick. Animowane obrazy GIF i WebP wymagają Imagick. Jeśli Spatie jest zainstalowany, worker używa Spatie.
+sTask wykonuje obsługiwane przekształcenia przez GD lub Imagick. Animowane obrazy GIF i WebP wymagają Imagick.
 
 sTask instaluje się oddzielnie. Dodanie do kolejki wymaga klas wykonawczych sTask, API `heartbeat()` oraz aktualnego sygnału z procesu wykonawczego. Starsze wersje sTask bez tego API nie otrzymują odroczonych zadań.
 

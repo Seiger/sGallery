@@ -1,7 +1,7 @@
 # sGallery for Evolution CMS
 ![sGallery](https://user-images.githubusercontent.com/12029039/169609394-08ea36d6-2393-4261-aff2-348f73a6103c.png)
 [![Latest Stable Version](https://img.shields.io/packagist/v/seiger/sgallery?label=version)](https://packagist.org/packages/seiger/sgallery)
-[![Evolution CMS version requirement](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FSeiger%2FsGallery%2F1.x%2Fcomposer.json&query=%24.require%5B%27evolution-cms%2Fevolution%27%5D&label=CMS&prefix=Evolution%20&color=brightgreen)](https://github.com/evolution-cms/evolution)
+[![Evolution CMS version requirement](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FSeiger%2FsGallery%2F2.x%2Fcomposer.json&query=%24.require%5B%27evolution-cms%2Fevolution%27%5D&label=CMS&prefix=Evolution%20&color=brightgreen)](https://github.com/evolution-cms/evolution)
 [![PHP: 8.4, 8.5 and 8.6](https://img.shields.io/badge/PHP-8.4_%7C_8.5_%7C_8.6-777BB4?logo=php&logoColor=white)](#compatibility)
 [![Issues](https://img.shields.io/github/issues/Seiger/sgallery)](https://github.com/Seiger/sgallery/issues)
 [![Stars](https://img.shields.io/packagist/stars/Seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
@@ -11,8 +11,8 @@
 
 Attach images, downloads and YouTube videos to Evolution CMS resources, manage
 them in the manager and generate image derivatives through a fluent PHP Builder.
-GD and Imagick provide native processing when the optional Spatie Image package
-is absent. Existing Spatie installations keep their transformation path in 1.x.
+GD and Imagick handle image processing. sTask can run slow transformations in
+the background.
 
 ## Features
 
@@ -33,26 +33,18 @@ is absent. Existing Spatie installations keep their transformation path in 1.x.
 The gallery Builder's `format()` method offers JPEG, PNG, GIF, WebP and AVIF
 as derivative formats.
 
-The Builder uses `NativeImage` for supported still images and keeps Spatie for
-transformations. It checks the source and output formats for each driver,
+The Builder uses `NativeImage` for supported still images. It checks the source and output formats for each driver,
 prefers Imagick when both can process the image, and retries with the other
 driver when a still image fails. Animated GIF and WebP use Imagick. The
 original stays available if the requested output cannot preserve animation.
 Native codec availability depends on the installed GD or Imagick build.
 
-Spatie PNG derivatives discard stale EXIF metadata after the pixels are oriented.
-An RGB ICC profile keeps RGB/RGBA PNG samples even when all pixels are neutral;
-this prevents an invalid RGB profile on grayscale samples. They use an
-`upright-icc` cache suffix so earlier PNGs, including the previous `upright`
-version, are regenerated without deleting the old cache files. ICC profiles,
-pixel values and transparency are retained.
-
 Derivative URLs include a revision of the full source path, size, modification
 time and SHA-256 contents. Replacing a local file also refreshes its cache when
 size and mtime are preserved. Earlier derivatives stay available until cache
 clearing. Fingerprints stream the source bytes without decoding them; cache
-lookups still require reading the source. Both processing paths recheck the
-revision before and after publication, and sTask rejects stale hashed jobs.
+lookups still require reading the source. The Builder rechecks the revision
+before and after publication, and sTask rejects stale hashed jobs.
 Earlier size/mtime-only jobs validate their available metadata and then pin
 the current contents before processing.
 Gallery optimization descriptors are normalized to their persisted JSON types
@@ -80,9 +72,9 @@ failed work follows the existing retry and cooldown rules.
 - Composer **2.2+**
 - One of: **MySQL 8.0+** / **MariaDB 10.5+** / **PostgreSQL 10+** / **SQLite 3.25+**
 
-### Optional image processing
+### Image processing
 
-`spatie/image` is optional. With a compatible GD or Imagick codec, the Builder can
+With a compatible GD or Imagick codec, the Builder can
 use `fit()`, `crop()`, `manualCrop()` and `focalCrop()` on local still JPEG, PNG,
 GIF, WebP, AVIF and BMP images, plus single-page TIFF through Imagick, and produce
 JPEG, PNG, WebP, AVIF or GIF. For example,
@@ -111,7 +103,7 @@ GIF or WebP explicitly. The Builder returns the original URL if the encoder is
 unavailable, the request exceeds the processing budget, or the selected output
 cannot preserve the timing or color profile. GIF delays use 10 ms units.
 
-The native path uses a separate cache key. Explicit `quality()` is clamped to
+Explicit `quality()` is clamped to
 1–100 and uses one encoder setting, including native WebP quality 100. Fixed WebP
 requests have separate cache entries when they can differ from automatic quality.
 With the existing adaptive selection enabled, WebP tries qualities from 99 down
@@ -153,31 +145,17 @@ Imagick also uses optimized JPEG coding and WebP method 6, and removes descripti
 metadata while keeping ICC profiles. Other formats use the selected codec's
 compression. Explicit quality, transparency and animation timing are preserved.
 The method works without a geometry request and requires no external optimizer
-executables. The native optimized cache uses a new key so earlier derivatives
-cannot bypass the encoder settings. `optimize(false)` uses the regular encoding
+executables. Optimized derivatives use a separate cache key.
+`optimize(false)` uses the regular encoding
 settings and disables adaptive WebP quality selection.
 
-When Spatie is installed, the Builder continues to use it for transformations.
-Background image optimization through sTask uses the same native pipeline when
-Spatie is absent, including geometry, watermarks, sharpening and output settings.
-If a transformation or codec is unavailable without
-Spatie, the Builder returns the original URL. Missing files use the normal placeholder.
+Background optimization through sTask uses the same pipeline, including geometry,
+watermarks, sharpening and output settings. If a transformation or codec is unavailable,
+the Builder returns the original URL. Missing files use the normal placeholder.
 
-To use the Spatie transformation path, install version 3 from the site's `core/` directory:
-
-```console
-composer require spatie/image:^3
-```
-
-The gallery itself does not require EXIF. If you choose to install `spatie/image`
-without EXIF, its Composer requirement needs an explicit opt-out:
-
-```console
-composer require spatie/image:^3 --ignore-platform-req=ext-exif
-```
-
-Include that flag in subsequent Composer install/update commands on that server.
-With the GD driver in Spatie, automatic camera-photo rotation requires EXIF.
+When upgrading from 1.x, matching native derivatives are reused and queued sTask
+jobs keep their existing descriptor format. Derivatives previously generated with
+Spatie stay on disk. New requests use the native cache key.
 
 ## Install by artisan package installer
 
@@ -190,7 +168,7 @@ cd core
 Run php artisan command
 
 ```console
-php artisan package:installrequire seiger/sgallery "*"
+php artisan package:installrequire seiger/sgallery "^2.0"
 ```
 
 Generate the config file in **../core/custom/config/seiger/settings** with

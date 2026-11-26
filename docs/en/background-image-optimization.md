@@ -19,8 +19,7 @@ Automatic WebP quality selection keeps the original 15 candidates:
 `99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80`.
 It selects the first candidate meeting the size target, or the last candidate if
 none meets it. An explicit `quality()` remains a single requested quality.
-Native explicit WebP quality can use 100. The configured default and the Spatie
-path retain their upper-bound normalization to 99.
+Explicit WebP quality can use 100. The configured default is capped at 99.
 Only the final nonempty WebP is atomically published from a temporary file.
 
 The budget is checked between transformations and encoding attempts. It cannot
@@ -32,9 +31,8 @@ served as completed images.
 
 ## Optional sTask integration
 
-sTask can replay the supported native transformations through GD or Imagick
-without Spatie. Animated GIF and WebP processing requires Imagick. When Spatie
-is installed, the worker selects the Spatie processing path.
+sTask runs supported transformations through GD or Imagick. Animated GIF and WebP
+processing requires Imagick.
 
 The package remains independently installable. Queue delivery requires installed
 sTask runtime classes, the `heartbeat()` API, and a current runner heartbeat.
@@ -111,6 +109,6 @@ php tests/optional-stask.php
 ```
 
 With `PACKAGE_AUTOLOAD` pointing at the same runtime, also run
-`php tests/runtime/worker-test.php` both with and without Spatie. It uses an
+`php tests/runtime/worker-test.php`. It uses an
 isolated SQLite queue and the real sTask runner to verify deferral, retries,
 source replacement, cache identity and recovery after a failed publication.

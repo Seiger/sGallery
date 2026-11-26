@@ -11,13 +11,13 @@ sidebar_position: 7
 
 sGallery traite les images hors cache de façon synchrone si la mémoire disponible pour le processus web suffit. Le paquet fixe un budget de temps coopératif de cinq secondes, consultable via `Seiger\sGallery\sGallery::optimizationBudgetSeconds()`. Un fichier de cache complet et non vide est renvoyé immédiatement. Un fichier vide est régénéré.
 
-Le choix automatique de la qualité WebP essaie 15 valeurs. `99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80`. Le premier candidat qui respecte la taille cible est retenu. Si aucun ne convient, le dernier est utilisé. Un appel explicite à `quality()` utilise uniquement la valeur demandée. Le traitement natif accepte la qualité WebP 100 si elle est demandée explicitement. La qualité par défaut et le traitement avec Spatie sont plafonnés à 99. Un WebP complet et non vide est publié de façon atomique à partir du fichier temporaire.
+Le choix automatique de la qualité WebP essaie 15 valeurs. `99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80`. Le premier candidat qui respecte la taille cible est retenu. Si aucun ne convient, le dernier est utilisé. Un appel explicite à `quality()` utilise uniquement la valeur demandée. Le traitement natif accepte la qualité WebP 100 si elle est demandée explicitement. La qualité par défaut est plafonnée à 99. Un WebP complet et non vide est publié de façon atomique à partir du fichier temporaire.
 
 Le budget est vérifié entre les opérations et les essais d’encodage. Il ne peut pas interrompre un encodeur natif en cours. Le premier traitement peut dépasser cinq secondes ou le délai PHP configuré. Le stockage partagé conserve un indicateur de transformation lente. Les requêtes suivantes ignorent le traitement synchrone. Un fichier temporaire incomplet ne peut pas être servi comme résultat.
 
 ## Intégration facultative de sTask
 
-Sans Spatie, sTask exécute les transformations prises en charge via GD ou Imagick. Les GIF et WebP animés requièrent Imagick. Si Spatie est installé, le worker l’utilise.
+sTask exécute les transformations prises en charge via GD ou Imagick. Les GIF et WebP animés requièrent Imagick.
 
 sTask s’installe séparément. La mise en file nécessite ses classes d’exécution, l’API `heartbeat()` et un signal récent du runner. Les anciennes versions de sTask dépourvues de cette API ne reçoivent aucune tâche différée.
 

@@ -5,7 +5,6 @@ use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Facade;
 use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Services\NativeImage;
-use Spatie\Image\Image;
 
 function config($key, $default = null) { return $default; }
 function storage_path($path = '') { return EVO_BASE_PATH . 'storage/' . $path; }
@@ -22,10 +21,9 @@ $container->instance('log', new class {
     }
 });
 
-$withSpatie = class_exists(Image::class);
 $hasGd = NativeImage::canEncode('png', 'gd');
 $hasImagick = NativeImage::canEncode('png', 'imagick');
-printf("PHP %s, Spatie %s, GD %s, Imagick %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off', $hasGd ? 'on' : 'off', $hasImagick ? 'on' : 'off');
+printf("PHP %s, GD %s, Imagick %s\n", PHP_VERSION, $hasGd ? 'on' : 'off', $hasImagick ? 'on' : 'off');
 
 $root = sys_get_temp_dir() . '/sgallery-fit-' . bin2hex(random_bytes(6)) . '/';
 mkdir($root, 0700);
@@ -51,19 +49,17 @@ try {
 
     $builder = static fn (string $file): sGalleryBuilder => (new sGalleryBuilder())->file($file);
     if (!$hasGd && !$hasImagick) {
-        if (!$withSpatie) {
-            $check($builder('landscape.png')->fit('fill', 31)->format('png')->getFile() === EVO_SITE_URL . 'landscape.png',
-                'The native fit serves the original when neither codec can render it');
-        }
+        $check($builder('landscape.png')->fit('fill', 31)->format('png')->getFile() === EVO_SITE_URL . 'landscape.png',
+            'The native fit serves the original when neither codec can render it');
         return;
     }
 
-    $derivative = static function (string $url, int $width, int $height, int $type, string $label) use ($root, $check, $withSpatie): string {
+    $derivative = static function (string $url, int $width, int $height, int $type, string $label) use ($root, $check): string {
         $path = $root . rawurldecode(substr($url, strlen(EVO_SITE_URL)));
         $info = is_file($path) ? getimagesize($path) : false;
         $actual = $info === false ? [] : array_slice($info, 0, 3);
         $check($actual === [$width, $height, $type], "$label size and format ($url, " . json_encode($actual) . ')');
-        $check(str_ends_with(pathinfo($path, PATHINFO_FILENAME), '-native') === !$withSpatie, $label . ' cache namespace');
+        $check(str_ends_with(pathinfo($path, PATHINFO_FILENAME), '-native'), $label . ' cache namespace');
         return $path;
     };
     $paths = [];

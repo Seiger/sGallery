@@ -9,12 +9,6 @@ namespace Seiger\sGallery\Builders {
         return $GLOBALS['clock'];
     }
 
-    /** Simulate an encoder reporting success while writing JPEG during the AVIF probe. @since 1.9.0 */
-    function imageavif(\GdImage $image, $file): bool
-    {
-        return !empty($GLOBALS['mislabel_avif_probe']) ? \imagejpeg($image, $file) : \imageavif($image, $file);
-    }
-
     /** Simulate a recoverable publication error after the derivative was encoded. @since 1.9.0 */
     function rename(string $source, string $destination): bool
     {
@@ -107,21 +101,6 @@ namespace {
         if (!$condition) { throw new RuntimeException($message); }
     };
 
-    /** Controlled encoder for checking all quality candidates and partial publication. @since 1.6.0 */
-    class TestImage extends \Spatie\Image\Image {
-        public array $qualities = [];
-        public bool $empty = false;
-        public bool $fail = false;
-        public function getWidth(): int { return 100; }
-        public function getHeight(): int { return 100; }
-        public function quality(int $quality): static { $this->qualities[] = $quality; return $this; }
-        public function format(string $format): static { return $this; }
-        public function save(string $path = ''): static {
-            file_put_contents($path, $this->empty ? '' : str_repeat('x', 10000));
-            if ($this->fail) { throw new RuntimeException('Encoder failed'); }
-            return $this;
-        }
-    }
     try {
         $source = EVO_BASE_PATH . 'assets/images/test.jpg';
         $gd = imagecreatetruecolor(32, 32);
@@ -147,40 +126,12 @@ namespace {
             $check($requestAvif() === $avifUrl && (getimagesize($avifPath)[2] ?? null) === IMAGETYPE_AVIF,
                 'A cached JPEG with an AVIF filename must be regenerated');
 
-            if (!extension_loaded('imagick')) {
-                $driver = new \ReflectionProperty(\Seiger\sGallery\Builders\sGalleryBuilder::class, 'avifSupportDriver');
-                $driver->setValue(null, null);
-                $GLOBALS['mislabel_avif_probe'] = true;
-                try {
-                    $fallbackUrl = $requestAvif();
-                    $fallbackPath = EVO_BASE_PATH . substr($fallbackUrl, strlen(EVO_SITE_URL));
-                    $check(str_ends_with($fallbackUrl, '.webp') && (getimagesize($fallbackPath)[2] ?? null) === IMAGETYPE_WEBP,
-                        'An encoder that reports success but emits JPEG must fall back to actual WebP');
-                } finally {
-                    $GLOBALS['mislabel_avif_probe'] = false;
-                    $driver->setValue(null, null);
-                }
-            }
         }
 
-        $save = new \ReflectionMethod(\Seiger\sGallery\Builders\sGalleryBuilder::class, 'saveWebpImage');
-        $background = new \ReflectionProperty(\Seiger\sGallery\Builders\sGalleryBuilder::class, 'backgroundOptimization');
-        $adaptive = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/images/test.jpg');
-        $background->setValue($adaptive, true);
-        $image = new TestImage();
-        $save->invoke($adaptive, $image, EVO_BASE_PATH . 'adaptive.webp');
-        $check($image->qualities === [99,97,95,93,92,91,90,89,88,87,86,85,84,82,80], 'All 15 adaptive qualities must be retained');
-        $explicit = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/images/test.jpg')->quality(91);
-        $background->setValue($explicit, true);
-        $image = new TestImage();
-        $save->invoke($explicit, $image, EVO_BASE_PATH . 'explicit.webp');
-        $check($image->qualities === [91], 'Explicit quality must remain unchanged');
-        $image->empty = true;
-        try { $save->invoke($explicit, $image, EVO_BASE_PATH . 'empty.webp'); } catch (RuntimeException $error) {}
-        $check(!file_exists(EVO_BASE_PATH . 'empty.webp'), 'Empty output must never publish');
-        $image->empty = false; $image->fail = true;
-        try { $save->invoke($explicit, $image, EVO_BASE_PATH . 'failed.webp'); } catch (RuntimeException $error) {}
-        $check(!file_exists(EVO_BASE_PATH . 'failed.webp') && glob(EVO_BASE_PATH . '.sgallery-webp-*') === [], 'Failed encode must clean temporary files');
+        $qualities = new ReflectionMethod(\Seiger\sGallery\Builders\sGalleryBuilder::class, 'getWebpOutputQualities');
+        $adaptive = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/images/test.jpg')->optimize();
+        $check($qualities->invoke($adaptive) === [99,97,95,93,92,91,90,89,88,87,86,85,84,82,80], 'All 15 adaptive qualities must be retained');
+        $check($qualities->invoke($adaptive->quality(91)) === [91], 'Explicit quality must remain unchanged');
 
         touch(storage_path('logs/sTask.heartbeat'));
         $GLOBALS['clock_step'] = 10.0;
@@ -192,14 +143,6 @@ namespace {
         $check($url === EVO_SITE_URL . 'assets/images/test.jpg' && \Seiger\sTask\Models\sTaskModel::count() === 1, 'Known-heavy pending work must reuse its task');
         $task = \Seiger\sTask\Models\sTaskModel::first();
         $job = $task->meta;
-        $deferred = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/images/test.jpg');
-        (new ReflectionProperty($deferred, 'optimizationStartedAt'))->setValue($deferred, $GLOBALS['clock']);
-        $GLOBALS['clock_step'] = 2.0;
-        $image = new TestImage();
-        try { $save->invoke($deferred, $image, EVO_BASE_PATH . 'partial.webp'); }
-        catch (\Seiger\sGallery\Exceptions\OptimizationDeferred $error) {}
-        $check($image->qualities === [99,97] && !file_exists(EVO_BASE_PATH . 'partial.webp'), 'Deadline between attempts must not publish partial output');
-        $GLOBALS['clock_step'] = 0.0;
         (new \Seiger\sGallery\Workers\ImageOptimizationWorker())->taskOptimize($task, $job);
         $task->refresh();
         $url = $task->result;
@@ -209,8 +152,6 @@ namespace {
         $url2 = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/images/test.jpg')->format('webp')->getFile();
         $check($url === $url2, 'Next front request must reuse the completed cache');
         $fallbackOutput = EVO_BASE_PATH . substr($url, strlen(EVO_SITE_URL));
-        file_put_contents($fallbackOutput, str_repeat("\0", 128), FILE_APPEND);
-        (new ReflectionProperty(\Seiger\sGallery\Builders\sGalleryBuilder::class, 'avifSupportDriver'))->setValue(null, 'gd');
         $fallbackUrl = (new \Seiger\sGallery\Builders\sGalleryBuilder())->file('assets/images/test.jpg')->format('avif')->getFile();
         $check($fallbackUrl === $url, 'Published WebP fallback must be reused for a missing AVIF cache');
 

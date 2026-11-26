@@ -4,9 +4,7 @@ declare(strict_types=1);
 use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Facade;
 use Seiger\sGallery\Builders\sGalleryBuilder;
-use Seiger\sGallery\Models\sGalleryModel;
 use Seiger\sGallery\Services\NativeImage;
-use Spatie\Image\Image;
 
 function config($key, $default = null) { return $GLOBALS['basicSettings'][$key] ?? $default; }
 function storage_path($path = '') { return EVO_BASE_PATH . 'storage/' . $path; }
@@ -19,8 +17,7 @@ function evo()
 }
 
 require __DIR__ . '/bootstrap.php';
-$withSpatie = class_exists(Image::class);
-printf("PHP %s, Spatie %s, GD %s, Imagick %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off', extension_loaded('gd') ? 'on' : 'off', extension_loaded('imagick') ? 'on' : 'off');
+printf("PHP %s, GD %s, Imagick %s\n", PHP_VERSION, extension_loaded('gd') ? 'on' : 'off', extension_loaded('imagick') ? 'on' : 'off');
 $container = new Container();
 Facade::setFacadeApplication($container);
 $container->instance('log', new class {
@@ -77,18 +74,10 @@ try {
                 return $operation((new sGalleryBuilder())->file($source))->getFile();
             };
             $expectedFormat = $format ?? $sourceFormat;
-            if ($withSpatie && $format === null && $name !== 'resize-original') {
-                // Keep the legacy driver's format selection, including its behavior without GD.
-                $_SESSION = [];
-                $_COOKIE = [];
-                unset($_SERVER['HTTP_ACCEPT'], $_SERVER['HTTP_SEC_CH_ACCEPT'], $_SERVER['HTTP_USER_AGENT']);
-                $auto = (new sGalleryBuilder())->file($source)->getSupportedImageFormat();
-                $expectedFormat = $auto === 'jpg' ? 'jpeg' : $auto;
-            }
             $url = $render();
             if ($expectedFormat === 'avif' && $canEncode('webp') && (!$canEncode('avif') || str_ends_with($url, '.webp'))) $expectedFormat = 'webp';
             if (!$canEncode($expectedFormat)) {
-                $check($url === ($withSpatie ? sGalleryModel::NOIMAGE : $original), "$source $name retains its no-codec fallback");
+                $check($url === $original, "$source $name retains its no-codec fallback");
                 continue;
             }
             $info = $url !== $original && str_starts_with($url, EVO_SITE_URL) ? @getimagesize($path($url)) : false;
@@ -97,7 +86,7 @@ try {
             touch($path($url), 1700000000);
             clearstatcache(true, $path($url));
             $check($render() === $url && filemtime($path($url)) === 1700000000, "$source $name reuses its cache");
-            if (!$withSpatie && $expectedFormat === 'jpeg' && $sourceFormat === 'png') {
+            if ($expectedFormat === 'jpeg' && $sourceFormat === 'png') {
                 $frame = NativeImage::open(substr($url, strlen(EVO_SITE_URL)), 'jpeg')->frame();
                 $pixel = $frame instanceof Imagick ? $frame->getImagePixelColor((int) ($width * 0.75), (int) ($height * 0.75))->getColor()
                     : imagecolorsforindex($frame, imagecolorat($frame, (int) ($width * 0.75), (int) ($height * 0.75)));
@@ -105,10 +94,8 @@ try {
                     "$name composites transparent PNG pixels on white");
             }
         }
-        if (!$withSpatie) {
-            $check((new sGalleryBuilder())->file($source)->getFile() === $original, "$source without an operation remains the original");
-            $check((new sGalleryBuilder())->file($source)->format('original')->getFile() === $original, "$source original-only request stays unchanged");
-        }
+        $check((new sGalleryBuilder())->file($source)->getFile() === $original, "$source without an operation remains the original");
+        $check((new sGalleryBuilder())->file($source)->format('original')->getFile() === $original, "$source original-only request stays unchanged");
         $check(hash_file('sha256', $root . $source) === $hash, "$source bytes remain unchanged");
     }
     // Build the job before the frontend has rendered this operation; quality stays implicit.
@@ -128,7 +115,7 @@ try {
             'Configured format works without an explicit format() call');
     }
     $basicSettings['seiger.settings.sGallery.format'] = 'auto';
-    if (!$withSpatie && $canEncode('webp')) {
+    if ($canEncode('webp')) {
         $basicSettings['seiger.settings.sGallery.optimize'] = true;
         $optimized = (new sGalleryBuilder())->file('alpha.png')->format('webp')->getFile();
         $check($optimized !== EVO_SITE_URL . 'alpha.png' && getimagesize($path($optimized))[2] === IMAGETYPE_WEBP,

@@ -7,7 +7,6 @@ use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Services\ImageAnimation;
 use Seiger\sGallery\Services\ImageColor;
 use Seiger\sGallery\Services\NativeImage;
-use Spatie\Image\Image;
 
 function config($key, $default = null)
 {
@@ -24,9 +23,8 @@ $container->instance('log', new class {
     /** Accept the expected AVIF to WebP retry on builds without AVIF. @since 1.9.0 */
     public function warning(string $message): void {}
 });
-$withSpatie = class_exists(Image::class);
 $driver = NativeImage::canEncode('png', 'imagick') ? 'imagick' : 'gd';
-printf("PHP %s, Spatie %s, PNG driver %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off', $driver);
+printf("PHP %s, PNG driver %s\n", PHP_VERSION, $driver);
 if (!NativeImage::canEncode('png', $driver)) {
     echo "SKIP No PNG encoder\n";
     return;
@@ -78,20 +76,18 @@ try {
     $optimized = $build()->optimize()->getFile();
     $check($optimized !== $plain && array_slice(getimagesize($path($optimized)), 0, 3) === [96, 48, IMAGETYPE_PNG],
         'Optimize uses its own cache entry and produces a decoded PNG');
-    if (!$withSpatie) {
-        $check($pixels($path($optimized)) === $pixels($path($plain)), 'Native PNG optimization preserves RGB samples and partial transparency');
-        $check(filesize($path($optimized)) < filesize($path($plain)), 'Native compression reduces the PNG fixture size');
-        $check(!str_contains(file_get_contents($path($optimized)), 'native-optimize-fixture-'), 'Native optimized PNG excludes the source description');
-        $alone = (new sGalleryBuilder())->file('source.png')->format('original')->optimize()->getFile();
-        $check($alone !== EVO_SITE_URL . 'source.png' && (getimagesize($path($alone))[2] ?? null) === IMAGETYPE_PNG,
-            'Optimize alone generates a derivative at the source dimensions');
-        $old = str_replace('-opt-enc', '-opt', $optimized);
-        $check($old !== $optimized, 'Native optimized cache has a new key for the encoder policy');
-        copy($path($plain), $path($old));
-        unlink($path($optimized));
-        $check($build()->optimize()->getFile() === $optimized && filesize($path($optimized)) < filesize($path($old)),
-            'An older unoptimized cache entry cannot bypass native optimization');
-    }
+    $check($pixels($path($optimized)) === $pixels($path($plain)), 'Native PNG optimization preserves RGB samples and partial transparency');
+    $check(filesize($path($optimized)) < filesize($path($plain)), 'Native compression reduces the PNG fixture size');
+    $check(!str_contains(file_get_contents($path($optimized)), 'native-optimize-fixture-'), 'Native optimized PNG excludes the source description');
+    $alone = (new sGalleryBuilder())->file('source.png')->format('original')->optimize()->getFile();
+    $check($alone !== EVO_SITE_URL . 'source.png' && (getimagesize($path($alone))[2] ?? null) === IMAGETYPE_PNG,
+        'Optimize alone generates a derivative at the source dimensions');
+    $old = str_replace('-opt-enc', '-opt', $optimized);
+    $check($old !== $optimized, 'Native optimized cache has a new key for the encoder policy');
+    copy($path($plain), $path($old));
+    unlink($path($optimized));
+    $check($build()->optimize()->getFile() === $optimized && filesize($path($optimized)) < filesize($path($old)),
+        'An older unoptimized cache entry cannot bypass native optimization');
     touch($path($optimized), 1700000000);
     clearstatcache(true, $path($optimized));
     $check($build()->optimize()->getFile() === $optimized && filemtime($path($optimized)) === 1700000000,
@@ -108,13 +104,13 @@ try {
         $expectedType = $format === 'avif' && str_ends_with($url, '.webp') ? IMAGETYPE_WEBP : $type;
         $check(array_slice(getimagesize($path($url)), 0, 3) === [96, 48, $expectedType],
             "Optimized $format produces the requested type or its supported fallback");
-        if (!$withSpatie && $format === 'jpeg') {
+        if ($format === 'jpeg') {
             $check((getimagesize($path($url))['bits'] ?? null) === 8 && str_contains(file_get_contents($path($url)), "\xff\xc2"),
                 'Native optimized JPEG uses progressive encoding');
         }
     }
 
-    if (!$withSpatie && $driver === 'imagick') {
+    if ($driver === 'imagick') {
         $profile = ImageColor::srgbProfile();
         $profiled = $header . $chunk('iCCP', "sRGB\0\0" . gzcompress($profile)) . $data;
         file_put_contents($root . 'profiled.png', $profiled);
@@ -150,26 +146,6 @@ try {
     $check(hash_file('sha256', $root . 'source.png') === $sourceHash, 'Optimization leaves the source file intact');
     $check(glob($root . 'assets/cache/*pending*') === [] && glob($root . 'assets/cache/.sgallery-image-*') === [],
         'Optimization leaves no staged files behind');
-    if ($withSpatie) {
-        foreach (['png', 'jpeg', 'webp', 'gif', 'avif'] as $format) {
-            if (!NativeImage::canEncode($format, $driver)) continue;
-            $url = $build($format)->optimize()->getFile();
-            $relative = rawurldecode(substr($url, strlen(EVO_SITE_URL)));
-            $frame = NativeImage::open($relative, 'png', $driver)->frame();
-            if ($frame instanceof Imagick) {
-                $digest = $frame->getImageSignature();
-            } else {
-                $hash = hash_init('sha256');
-                for ($y = 0; $y < imagesy($frame); $y++) {
-                    for ($x = 0; $x < imagesx($frame); $x++) {
-                        hash_update($hash, pack('C*', ...array_values(imagecolorsforindex($frame, imagecolorat($frame, $x, $y)))));
-                    }
-                }
-                $digest = hash_final($hash);
-            }
-            echo 'Spatie ' . basename($url) . ' RGBA sha256 ' . $digest . PHP_EOL;
-        }
-    }
 } finally {
     $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
     foreach ($files as $file) {

@@ -39,7 +39,6 @@ use Seiger\sGallery\Services\NativeImage;
 use Seiger\sTask\Console\TaskWorker;
 use Seiger\sTask\Models\sTaskModel;
 use Seiger\sTask\Models\sWorker;
-use Spatie\Image\Image;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 
@@ -78,8 +77,7 @@ $strictHandler = set_error_handler(static function (int $severity, string $messa
     }
     return $strictHandler($severity, $message, $file, $line);
 });
-$withSpatie = class_exists(Image::class);
-printf("PHP %s, Spatie %s, Imagick %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off', extension_loaded('imagick') ? 'on' : 'off');
+printf("PHP %s, Imagick %s\n", PHP_VERSION, extension_loaded('imagick') ? 'on' : 'off');
 if (!class_exists(TaskWorker::class) || !method_exists(Seiger\sTask\sTask::class, 'heartbeat')) {
     throw new RuntimeException('Worker regression requires sTask with the heartbeat API.');
 }
@@ -280,12 +278,10 @@ try {
     file_put_contents($root . 'assets/animated.webp', $webp);
     if (NativeImage::canEncode('gif', 'imagick') && NativeImage::canEncode('webp', 'imagick')) {
         foreach (['gif' => IMAGETYPE_GIF, 'webp' => IMAGETYPE_WEBP] as $format => $type) {
-            $animationSource = $withSpatie && $format === 'webp' ? 'assets/animated.webp' : 'assets/animated.gif';
+            $animationSource = 'assets/animated.gif';
             $image = (new sGalleryBuilder())->file($animationSource)->fit('stretch', 6, 4)->format($format)
                 ->quality(90)->optimize();
-            if (!$withSpatie || $format === 'gif') {
-                $image->watermark('assets/mark.png', ['width' => '2px', 'padding' => 0]);
-            }
+            $image->watermark('assets/mark.png', ['width' => '2px', 'padding' => 0]);
             $GLOBALS['workerClockStep'] = 10.0;
             $check($image->getFile() === EVO_SITE_URL . $animationSource && sTaskModel::queued()->count() === 1,
                 "Frontend can defer a $format animation");

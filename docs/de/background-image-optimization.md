@@ -11,13 +11,13 @@ sidebar_position: 7
 
 sGallery verarbeitet Bilder ohne Cache synchron, wenn der Webprozess genügend Speicher hat. Das Paket setzt standardmäßig ein kooperatives Zeitbudget von fünf Sekunden, abrufbar über `Seiger\sGallery\sGallery::optimizationBudgetSeconds()`. Fertige, nicht leere Cache-Dateien gibt es sofort zurück. Leere Dateien werden neu erzeugt.
 
-Die automatische WebP-Qualitätswahl prüft 15 Werte. `99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80`. Der erste Wert innerhalb der Zielgröße gewinnt. Passt keiner, bleibt der letzte Kandidat. Ein expliziter Aufruf von `quality()` verwendet genau den angegebenen Wert. Die native Verarbeitung unterstützt den expliziten WebP-Wert 100. Für den konfigurierten Standardwert und die Verarbeitung mit Spatie gilt die Obergrenze 99. Erst eine fertige, nicht leere WebP-Datei wird atomar aus der temporären Datei veröffentlicht.
+Die automatische WebP-Qualitätswahl prüft 15 Werte. `99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80`. Der erste Wert innerhalb der Zielgröße gewinnt. Passt keiner, bleibt der letzte Kandidat. Ein expliziter Aufruf von `quality()` verwendet genau den angegebenen Wert. Die native Verarbeitung unterstützt den expliziten WebP-Wert 100. Für den konfigurierten Standardwert gilt die Obergrenze 99. Erst eine fertige, nicht leere WebP-Datei wird atomar aus der temporären Datei veröffentlicht.
 
 Das Paket prüft das Budget zwischen Operationen und Kodierungsversuchen. Einen bereits laufenden nativen Encoder kann es dabei nicht unterbrechen. Die erste Verarbeitung kann fünf Sekunden oder das aktuelle PHP-Timeout überschreiten. Ein Eintrag im gemeinsamen Storage markiert die Verarbeitung als langsam. Weitere Anfragen überspringen sie. Unfertige temporäre Dateien werden nicht als Ergebnis ausgeliefert.
 
 ## Optionale sTask-Integration
 
-Ohne Spatie verarbeitet sTask unterstützte Operationen über GD oder Imagick. Für animierte GIF- und WebP-Dateien ist Imagick erforderlich. Ist Spatie installiert, verwendet der Worker Spatie.
+sTask verarbeitet unterstützte Operationen über GD oder Imagick. Für animierte GIF- und WebP-Dateien ist Imagick erforderlich.
 
 sTask wird separat installiert. Die Warteschlange benötigt die Laufzeitklassen von sTask, die API `heartbeat()` und einen aktuellen Heartbeat des Runners. Ältere sTask-Versionen ohne diese API erhalten keine Hintergrundaufgaben.
 

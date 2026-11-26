@@ -8,7 +8,7 @@ if (!str_starts_with($site, '/lab/') || !is_file($site . '/core/composer.json'))
     throw new RuntimeException('Use a disposable /lab/<site> Evolution checkout.');
 }
 $package = $options['package'] ?? '/pkg';
-$version = $options['version'] ?? '1.9.x-dev';
+$version = $options['version'] ?? '2.x-dev';
 $manifest = json_decode(file_get_contents($site . '/core/composer.json'), true, 512, JSON_THROW_ON_ERROR);
 // composer-merge-plugin prefixes paths with custom/; keep absolute path repositories at the root.
 $manifest['repositories'] = [

@@ -20,7 +20,6 @@
     }
   },
   "suggest": {
-    "spatie/image": "Install ^3 for image resizing, cropping, format conversion and watermarks",
     "ext-exif": "Automatic camera-photo orientation with the GD image driver",
     "seiger/stask": "Optional background image optimization; requires the heartbeat API and an active runner"
   },

@@ -11,7 +11,7 @@ sGallery ergänzt Ressourcen in Evolution CMS und Module wie sCommerce um Galeri
 
 ![Ressourcengalerie im Evolution CMS Manager](https://user-images.githubusercontent.com/12029039/169609394-08ea36d6-2393-4261-aff2-348f73a6103c.png)
 
-Der Builder erzeugt und speichert Vorschaubilder sowie WebP- und AVIF-Dateien im Cache. Ohne Spatie Image übernimmt GD oder Imagick die Verarbeitung. Für langsame Konvertierungen können Sie sTask einbinden.
+Der Builder erzeugt und speichert Vorschaubilder sowie WebP- und AVIF-Dateien im Cache. GD oder Imagick übernimmt die Verarbeitung. Für langsame Konvertierungen können Sie sTask einbinden.
 
 - [Installation und erste Galerie](./getting-started.md)
 - [Redaktionshandbuch](./user-guide.md)

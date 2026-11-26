@@ -42,4 +42,4 @@ $url = sGallery::file($item->src)
     ->getFile();
 ```
 
-Without Spatie, Builder selects GD or Imagick based on the source and output formats. Use the [image manipulation guides](./manipulations/index.md) for geometry, output and quality settings. For slower uncached transforms, see [background image optimization](./background-image-optimization.md).
+Builder selects GD or Imagick based on the source and output formats. Use the [image manipulation guides](./manipulations/index.md) for geometry, output and quality settings. For slower uncached transforms, see [background image optimization](./background-image-optimization.md).

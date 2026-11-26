@@ -2,9 +2,6 @@
 
 use GdImage;
 use Imagick;
-use Spatie\Image\Image;
-use Spatie\Image\Enums\AlignPosition;
-use Spatie\Image\Enums\Unit;
 
 /** Validate and apply watermark parameters with the current image driver. @since 1.7.0 */
 class Watermark
@@ -44,23 +41,6 @@ class Watermark
         if (!is_numeric($options['opacity']) || $options['opacity'] < 0 || $options['opacity'] > 100) throw new \InvalidArgumentException('Watermark opacity must be between 0 and 100.');
         $options['opacity'] = (int)$options['opacity'];
         return $options;
-    }
-
-    /**
-     * Overlay after resizing and before encoding; never modify the source.
-     * Resolve percentages to integer pixels before calling the image driver to avoid
-     * implicit float-to-int conversions; truncate as the driver previously did.
-     * @since 1.7.0
-     */
-    public static function apply(Image $image, array $mark): void
-    {
-        $o = $mark['options'];
-        $path = self::verifiedPath($mark);
-        [$width, $paddingX, $paddingY] = self::dimensions($o, $image->getWidth(), $image->getHeight());
-        $image->watermark($path, position: AlignPosition::from($o['position']),
-            paddingX: $paddingX, paddingY: $paddingY, paddingUnit: Unit::Pixel,
-            width: $width, widthUnit: Unit::Pixel,
-            alpha: $o['opacity']);
     }
 
     /**

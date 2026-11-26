@@ -5,7 +5,6 @@ use Seiger\sGallery\Builders\sGalleryBuilder;
 
 function config($key, $default = null) { return $default; }
 require __DIR__ . '/bootstrap.php';
-$withSpatie = class_exists(Spatie\Image\Image::class);
 $root = sys_get_temp_dir() . '/sgallery-client-format-' . bin2hex(random_bytes(6)) . '/';
 mkdir($root, 0700);
 define('EVO_BASE_PATH', $root);
@@ -22,7 +21,7 @@ try {
     foreach ([
         ['alpha.png', 'image/webp,image/png', [], [], 'webp'],
         ['alpha.png', 'image/png', [], [], 'png'],
-        ['alpha.png', 'image/jpeg', [], [], $withSpatie ? 'jpg' : 'png'],
+        ['alpha.png', 'image/jpeg', [], [], 'png'],
         ['opaque.png', 'image/jpeg', [], [], 'jpg'],
         ['opaque.png', '', [], [], 'jpg'],
         ['alpha.png', '', [], [], 'png'],

@@ -2,13 +2,11 @@
 declare(strict_types=1);
 
 require __DIR__ . '/bootstrap.php';
-$loader = require getenv('PACKAGE_AUTOLOAD');
-spl_autoload_unregister([$loader, 'loadClass']);
-spl_autoload_register(static function (string $class) use ($loader): void {
-    if (!str_starts_with($class, 'Spatie\\Image\\') && !str_starts_with($class, 'Spatie\\ImageOptimizer\\')) {
-        $loader->loadClass($class);
+spl_autoload_register(static function (string $class): void {
+    if (str_starts_with($class, 'Spatie\\Image\\') || str_starts_with($class, 'Spatie\\ImageOptimizer\\')) {
+        throw new LogicException("The image pipeline attempted to load $class");
     }
-});
+}, true, true);
 
 function config($key, $default = null) { return $default; }
 function storage_path($path = '') { return EVO_BASE_PATH . 'storage/' . $path; }
@@ -44,10 +42,9 @@ $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAGAAAAAwCAYAAADuFn/PAAAAZElEQVR4nO
 file_put_contents($root . 'photo.png', $png);
 file_put_contents($root . 'icon.svg', '<svg/>');
 try {
-    checkOptionalImage(!class_exists(Spatie\Image\Image::class) && !enum_exists(Spatie\Image\Enums\Fit::class) &&
-        !class_exists(Spatie\ImageOptimizer\OptimizerChainFactory::class), 'Spatie processors and optimizers are unavailable');
     $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
-    checkOptionalImage(!isset($manifest['require']['spatie/image']) && isset($manifest['suggest']['spatie/image']), 'Image library is only suggested');
+    $packages = array_keys(($manifest['require'] ?? []) + ($manifest['suggest'] ?? []));
+    checkOptionalImage(!array_intersect($packages, ['spatie/image', 'spatie/image-optimizer']), 'Composer does not list a legacy image package');
     try {
         (new sGallery())->file('photo.png')->watermark('missing.png');
         throw new RuntimeException('Missing explicit watermark accepted');

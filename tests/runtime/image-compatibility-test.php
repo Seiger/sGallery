@@ -9,7 +9,6 @@ use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Models\sGalleryModel;
 use Seiger\sGallery\Services\NativeImage;
 use Seiger\sGallery\sGallery;
-use Spatie\Image\Image;
 
 /** Read only the settings needed to isolate a gallery transformation. @since 1.9.0 */
 function config($key, $default = null)
@@ -35,8 +34,8 @@ function evo()
 
 require __DIR__ . '/bootstrap.php';
 
-if (!class_exists(phpthumb::class) || !class_exists(Image::class)) {
-    throw new RuntimeException('Use an Evolution CMS Composer runtime with phpThumb and spatie/image:^3.');
+if (!class_exists(phpthumb::class)) {
+    throw new RuntimeException('Use an Evolution CMS Composer runtime with phpThumb.');
 }
 if (!extension_loaded('gd') || !(imagetypes() & IMG_WEBP) || !(imagetypes() & IMG_JPG) || !(imagetypes() & IMG_PNG)) {
     throw new RuntimeException('The comparison requires GD with JPEG, PNG and WebP support.');
@@ -149,7 +148,7 @@ try {
     $isGreen = static fn (array $pixel): bool => $pixel['alpha'] < 3
         && $pixel['green'] > 110 && $pixel['red'] < 80 && $pixel['blue'] < 80;
 
-    $galleryDriver = Image::load(EVO_BASE_PATH . $landscape)->driverName();
+    $galleryDriver = NativeImage::canEncode('webp', 'imagick') ? 'imagick' : 'gd';
     printf("PHP %s, phpThumb GD, sGallery %s, EXIF %s\n", PHP_VERSION, $galleryDriver, extension_loaded('exif') ? 'on' : 'off');
 
     $render = static function (string $label, callable $generate, array $expected) use ($check): array {

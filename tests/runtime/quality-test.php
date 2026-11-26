@@ -18,10 +18,8 @@ namespace {
 use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Facade;
 use Seiger\sGallery\Builders\sGalleryBuilder;
-use Seiger\sGallery\Services\BuilderImage;
 use Seiger\sGallery\Services\ImageAnimation;
 use Seiger\sGallery\Services\NativeImage;
-use Spatie\Image\Image;
 
 function config($key, $default = null)
 {
@@ -44,9 +42,8 @@ $container->instance('log', new class {
 });
 
 $configuredQuality = 100;
-$withSpatie = class_exists(Image::class);
 $driver = NativeImage::canEncode('webp', 'imagick') ? 'imagick' : 'gd';
-printf("PHP %s, Spatie %s, WebP driver %s\n", PHP_VERSION, $withSpatie ? 'on' : 'off', $driver);
+printf("PHP %s, WebP driver %s\n", PHP_VERSION, $driver);
 if (!NativeImage::canEncode('webp', $driver)) {
     echo "SKIP No native WebP encoder\n";
     return;
@@ -88,24 +85,17 @@ try {
         (new ReflectionProperty($image, 'backgroundOptimization'))->setValue($image, true);
         return $image;
     };
-    $reference = static function (string $name, int $quality, string $format = 'webp', bool $optimize = false) use ($root, $driver, $withSpatie): string {
+    $reference = static function (string $name, int $quality, string $format = 'webp', bool $optimize = false) use ($root, $driver): string {
         $relative = "reference/$name-$quality-" . (int) $optimize . ".$format";
-        if ($withSpatie) {
-            $image = BuilderImage::fromSource("$name.png", $root . "$name.png", $format, $driver);
-            $image->fit(Spatie\Image\Enums\Fit::Stretch, 96, 96);
-            $image->saveNative($root . $relative, $format, $quality, $optimize);
-        } else {
-            NativeImage::open("$name.png", $format, $driver)->fit('stretch', 96, 96)->optimize($optimize)->save($relative, $quality);
-        }
+        NativeImage::open("$name.png", $format, $driver)->fit('stretch', 96, 96)->optimize($optimize)->save($relative, $quality);
         return $root . $relative;
     };
 
     foreach ([1, 73, 100] as $quality) {
         $url = $builder()->quality($quality)->getFile();
-        $effective = $withSpatie && $quality === 100 ? 99 : $quality;
-        $expected = $reference('noise', $effective, optimize: true);
+        $expected = $reference('noise', $quality, optimize: true);
         $check($url !== EVO_SITE_URL . 'noise.png' && hash_file('sha256', $path($url)) === hash_file('sha256', $expected),
-            "Explicit WebP quality $quality uses encoder quality $effective without adaptive reduction");
+            "Explicit WebP quality $quality is used without adaptive reduction");
     }
     $check($builder()->quality(0)->getFile() === $builder()->quality(1)->getFile() &&
         $builder()->quality(101)->getFile() === $builder()->quality(100)->getFile(), 'Quality is clamped to the existing 1 through 100 range');
@@ -139,10 +129,6 @@ try {
     $qualities = [99, 97, 95, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 82, 80];
     $target = (int) ceil(96 * 96 * 0.9 * (2 / 12)) + 4096;
     foreach (['flat', 'mixed', 'noise'] as $name) {
-        if ($withSpatie && $name === 'noise') {
-            // The legacy path shares this key with quality(100). Start its adaptive check cold.
-            unlink($path($builder()->quality(100)->getFile()));
-        }
         $attempts = 0;
         foreach ($qualities as $quality) {
             $expected = $reference($name, $quality, optimize: true);
@@ -163,84 +149,82 @@ try {
         touch($path($url), 1700000000);
         clearstatcache(true, $path($url));
         $check($builder($name)->getFile() === $url && filemtime($path($url)) === 1700000000, 'Adaptive result is reused without another quality search');
-        if (!$withSpatie && $name === 'noise') {
+        if ($name === 'noise') {
             $fixed = $builder()->quality(100)->getFile();
             $check($fixed !== $url, 'Explicit maximum quality has a different cache key from adaptive quality');
         }
     }
 
-    if (!$withSpatie) {
-        $configuredQuality = 73;
-        $adaptive = $builder()->getFile();
-        $fixed = $builder()->quality(73)->getFile();
-        $check($fixed !== $adaptive && hash_file('sha256', $path($fixed)) === hash_file('sha256', $reference('noise', 73, optimize: true)),
-            'Configured quality and explicit equal quality keep separate adaptive and fixed cache entries');
-        $configuredQuality = 100;
-        $default = $builder()->optimize(false)->getFile();
-        $explicit = $builder()->optimize(false)->quality(100)->getFile();
-        $check($default !== $explicit && hash_file('sha256', $path($default)) === hash_file('sha256', $reference('noise', 99)) &&
-            hash_file('sha256', $path($explicit)) === hash_file('sha256', $reference('noise', 100)),
-            'Native explicit quality 100 stays distinct from default 99 with adaptive selection disabled');
-        $only = (new sGalleryBuilder())->file('noise.png')->format('jpeg')->quality(73)->optimize(false)->getFile();
-        $check($only !== EVO_SITE_URL . 'noise.png' && (getimagesize($path($only))[2] ?? null) === IMAGETYPE_JPEG,
-            'Quality-only conversion works without a geometry request');
+    $configuredQuality = 73;
+    $adaptive = $builder()->getFile();
+    $fixed = $builder()->quality(73)->getFile();
+    $check($fixed !== $adaptive && hash_file('sha256', $path($fixed)) === hash_file('sha256', $reference('noise', 73, optimize: true)),
+        'Configured quality and explicit equal quality keep separate adaptive and fixed cache entries');
+    $configuredQuality = 100;
+    $default = $builder()->optimize(false)->getFile();
+    $explicit = $builder()->optimize(false)->quality(100)->getFile();
+    $check($default !== $explicit && hash_file('sha256', $path($default)) === hash_file('sha256', $reference('noise', 99)) &&
+        hash_file('sha256', $path($explicit)) === hash_file('sha256', $reference('noise', 100)),
+        'Native explicit quality 100 stays distinct from default 99 with adaptive selection disabled');
+    $only = (new sGalleryBuilder())->file('noise.png')->format('jpeg')->quality(73)->optimize(false)->getFile();
+    $check($only !== EVO_SITE_URL . 'noise.png' && (getimagesize($path($only))[2] ?? null) === IMAGETYPE_JPEG,
+        'Quality-only conversion works without a geometry request');
 
-        copy($root . 'noise.png', $root . 'deadline.png');
-        $timed = $builder('deadline');
-        (new ReflectionProperty($timed, 'backgroundOptimization'))->setValue($timed, false);
-        $GLOBALS['qualityClock'] = 1000.0;
-        try {
-            $url = $timed->getFile();
-        } finally {
-            unset($GLOBALS['qualityClock']);
+    copy($root . 'noise.png', $root . 'deadline.png');
+    $timed = $builder('deadline');
+    (new ReflectionProperty($timed, 'backgroundOptimization'))->setValue($timed, false);
+    $GLOBALS['qualityClock'] = 1000.0;
+    try {
+        $url = $timed->getFile();
+    } finally {
+        unset($GLOBALS['qualityClock']);
+    }
+    $check($url === EVO_SITE_URL . 'deadline.png' && glob($root . 'assets/cache/deadline-*') === [],
+        'A deadline between native candidates returns the original and discards staged output');
+
+    if (NativeImage::canEncode('gif', 'imagick')) {
+        $sequence = new Imagick();
+        foreach (['red', 'blue'] as $i => $color) {
+            $frame = new Imagick();
+            $frame->newImage(24, 16, $color, 'GIF');
+            $frame->setImageDelay(12 + 8 * $i);
+            $frame->setImageIterations(3);
+            $sequence->addImage($frame);
         }
-        $check($url === EVO_SITE_URL . 'deadline.png' && glob($root . 'assets/cache/deadline-*') === [],
-            'A deadline between native candidates returns the original and discards staged output');
+        $sequence->setFirstIterator();
+        $sequence->writeImages($root . 'sequence.gif', true);
+        $animation = static fn (): sGalleryBuilder => (new sGalleryBuilder())->file('sequence.gif')->format('webp');
+        $url = $animation()->getFile();
+        $fixed = $animation()->quality(100)->getFile();
+        $check($url !== $fixed && ImageAnimation::timing($path($url), IMAGETYPE_WEBP) === ['loops' => 3, 'delays' => [120, 200]] &&
+            ImageAnimation::timing($path($fixed), IMAGETYPE_WEBP) === ['loops' => 3, 'delays' => [120, 200]],
+            'Animated WebP quality selection preserves the original timing with separate fixed and adaptive cache entries');
 
-        if (NativeImage::canEncode('gif', 'imagick')) {
-            $sequence = new Imagick();
-            foreach (['red', 'blue'] as $i => $color) {
-                $frame = new Imagick();
-                $frame->newImage(24, 16, $color, 'GIF');
-                $frame->setImageDelay(12 + 8 * $i);
-                $frame->setImageIterations(3);
-                $sequence->addImage($frame);
-            }
-            $sequence->setFirstIterator();
-            $sequence->writeImages($root . 'sequence.gif', true);
-            $animation = static fn (): sGalleryBuilder => (new sGalleryBuilder())->file('sequence.gif')->format('webp');
-            $url = $animation()->getFile();
-            $fixed = $animation()->quality(100)->getFile();
-            $check($url !== $fixed && ImageAnimation::timing($path($url), IMAGETYPE_WEBP) === ['loops' => 3, 'delays' => [120, 200]] &&
-                ImageAnimation::timing($path($fixed), IMAGETYPE_WEBP) === ['loops' => 3, 'delays' => [120, 200]],
-                'Animated WebP quality selection preserves the original timing with separate fixed and adaptive cache entries');
-
-            $sequence = new Imagick();
-            foreach ([0, 1] as $i) {
-                $frame = new Imagick($root . 'noise.png');
-                $frame->setImageFormat('GIF');
-                $frame->setImageDelay(12 + 8 * $i);
-                $frame->setImageIterations(3);
-                $sequence->addImage($frame);
-            }
-            $sequence->setFirstIterator();
-            $sequence->writeImages($root . 'sequence-noise.gif', true);
-            $animation = static function (): sGalleryBuilder {
-                $image = (new sGalleryBuilder())->file('sequence-noise.gif')->format('webp');
-                (new ReflectionProperty($image, 'backgroundOptimization'))->setValue($image, true);
-                return $image;
-            };
-            $url = $animation()->getFile();
-            $fixed = $animation()->quality(80)->getFile();
-            $check(filesize($path($fixed)) > $target && hash_file('sha256', $path($url)) === hash_file('sha256', $path($fixed)),
-                'Animated WebP exhausts the candidate list at quality 80 when the size target cannot be met');
-            $oldUrl = str_replace('-adaptive-src', '-src', $url);
-            $check($oldUrl !== $url, 'Adaptive animation has a different cache key from the previous single-quality renderer');
-            copy($path($animation()->quality(99)->getFile()), $path($oldUrl));
-            unlink($path($url));
-            $check($animation()->getFile() === $url && hash_file('sha256', $path($url)) === hash_file('sha256', $path($fixed)),
-                'A cached animation from the previous renderer cannot bypass the adaptive search');
+        $sequence = new Imagick();
+        foreach ([0, 1] as $i) {
+            $frame = new Imagick($root . 'noise.png');
+            $frame->setImageFormat('GIF');
+            $frame->setImageDelay(12 + 8 * $i);
+            $frame->setImageIterations(3);
+            $sequence->addImage($frame);
         }
+        $sequence->setFirstIterator();
+        $sequence->writeImages($root . 'sequence-noise.gif', true);
+        $animation = static function (): sGalleryBuilder {
+            $image = (new sGalleryBuilder())->file('sequence-noise.gif')->format('webp');
+            (new ReflectionProperty($image, 'backgroundOptimization'))->setValue($image, true);
+            return $image;
+        };
+        $url = $animation()->getFile();
+        $fixed = $animation()->quality(80)->getFile();
+        $check(filesize($path($fixed)) > $target && hash_file('sha256', $path($url)) === hash_file('sha256', $path($fixed)),
+            'Animated WebP exhausts the candidate list at quality 80 when the size target cannot be met');
+        $oldUrl = str_replace('-adaptive-src', '-src', $url);
+        $check($oldUrl !== $url, 'Adaptive animation has a different cache key from the previous single-quality renderer');
+        copy($path($animation()->quality(99)->getFile()), $path($oldUrl));
+        unlink($path($url));
+        $check($animation()->getFile() === $url && hash_file('sha256', $path($url)) === hash_file('sha256', $path($fixed)),
+            'A cached animation from the previous renderer cannot bypass the adaptive search');
     }
     $check(hash_file('sha256', $root . 'noise.png') === $original, 'Quality selection leaves the original file intact');
     $check(glob($root . 'assets/cache/*pending*') === [] && glob($root . 'assets/cache/*.webp.webp') === [],

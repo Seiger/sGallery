@@ -1,12 +1,10 @@
 <?php namespace Seiger\sGallery\Builders;
 
-use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 use Seiger\sGallery\Controllers\sGalleryController;
 use Seiger\sGallery\Models\sGalleryModel;
 use Seiger\sGallery\sGallery;
 use Seiger\sGallery\Exceptions\OptimizationDeferred;
-use Seiger\sGallery\Services\BuilderImage;
 use Seiger\sGallery\Services\GalleryCache;
 use Seiger\sGallery\Services\GalleryFiles;
 use Seiger\sGallery\Services\GalleryMedia;
@@ -19,10 +17,6 @@ use Seiger\sGallery\Services\NativeAnimation;
 use Seiger\sGallery\Services\NativeImage;
 use Seiger\sGallery\Services\Watermark;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
-use Spatie\Image\Enums\CropPosition;
-use Spatie\Image\Enums\Fit;
-use Spatie\Image\Enums\ImageDriver;
-use Spatie\Image\Image;
 
 /**
  * Class sGalleryBuilder
@@ -62,13 +56,6 @@ class sGalleryBuilder
     protected array $optimizationJob = [];
     private ?array $queuedSourceVersion = null;
     private ?array $metadataSourceVersion = null;
-
-    /**
-     * Cached AVIF support driver (null = not checked, 'imagick' = ImageMagick supports AVIF, 'gd' = GD supports AVIF, false = no support)
-     *
-     * @var string|false|null
-     */
-    protected static $avifSupportDriver = null;
 
     /**
      * Set the mode for the builder (e.g., 'view' or 'collections').
@@ -258,7 +245,6 @@ class sGalleryBuilder
 
     /**
      * Enable output optimization, including native compression and adaptive WebP quality.
-     * The Spatie path forwards the flag to its optimizer chain.
      *
      * @param bool $optimize Whether to optimize the output image.
      * @return $this
@@ -295,7 +281,7 @@ class sGalleryBuilder
     {
         $this->setDimensions($width, $height ?: $width);
         $mode = in_array($method, NativeImage::FIT_MODES, true) ? $method : 'crop';
-        $this->params['fit'] = class_exists(Image::class) ? Fit::from($mode) : $mode;
+        $this->params['fit'] = $mode;
 
         return $this;
     }
@@ -312,7 +298,7 @@ class sGalleryBuilder
     {
         $this->setDimensions($width, $height ?: $width);
         $position = isset(NativeImage::CROP_POSITIONS[$method]) ? $method : 'center';
-        $this->params['crop'] = class_exists(Image::class) ? CropPosition::from($position) : $position;
+        $this->params['crop'] = $position;
         return $this;
     }
 
@@ -445,7 +431,6 @@ class sGalleryBuilder
         $this->optimizationStartedAt = microtime(true);
         $localPath = $sourceFile === null ? null : GalleryFiles::local($sourceFile);
         if ($localPath !== null) {
-            $withSpatie = class_exists(Image::class);
             $extension = strtolower(pathinfo($localPath, PATHINFO_EXTENSION));
 
             if ($this->params !== null && !in_array($extension, ['svg'])) {
@@ -460,11 +445,11 @@ class sGalleryBuilder
                     $this->metadataSourceVersion = $sourceVersion;
                 }
                 $dimensions = @getimagesize($localPath);
-                $nativeInputFormat = $withSpatie || in_array($dimensions[2] ?? null, [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP], true)
+                $nativeInputFormat = in_array($dimensions[2] ?? null, [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP], true)
                     ? null : NativeImage::imagickInputFormat($localPath);
                 $nativeInput = null;
                 if ($nativeInputFormat !== null) {
-                    if (($this->params['format'] ?? null) === 'original' || !$this->canTransformWithoutSpatie(false)) {
+                    if (($this->params['format'] ?? null) === 'original' || !$this->shouldTransform(false)) {
                         return $this->originalImageUrl();
                     }
                     $nativeInput = NativeImage::inspectImagickInput($localPath, $nativeInputFormat, $this->backgroundOptimization);
@@ -472,19 +457,16 @@ class sGalleryBuilder
                     $dimensions = $nativeInput['dimensions'];
                 }
                 $animated = ImageAnimation::isAnimated($localPath, $dimensions[2] ?? 0);
-                if (!$withSpatie && !$animated && $this->canTransformWithoutSpatie(false) && in_array($dimensions[2] ?? null,
+                if (!$animated && $this->shouldTransform(false) && in_array($dimensions[2] ?? null,
                     [IMAGETYPE_GIF, IMAGETYPE_WEBP, IMAGETYPE_AVIF, IMAGETYPE_BMP, IMAGETYPE_TIFF_II, IMAGETYPE_TIFF_MM], true)) {
                     $nativeInput = NativeImage::inspectRasterInput($localPath, $dimensions, $this->backgroundOptimization);
                     if ($nativeInput === null) return $this->originalImageUrl();
                 }
-                if (!$withSpatie && (!$this->canTransformWithoutSpatie($animated) ||
-                    (!$animated && $nativeInput === null && !in_array($dimensions[2] ?? null, [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)))) {
+                if (!$this->shouldTransform($animated) ||
+                    (!$animated && $nativeInput === null && !in_array($dimensions[2] ?? null, [IMAGETYPE_JPEG, IMAGETYPE_PNG], true))) {
                     return $this->originalImageUrl();
                 }
-                if ($dimensions === false && !$this->isHeifImage($localPath, $extension)) {
-                    return sGalleryModel::NOIMAGE;
-                }
-                if ($dimensions !== false && !self::validDimensions($dimensions[0], $dimensions[1])) {
+                if (!self::validDimensions($dimensions[0], $dimensions[1])) {
                     return sGalleryModel::NOIMAGE;
                 }
                 $imageName = str_replace('.' . pathinfo($this->file, PATHINFO_EXTENSION), '', pathinfo($this->file, PATHINFO_BASENAME));
@@ -493,13 +475,13 @@ class sGalleryBuilder
                 $nativeIcc = false;
                 $nativeTiming = null;
                 $nativeAnimationFormat = null;
-                if (!$withSpatie && $animated) {
+                if ($animated) {
                     $nativeAnimationFormat = $dimensions[2] === IMAGETYPE_GIF ? 'gif' : 'webp';
                 } elseif ($nativeInput !== null) {
                     $nativeAlpha = $nativeInput['alpha'];
                     $nativeIcc = $nativeInput['icc'];
                     $this->sourceHasAlpha = $nativeAlpha;
-                } elseif (!$withSpatie) {
+                } else {
                     [$nativeAlpha, $color] = $dimensions[2] === IMAGETYPE_PNG
                         ? ImageColor::fromPng($localPath)
                         : [false, ImageColor::fromJpeg($localPath, (int) ($dimensions['channels'] ?? 0))];
@@ -510,13 +492,11 @@ class sGalleryBuilder
                     $this->sourceHasAlpha = $nativeAlpha;
                 }
                 $format = $this->params['format'] ?? $nativeAnimationFormat ?? $this->getSupportedImageFormat();
-                $originalFormat = $nativeAnimationFormat ?? $extension;
-                if (!$withSpatie && !in_array($format === 'original' ? $originalFormat : $format, ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'], true)) {
-                    return $this->originalImageUrl();
-                }
                 if ($format === 'original') {
-                    $format = $originalFormat;
-                    if (!in_array($format, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'], true)) throw new \InvalidArgumentException('Original image format is not supported by the processing driver.');
+                    $format = $nativeAnimationFormat ?? $extension;
+                }
+                if (!in_array($format, ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'], true)) {
+                    return $this->originalImageUrl();
                 }
                 if ($animated && !in_array($format, ['gif', 'webp'], true)) {
                     return $this->originalImageUrl();
@@ -528,34 +508,27 @@ class sGalleryBuilder
                     }
                 }
 
-                // Ensure format is supported (if AVIF was requested but not supported, fallback to WebP)
-                if ($withSpatie && $format === 'avif' && !$this->isAvifSupported()) {
-                    if (($this->params['format'] ?? '') === 'original') throw new \RuntimeException('AVIF encoding is unavailable for the original format.');
-                    $format = 'webp';
-                }
-
-                $nativeOrientation = $nativeInput['orientation'] ?? (!$withSpatie && $dimensions[2] === IMAGETYPE_JPEG
+                $nativeOrientation = $nativeInput['orientation'] ?? ($dimensions[2] === IMAGETYPE_JPEG
                     ? NativeImage::readJpegOrientation($localPath) : 1);
 
                 // Build cache filename with transformation parameters
                 $fit = $this->params['fit'] ?? null;
-                $ext = $fit === null ? '' : ($fit instanceof Fit ? $fit->value : $fit) . '-';
+                $ext = $fit === null ? '' : $fit . '-';
                 $crop = $this->params['crop'] ?? null;
-                $ext .= $crop === null ? '' : strtolower($crop instanceof CropPosition ? $crop->value : $crop) . '-';
+                $ext .= $crop === null ? '' : strtolower($crop) . '-';
                 $ext .= isset($this->params['focalCenterX']) ? 'focal' . $this->params['focalCenterX'] . '-' . $this->params['focalCenterY'] . '-' : '';
-                if (!$withSpatie && isset($this->params['startX'], $this->params['startY'])) {
+                if (isset($this->params['startX'], $this->params['startY'])) {
                     $ext .= 'manual' . $this->params['startX'] . '-' . $this->params['startY'] . '-';
                 }
                 $ext .= isset($this->params['w']) ? $this->params['w'] . 'x' . $this->params['h'] : '';
                 $ext .= isset($this->params['sharpen']) && $this->params['sharpen'] > 0 ? '-sh' . $this->params['sharpen'] : '';
-                $ext .= !empty($this->params['optimize']) ? '-opt' : '';
-                $ext .= !$withSpatie && !empty($this->params['optimize']) ? '-enc' : '';
+                $ext .= !empty($this->params['optimize']) ? '-opt-enc' : '';
                 $ext .= $this->quality !== 100 ? '-q' . $this->quality : '';
                 $ext .= $nativeOrientation > 1 ? '-exif' . $nativeOrientation : '';
                 $ext .= $nativeAlpha ? '-alpha' : '';
                 $ext .= $nativeIcc ? '-srgb' : '';
                 $ext .= $nativeTiming !== null ? '-animated' : '';
-                if (!$withSpatie && $this->qualityExplicit && in_array($format, ['webp', 'avif'], true) &&
+                if ($this->qualityExplicit && in_array($format, ['webp', 'avif'], true) &&
                     ($this->quality === 100 || !empty($this->params['optimize']))) {
                     $ext .= '-fixed';
                 }
@@ -563,9 +536,8 @@ class sGalleryBuilder
                     $ext .= '-adaptive';
                 }
                 $ext .= '-src' . substr(hash('sha256', $sourceFile . "\0" . json_encode($sourceVersion)), 0, 32);
-                $ext .= $withSpatie ? '' : '-native';
-                // Replace earlier PNGs with stale EXIF or an RGB ICC attached to grayscale samples.
-                $ext .= $withSpatie && $format === 'png' ? '-upright-icc' : '';
+                // Keep the native cache namespace used on 1.x.
+                $ext .= '-native';
                 if (isset($this->params['watermark'])) {
                     $sourceHash = hash_file('sha256', $localPath);
                     $cacheParams = $this->params;
@@ -587,27 +559,26 @@ class sGalleryBuilder
                 clearstatcache();
                 $cacheDirectory = GalleryFiles::directory($chacheFile, true);
                 if ($cacheDirectory === null) {
-                    return $withSpatie ? sGalleryModel::NOIMAGE : $this->originalImageUrl();
+                    return $this->originalImageUrl();
                 }
                 $cachedPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName;
                 if (is_link($cachedPath)) {
-                    return $withSpatie ? sGalleryModel::NOIMAGE : $this->originalImageUrl();
+                    return $this->originalImageUrl();
                 }
                 $cachedSize = is_file($cachedPath) ? filesize($cachedPath) : false;
                 $animationType = $format === 'gif' ? IMAGETYPE_GIF : IMAGETYPE_WEBP;
                 if ($cachedSize > 0 && ($format !== 'avif' || $this->isAvifFile($cachedPath)) &&
-                    ($withSpatie || (@getimagesize($cachedPath)['mime'] ?? null) === 'image/' . ($format === 'jpg' ? 'jpeg' : $format)) &&
-                    (!$animated || ($nativeTiming === null
-                        ? ImageAnimation::isAnimated($cachedPath, $animationType)
-                        : ImageAnimation::timing($cachedPath, $animationType) === $nativeTiming)) && ImageSource::version($localPath) === $sourceVersion) {
+                    (@getimagesize($cachedPath)['mime'] ?? null) === 'image/' . ($format === 'jpg' ? 'jpeg' : $format) &&
+                    (!$animated || ImageAnimation::timing($cachedPath, $animationType) === $nativeTiming) &&
+                    ImageSource::version($localPath) === $sourceVersion) {
                     return $this->derivativeUrl($sourceFile, $chacheFile . $imageName);
                 }
-                if ($format === 'avif' && ($withSpatie || ($this->params['format'] ?? null) !== 'original')) {
+                if ($format === 'avif' && (($this->params['format'] ?? null) !== 'original')) {
                     $fallbackName = preg_replace('/\.avif$/i', '.webp', $imageName);
                     $fallbackPath = $cacheDirectory . DIRECTORY_SEPARATOR . $fallbackName;
-                    if (!is_link($fallbackPath) && is_file($fallbackPath) && ($withSpatie
-                        ? filesize($fallbackPath) > 100
-                        : (@getimagesize($fallbackPath)[2] ?? null) === IMAGETYPE_WEBP) && ImageSource::version($localPath) === $sourceVersion) {
+                    if (!is_link($fallbackPath) && is_file($fallbackPath) &&
+                        (@getimagesize($fallbackPath)[2] ?? null) === IMAGETYPE_WEBP &&
+                        ImageSource::version($localPath) === $sourceVersion) {
                         return $this->derivativeUrl($sourceFile, $chacheFile . $fallbackName);
                     }
                 }
@@ -617,31 +588,25 @@ class sGalleryBuilder
                 // The cache is missing, empty or mislabeled.
                 $this->optimizationJob = $this->optimizationDescriptor($format, $sourceVersion);
                 $queue = new ImageOptimizationQueue();
-                if (!$this->backgroundOptimization && ($dimensions === false ||
-                    !$this->fitsMemoryBudget($localPath, $dimensions, $withSpatie, $nativeOrientation) ||
-                    $queue->heavy($this->optimizationJob))) {
+                $fitsMemory = $this->fitsMemoryBudget($localPath, $dimensions, $nativeOrientation);
+                if ($this->backgroundOptimization && !$fitsMemory) {
+                    throw new \RuntimeException('Image optimization exceeds the worker memory budget.');
+                }
+                if (!$this->backgroundOptimization && (!$fitsMemory || $queue->heavy($this->optimizationJob))) {
                     $queue->defer($this->optimizationJob);
                     return $this->originalImageUrl();
-                }
-                if ($this->backgroundOptimization) {
-                    if ($dimensions === false && ImageMemoryBudget::allows(0, (int) @filesize($localPath), true)) {
-                        $dimensions = $this->heifDimensions($localPath);
-                    }
-                    if ($dimensions === false || !$this->fitsMemoryBudget($localPath, $dimensions, $withSpatie, $nativeOrientation)) {
-                        throw new \RuntimeException('Image optimization exceeds the worker memory budget or has unreadable dimensions.');
-                    }
                 }
                 $atomicSuffix = '.pending-' . bin2hex(random_bytes(6));
                 $encodingPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName . $atomicSuffix . '.' . $format;
 
                 try {
-                    $this->sourceHasAlpha = $withSpatie ? !$animated && $this->detectAlphaChannelFromPath($localPath) : $nativeAlpha;
+                    $this->sourceHasAlpha = $nativeAlpha;
                     try {
                         if ($nativeTiming !== null) {
                             $this->renderNativeAnimation($sourceFile, $localPath, $dimensions, $nativeTiming, $format, $encodingPath);
                         } else {
                             $this->renderWithDrivers(
-                                $sourceFile, $localPath, $format, $encodingPath, $animated, $withSpatie, $nativeOrientation, $nativeAlpha, $nativeIcc, $nativeInputFormat,
+                                $sourceFile, $format, $encodingPath, $nativeOrientation, $nativeAlpha, $nativeIcc, $nativeInputFormat,
                             );
                         }
                     } catch (OptimizationDeferred $e) {
@@ -650,14 +615,11 @@ class sGalleryBuilder
                         if ($format !== 'avif' || ($this->params['format'] ?? '') === 'original') {
                             throw $e;
                         }
-                        if ($withSpatie) {
-                            Log::warning("AVIF creation failed, falling back to WebP: " . $e->getMessage());
-                        }
                         $format = 'webp';
                         $imageName = preg_replace('/\.avif$/i', '.webp', $imageName);
                         $encodingPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName . $atomicSuffix . '.webp';
                         $this->renderWithDrivers(
-                            $sourceFile, $localPath, $format, $encodingPath, false, $withSpatie, $nativeOrientation, $nativeAlpha, $nativeIcc, $nativeInputFormat,
+                            $sourceFile, $format, $encodingPath, $nativeOrientation, $nativeAlpha, $nativeIcc, $nativeInputFormat,
                         );
                     }
                     $this->assertSourceUnchanged($localPath, $sourceVersion);
@@ -675,11 +637,7 @@ class sGalleryBuilder
                     return $this->originalImageUrl();
                 } catch (\Exception $e) {
                     if ($this->backgroundOptimization) throw $e;
-                    if (!$withSpatie || ImageSource::version($localPath) !== $sourceVersion) {
-                        return $this->originalImageUrl();
-                    }
-                    Log::error("Error sGallery: " . $e->getMessage() . "\n" . $e->getTraceAsString());
-                    if ($animated) return $this->originalImageUrl();
+                    return $this->originalImageUrl();
                 } finally {
                     if (is_file($encodingPath)) unlink($encodingPath);
                 }
@@ -703,7 +661,7 @@ class sGalleryBuilder
     }
 
     /** Admit native resize and explicit output formats without requiring quality or another operation. @since 1.9.0 */
-    private function canTransformWithoutSpatie(bool $animated): bool
+    private function shouldTransform(bool $animated): bool
     {
         $format = $this->params['format'] ?? null;
         return $this->backgroundOptimization || $this->qualityExplicit || ($this->optimizationExplicit && !empty($this->params['optimize'])) ||
@@ -719,93 +677,73 @@ class sGalleryBuilder
     }
 
     /**
-     * Retry the full transform from the original when a backend cannot produce this format.
-     *
-     * Keep Imagick for animation. For other sources the legacy reader is available when
-     * neither native reader can open the file. A failed write never bypasses native verification.
+     * Retry the full transform from the original when a driver cannot produce the requested format.
+     * ICC conversions require Imagick. Each driver verifies its staged output before publication.
      * @since 1.9.0
      */
     private function renderWithDrivers(
         string $source,
-        string $path,
         string $format,
         string $output,
-        bool $animated,
-        bool $withSpatie = true,
-        int $nativeOrientation = 1,
-        bool $nativeAlpha = false,
-        bool $nativeIcc = false,
-        ?string $nativeInputFormat = null,
+        int $nativeOrientation,
+        bool $nativeAlpha,
+        bool $nativeIcc,
+        ?string $nativeInputFormat,
     ): void
     {
-        $drivers = $animated || $nativeIcc ? ['imagick'] : ['imagick', 'gd'];
-        if ($withSpatie && $format === 'avif' && self::$avifSupportDriver === 'gd') {
-            $drivers = array_reverse($drivers);
-        }
+        $drivers = $nativeIcc ? ['imagick'] : ['imagick', 'gd'];
         $drivers = array_filter($drivers, static fn (string $driver): bool => NativeImage::canEncode($format, $driver));
         $failure = new \RuntimeException('No image driver can produce the requested gallery format.');
-        $loaded = false;
-        foreach ($withSpatie && !$animated ? [false, true] : [$animated] as $legacy) {
-            foreach ($drivers as $driver) {
-                $this->checkOptimizationBudget();
-                try {
-                    if (!$withSpatie) {
-                        $image = NativeImage::open($source, $format, $driver);
-                        if ($nativeInputFormat !== null) {
-                            $frame = $image->frame();
-                            if (!$frame instanceof \Imagick) {
-                                throw new \RuntimeException('The image source requires an Imagick decoder.');
-                            }
-                            $nativeAlpha = $frame->getImageAlphaChannel();
-                            $nativeIcc = $frame->getImageProfiles('icc', false) !== [];
-                            if (!$nativeIcc && !in_array($frame->getImageColorspace(), [\Imagick::COLORSPACE_SRGB, \Imagick::COLORSPACE_GRAY], true)) {
-                                throw new \RuntimeException('The image source has unsupported color metadata.');
-                            }
-                            // JPEG XL decoding applies codestream orientation before exposing the frame.
-                            $nativeOrientation = $nativeInputFormat === 'HEIC' ? $frame->getImageOrientation() : 1;
-                        }
-                        if ($nativeIcc) {
-                            $image = $image->toSrgb();
-                        }
-                        $image = $image->orientFromExif($nativeOrientation);
-                        if ($nativeAlpha) {
-                            $image = $image->withPixelAlpha();
-                        }
-                        $image = $this->transformNative($image, $format);
-                        if ($nativeAlpha) {
-                            $image = $image->withWhiteJpegBackground();
-                            if ($format === 'gif') {
-                                $image = $image->withGifTransparency();
-                            }
-                        }
-                        if ($nativeIcc && $format !== 'gif') {
-                            $image->tagSrgb();
-                        }
-                        $image->optimize(!empty($this->params['optimize']));
-                        if ($format === 'webp') {
-                            $this->saveWebpImage($image, $output);
-                        } else {
-                            $this->checkOptimizationBudget();
-                            $image->saveToPath($output, $this->quality);
-                        }
-                        return;
+        foreach ($drivers as $driver) {
+            $this->checkOptimizationBudget();
+            try {
+                $image = NativeImage::open($source, $format, $driver);
+                if ($nativeInputFormat !== null) {
+                    $frame = $image->frame();
+                    if (!$frame instanceof \Imagick) {
+                        throw new \RuntimeException('The image source requires an Imagick decoder.');
                     }
-                    $image = $legacy
-                        ? Image::useImageDriver(ImageDriver::from($driver))->loadFile($path)
-                        : BuilderImage::fromSource($source, $path, $format, $driver);
-                    $loaded = true;
-                    $this->renderCandidate($image, $path, $format, $output, $animated);
-                    return;
-                } catch (OptimizationDeferred $e) {
-                    throw $e;
-                } catch (\Exception $e) {
-                    $failure = $e;
-                    if (is_file($output)) unlink($output);
-                } finally {
-                    unset($image);
+                    $nativeAlpha = $frame->getImageAlphaChannel();
+                    $nativeIcc = $frame->getImageProfiles('icc', false) !== [];
+                    if (!$nativeIcc && !in_array($frame->getImageColorspace(), [\Imagick::COLORSPACE_SRGB, \Imagick::COLORSPACE_GRAY], true)) {
+                        throw new \RuntimeException('The image source has unsupported color metadata.');
+                    }
+                    // JPEG XL decoding applies codestream orientation before exposing the frame.
+                    $nativeOrientation = $nativeInputFormat === 'HEIC' ? $frame->getImageOrientation() : 1;
                 }
+                if ($nativeIcc) {
+                    $image = $image->toSrgb();
+                }
+                $image = $image->orientFromExif($nativeOrientation);
+                if ($nativeAlpha) {
+                    $image = $image->withPixelAlpha();
+                }
+                $image = $this->transformNative($image, $format);
+                if ($nativeAlpha) {
+                    $image = $image->withWhiteJpegBackground();
+                    if ($format === 'gif') {
+                        $image = $image->withGifTransparency();
+                    }
+                }
+                if ($nativeIcc && $format !== 'gif') {
+                    $image->tagSrgb();
+                }
+                $image->optimize(!empty($this->params['optimize']));
+                if ($format === 'webp') {
+                    $this->saveWebpImage($image, $output);
+                } else {
+                    $this->checkOptimizationBudget();
+                    $image->saveToPath($output, $this->quality);
+                }
+                return;
+            } catch (OptimizationDeferred $e) {
+                throw $e;
+            } catch (\Exception $e) {
+                $failure = $e;
+                if (is_file($output)) unlink($output);
+            } finally {
+                unset($image);
             }
-            if ($loaded) break;
         }
 
         throw $failure;
@@ -868,89 +806,6 @@ class sGalleryBuilder
         }
     }
 
-    /** Apply the existing transformations and verify the staged derivative. @since 1.9.0 */
-    private function renderCandidate(Image $image, string $source, string $format, string $output, bool $animated): void
-    {
-        $frames = $animated ? $image->image()->getNumberImages() : 0;
-        if ($animated && $frames < 2) {
-            throw new \RuntimeException('The selected driver could not read the image sequence.');
-        }
-
-        if (isset($this->params['w'], $this->params['h'])) {
-            [$width, $height] = [$this->params['w'], $this->params['h']];
-            if (isset($this->params['fit'])) {
-                $image->fit($this->params['fit'], $width, $height);
-            } elseif (isset($this->params['crop'])) {
-                $image->crop($width, $height, $this->params['crop']);
-            } elseif (isset($this->params['focalCenterX'], $this->params['focalCenterY'])) {
-                $image->focalCrop($width, $height, $this->params['focalCenterX'], $this->params['focalCenterY']);
-            } elseif (isset($this->params['startX'], $this->params['startY'])) {
-                $image->manualCrop($width, $height, $this->params['startX'], $this->params['startY']);
-            } else {
-                $image->width($width)->height($height);
-            }
-        }
-        if (!empty($this->params['sharpen'])) {
-            $image->sharpen($this->params['sharpen']);
-        }
-        if (isset($this->params['watermark'])) {
-            Watermark::apply($image, $this->params['watermark']);
-        }
-        if (!empty($this->params['optimize']) && !$animated && !($image instanceof BuilderImage)) {
-            $image->optimize();
-        }
-        $this->checkOptimizationBudget();
-
-        if ($format === 'webp') {
-            $this->saveWebpImage($image, $output);
-        } elseif ($format === 'avif' && in_array(strtolower(pathinfo($source, PATHINFO_EXTENSION)), ['png', 'gif', 'webp'], true)) {
-            $this->saveAvifWithTransparency($image, $output);
-        } else {
-            $this->saveEncodedImage($image, $output, $format, $this->quality);
-        }
-
-        $type = match ($format) {
-            'jpg', 'jpeg' => IMAGETYPE_JPEG,
-            'png' => IMAGETYPE_PNG,
-            'gif' => IMAGETYPE_GIF,
-            'webp' => IMAGETYPE_WEBP,
-            'avif' => IMAGETYPE_AVIF,
-        };
-        $metadata = @getimagesize($output);
-        if (($metadata[2] ?? null) !== $type) {
-            throw new \RuntimeException('The image driver did not produce the requested gallery format.');
-        }
-        if ($animated) {
-            $sequence = new \Imagick();
-            if (!$sequence->pingImage($output) || $sequence->getNumberImages() !== $frames || !ImageAnimation::isAnimated($output, $type)) {
-                throw new \RuntimeException('The image driver did not preserve the gallery animation.');
-            }
-        }
-    }
-
-    /** Encode a Spatie candidate with upright PNG pixels and a sample type matching its RGB ICC. @since 1.9.0 */
-    private function saveEncodedImage(Image $image, string $path, string $format, int $quality): void
-    {
-        if ($format === 'png' && ($frame = $image->image()) instanceof \Imagick) {
-            if (($frame->getImageProfiles('exif', false) !== [] && !$frame->removeImageProfile('exif')) ||
-                ($frame->getImageProperty('exif:Orientation') !== false && !$frame->deleteImageProperty('exif:Orientation')) ||
-                !$frame->setImageOrientation(\Imagick::ORIENTATION_TOPLEFT)) {
-                throw new \RuntimeException('Cannot remove the stale gallery PNG orientation.');
-            }
-            if ($frame->getImageProfiles('icc', false) !== [] && substr($frame->getImageProfile('icc'), 16, 4) === 'RGB ' &&
-                (!$frame->setOption('png:color-type', $frame->getImageAlphaChannel() ? '6' : '2') ||
-                    !$frame->setOption('png:exclude-chunk', 'sRGB'))) {
-                throw new \RuntimeException('Cannot preserve the gallery PNG RGB color profile.');
-            }
-        }
-        if ($image instanceof BuilderImage) {
-            $image->saveNative($path, $format, $quality, !empty($this->params['optimize']));
-            return;
-        }
-
-        $image->quality($quality)->format($format)->save($path);
-    }
-
     /** Register a generated or reused derivative before returning its URL. @since 1.9.0 */
     private function derivativeUrl(string $source, string $output): string
     {
@@ -975,12 +830,6 @@ class sGalleryBuilder
         }
         $params = $this->params ?? [];
         $params['format'] = $format;
-        foreach ($params as &$value) {
-            if ($value instanceof \BackedEnum) {
-                $value = $value->value;
-            }
-        }
-        unset($value);
         ksort($params);
         clearstatcache();
         return ImageOptimizationQueue::normalizeDescriptor(['file' => $this->file, 'params' => $params, 'quality' => $this->quality,
@@ -988,7 +837,7 @@ class sGalleryBuilder
             'source_version' => $sourceVersion ?? ImageSource::version(EVO_BASE_PATH . $this->file)]);
     }
 
-    /** Reject a replaced source at the publication boundary for either image backend. @since 1.9.0 */
+    /** Reject a replaced source at the publication boundary. @since 1.9.0 */
     private function assertSourceUnchanged(string $path, array $version): void
     {
         if (ImageSource::version($path) !== $version) {
@@ -1061,14 +910,9 @@ class sGalleryBuilder
         }
         $this->file($file);
         $this->params = $params;
-        foreach (['fit' => Fit::class, 'crop' => CropPosition::class] as $key => $enum) {
-            if (isset($this->params[$key])) {
-                if (class_exists(Image::class)) {
-                    $this->params[$key] = $enum::from($this->params[$key]);
-                } elseif (!is_string($this->params[$key]) || !in_array($this->params[$key],
-                    $key === 'fit' ? NativeImage::FIT_MODES : array_keys(NativeImage::CROP_POSITIONS), true)) {
-                    throw new \RuntimeException('Invalid native gallery optimization geometry.');
-                }
+        foreach (['fit' => NativeImage::FIT_MODES, 'crop' => array_keys(NativeImage::CROP_POSITIONS)] as $key => $values) {
+            if (isset($params[$key]) && !in_array($params[$key], $values, true)) {
+                throw new \RuntimeException('Invalid gallery optimization geometry.');
             }
         }
         if (isset($this->params['watermark'])) {
@@ -1232,73 +1076,7 @@ class sGalleryBuilder
      */
     private function buildFormatPreferenceList(): array
     {
-        $hasAlpha = $this->sourceHasAlphaChannel();
-        if ($hasAlpha && !class_exists(Image::class)) {
-            return ['webp', 'png'];
-        }
-
-        $formats = [];
-        $formats[] = 'webp';
-
-        if ($hasAlpha) {
-            $formats[] = 'png';
-            $formats[] = 'jpg';
-        } else {
-            $formats[] = 'jpg';
-            $formats[] = 'png';
-        }
-
-        return array_values(array_unique($formats));
-    }
-
-    /**
-     * Select and cache the first driver that can encode a real AVIF image.
-     *
-     * @return bool Whether Imagick or GD produced an AVIF probe.
-     */
-    protected function isAvifSupported(): bool
-    {
-        if (self::$avifSupportDriver !== null) {
-            return self::$avifSupportDriver !== false;
-        }
-
-        if (extension_loaded('imagick')) {
-            try {
-                $probe = new \Imagick();
-                $probe->newImage(1, 1, 'black');
-                $probe->setImageFormat('AVIF');
-                $blob = $probe->getImageBlob();
-                $info = $blob !== '' ? @getimagesizefromstring($blob) : false;
-                if (($info[2] ?? null) === IMAGETYPE_AVIF) {
-                    self::$avifSupportDriver = 'imagick';
-                    return true;
-                }
-            } catch (\Exception $e) {
-                // A decode-only ImageMagick build may list AVIF but reject encoding.
-            }
-        }
-
-        if (function_exists('imageavif') && function_exists('imagetypes') && (imagetypes() & IMG_AVIF) !== 0) {
-            $stream = tmpfile();
-            if ($stream !== false) {
-                try {
-                    $probe = imagecreatetruecolor(1, 1);
-                    if ($probe !== false && @imageavif($probe, $stream) && rewind($stream)) {
-                        $blob = stream_get_contents($stream);
-                        $info = $blob !== false ? @getimagesizefromstring($blob) : false;
-                        if (($info[2] ?? null) === IMAGETYPE_AVIF) {
-                            self::$avifSupportDriver = 'gd';
-                            return true;
-                        }
-                    }
-                } finally {
-                    fclose($stream);
-                }
-            }
-        }
-
-        self::$avifSupportDriver = false;
-        return false;
+        return $this->sourceHasAlphaChannel() ? ['webp', 'png'] : ['webp', 'jpg', 'png'];
     }
 
     /**
@@ -1345,15 +1123,14 @@ class sGalleryBuilder
     /**
      * Get the effective WebP output quality.
      *
-     * Keep the configured default below 100. Native explicit quality keeps 100,
-     * while the Spatie path retains its existing normalization.
+     * Keep the configured default below 100 and honor an explicit quality of 100.
      *
      * @return int
      * @since 1.5.0
      */
     private function getWebpOutputQuality(): int
     {
-        if ($this->qualityExplicit && !class_exists(Image::class)) {
+        if ($this->qualityExplicit) {
             return $this->quality;
         }
         return $this->quality >= 100 ? 99 : $this->quality;
@@ -1375,28 +1152,20 @@ class sGalleryBuilder
      * Front requests check their deadline between attempts and return the original
      * if work is deferred. Background jobs complete the full quality search.
      *
-     * @param Image|NativeImage $image The resized image used for WebP candidates.
+     * @param NativeImage $image The resized image used for WebP candidates.
      * @param string $path The path where to save the WebP image.
      * @return void
      * @since 1.5.0
      */
-    private function saveWebpImage(Image|NativeImage $image, string $path): void
+    private function saveWebpImage(NativeImage $image, string $path): void
     {
         $targetBytes = $this->getPageSpeedImageTargetBytes($image);
         $qualities = $this->getWebpOutputQualities();
-        $temporaryPath = $image instanceof NativeImage || $image instanceof BuilderImage
-            ? $path . '.webp' : tempnam(dirname($path), '.sgallery-webp-');
-        if ($temporaryPath === false) {
-            throw new \RuntimeException('Unable to create a temporary WebP cache file.');
-        }
+        $temporaryPath = $path . '.webp';
         try {
             foreach ($qualities as $index => $quality) {
                 $this->checkOptimizationBudget();
-                if ($image instanceof NativeImage) {
-                    $image->saveToPath($temporaryPath, $quality);
-                } else {
-                    $this->saveEncodedImage($image, $temporaryPath, 'webp', $quality);
-                }
+                $image->saveToPath($temporaryPath, $quality);
                 clearstatcache();
                 if (!is_file($temporaryPath) || filesize($temporaryPath) === 0) {
                     throw new \RuntimeException('WebP generation produced an empty file.');
@@ -1421,13 +1190,13 @@ class sGalleryBuilder
      * The estimate is based on rendered pixels and the Lighthouse/WebPageTest-style
      * bytes-per-pixel target used for modern image delivery recommendations.
      *
-     * @param Image|NativeImage $image The frame whose dimensions determine the size target.
+     * @param NativeImage $image The frame whose dimensions determine the size target.
      * @return int Estimated target size in bytes.
      * @since 1.5.0
      */
-    private function getPageSpeedImageTargetBytes(Image|NativeImage $image): int
+    private function getPageSpeedImageTargetBytes(NativeImage $image): int
     {
-        [$width, $height] = $image instanceof NativeImage ? $image->dimensions() : [$image->getWidth(), $image->getHeight()];
+        [$width, $height] = $image->dimensions();
         $pixels = max(1, $width * $height);
         $displaySafetyFactor = 0.9;
         $targetBytesPerPixel = 2 / 12;
@@ -1435,194 +1204,8 @@ class sGalleryBuilder
         return (int) ceil($pixels * $displaySafetyFactor * $targetBytesPerPixel) + 4096;
     }
 
-    /**
-     * Save image as AVIF with proper transparency support.
-     *
-     * @param \Spatie\Image\Image $image The image instance.
-     * @param string $path The path where to save the image.
-     * @return void
-     */
-    private function saveAvifWithTransparency($image, string $path): void
-    {
-        $originalFile = $this->file;
-        $driverName = $image->driverName();
-        $imageResource = $image->image();
-
-        // If using ImageMagick, we can save directly without custom transparency handling
-        if ($driverName === 'imagick') {
-            $this->saveEncodedImage($image, $path, 'avif', $this->quality);
-            return;
-        }
-
-        // For GD driver, use custom transparency handling
-        $gdImage = $imageResource;
-
-        // Check if image has alpha channel
-        $width = \imagesx($gdImage);
-        $height = \imagesy($gdImage);
-        $isTrueColor = \imageistruecolor($gdImage);
-        $hasAlpha = false;
-
-        if ($isTrueColor) {
-            for ($x = 0; $x < min($width, 10); $x++) {
-                for ($y = 0; $y < min($height, 10); $y++) {
-                    $color = \imagecolorat($gdImage, $x, $y);
-                    $alpha = ($color >> 24) & 0xFF;
-                    if ($alpha < 255) {
-                        $hasAlpha = true;
-                        break 2;
-                    }
-                }
-            }
-        }
-
-        // Check if original file has transparency before attempting custom approach
-        $originalHasTransparency = false;
-        $absoluteOriginalPath = $this->getAbsoluteSourcePath($originalFile);
-        if ($absoluteOriginalPath !== null) {
-            $originalHasTransparency = $this->detectAlphaChannelFromPath($absoluteOriginalPath);
-        }
-
-        // If Spatie Image lost transparency and original has transparency, try to reload original image directly
-        if (!isset($this->params['watermark']) && !$hasAlpha && $originalHasTransparency && $absoluteOriginalPath !== null) {
-            $originalPath = $absoluteOriginalPath;
-            $originalImage = null;
-
-            $extension = strtolower(pathinfo($originalPath, PATHINFO_EXTENSION));
-            switch ($extension) {
-                case 'png':
-                    // For PNG, load without modifying alpha settings initially
-                    $originalImage = \imagecreatefrompng($originalPath);
-                    break;
-                case 'jpg':
-                case 'jpeg':
-                    $originalImage = \imagecreatefromjpeg($originalPath);
-                    break;
-                case 'gif':
-                    $originalImage = \imagecreatefromgif($originalPath);
-                    break;
-                case 'webp':
-                    $originalImage = \imagecreatefromwebp($originalPath);
-                    break;
-            }
-
-            if ($originalImage) {
-                $originalWidth = \imagesx($originalImage);
-                $originalHeight = \imagesy($originalImage);
-
-                // For PNG, apply alpha settings first, then check
-                if ($extension === 'png') {
-                    \imagepalettetotruecolor($originalImage);
-                    \imagealphablending($originalImage, false);
-                    \imagesavealpha($originalImage, true);
-                }
-
-                // Check if original image has transparency
-                $originalHasAlpha = false;
-
-                // Check pixels for transparency detection
-                for ($x = 0; $x < min($originalWidth, 50); $x++) {
-                    for ($y = 0; $y < min($originalHeight, 50); $y++) {
-                        $color = \imagecolorat($originalImage, $x, $y);
-                        $alpha = ($color >> 24) & 0xFF;
-
-                        if ($alpha < 255) { // Any transparency
-                            $originalHasAlpha = true;
-                            break 2;
-                        }
-                    }
-                }
-
-                $targetWidth = $width;
-                $targetHeight = $height;
-                $resizedImage = \imagecreatetruecolor($targetWidth, $targetHeight);
-
-                // Preserve transparency - set transparent background
-                \imagealphablending($resizedImage, false);
-                \imagesavealpha($resizedImage, true);
-
-                // Fill with transparent color
-                $transparent = \imagecolorallocatealpha($resizedImage, 0, 0, 0, 127);
-                \imagefill($resizedImage, 0, 0, $transparent);
-
-                // Copy and resize with better transparency handling
-                \imagealphablending($resizedImage, true);
-                \imagecopyresampled(
-                    $resizedImage, $originalImage,
-                    0, 0, 0, 0,
-                    $targetWidth, $targetHeight,
-                    \imagesx($originalImage), \imagesy($originalImage)
-                );
-                \imagealphablending($resizedImage, false);
-
-                unset($originalImage, $gdImage);
-                $gdImage = $resizedImage;
-            }
-        }
-
-        // Apply transparency fixes
-        \imagepalettetotruecolor($gdImage);
-        \imagealphablending($gdImage, false);
-        \imagesavealpha($gdImage, true);
-
-        $quality = $this->quality;
-        if ($originalHasTransparency || $hasAlpha) {
-            $this->markTransparentSource();
-            if (!$this->qualityExplicit) {
-                $quality = 100;
-            }
-        } else {
-            $this->clearTransparentSource();
-        }
-
-        // Check if AVIF encoding is actually supported before attempting
-        if (!function_exists('imageavif')) {
-            unset($gdImage);
-            throw new \RuntimeException('imageavif() function is not available');
-        }
-
-        // Suppress warnings but check return value
-        if ($image instanceof BuilderImage) {
-            $image->saveNative($path, 'avif', $quality, false, $gdImage);
-            $result = true;
-        } else {
-            $result = @\imageavif($gdImage, $path, $quality);
-        }
-        unset($gdImage);
-
-        // Check if file was created and has content
-        if ($result === false || !file_exists($path) || filesize($path) < 100) {
-            // Clean up failed file
-            if (file_exists($path)) {
-                @unlink($path);
-            }
-            throw new \RuntimeException('AVIF encoding failed or resulted in empty file');
-        }
-    }
-
-    /** Recognize HEIF files whose dimensions are probed by the background worker. @since 1.9.0 */
-    private function isHeifImage(string $filePath, string $extension): bool
-    {
-        return class_exists(\Imagick::class) && in_array($extension, ['heic', 'heif'], true) &&
-            in_array((new \finfo(FILEINFO_MIME_TYPE))->file($filePath), ['image/heic', 'image/heif'], true);
-    }
-
-    /** Read HEIF dimensions only after the job has left the web request. @since 1.9.0 */
-    private function heifDimensions(string $filePath): array|false
-    {
-        try {
-            $metadata = new \Imagick();
-            $metadata->pingImage($filePath);
-            $width = $metadata->getImageWidth();
-            $height = $metadata->getImageHeight();
-            return self::validDimensions($width, $height) ? [$width, $height] : false;
-        } catch (\ImagickException) {
-            return false;
-        }
-    }
-
     /** Include the source, output and intermediate resize in the estimate. @since 1.9.0 */
-    private function fitsMemoryBudget(string $path, array $dimensions, bool $withSpatie, int $nativeOrientation): bool
+    private function fitsMemoryBudget(string $path, array $dimensions, int $nativeOrientation): bool
     {
         [$width, $height] = $dimensions;
         if ($nativeOrientation >= 5) {
@@ -1633,19 +1216,11 @@ class sGalleryBuilder
         $targetHeight = $this->params['h'] ?? $height;
         $outputPixels = (float) $targetWidth * $targetHeight;
         $fit = $this->params['fit'] ?? null;
-        if (!$withSpatie && $fit === null && $this->hasCrop()) {
+        if ($fit === null && $this->hasCrop()) {
             $outputPixels = (float) min($width, $targetWidth) * min($height, $targetHeight);
-        } elseif (($fit instanceof Fit && $fit === Fit::Crop) || ($fit === null && !$this->hasCrop() && isset($this->params['w']))) {
-            // A width- or height-driven resize can exceed the requested rectangle,
-            // including when Spatie rotates the source before resizing.
+        } elseif ($fit === null && isset($this->params['w'])) {
+            // A width- or height-driven resize can exceed the requested rectangle.
             $aspect = $width / $height;
-            $type = $dimensions[2] ?? null;
-            if ($withSpatie && function_exists('exif_read_data') && in_array($type, [IMAGETYPE_JPEG, IMAGETYPE_TIFF_II, IMAGETYPE_TIFF_MM], true)) {
-                $orientation = (int) (@exif_read_data($path, 'IFD0')['Orientation'] ?? 1);
-                if ($orientation >= 5 && $orientation <= 8) {
-                    $aspect = 1 / $aspect;
-                }
-            }
             $outputPixels = max(
                 $outputPixels,
                 $targetWidth * max(1, ceil($targetWidth / $aspect)),
@@ -1689,7 +1264,7 @@ class sGalleryBuilder
 
         $absolutePath = $this->getAbsoluteSourcePath();
         if ($absolutePath !== null) {
-            $this->sourceHasAlpha = !class_exists(Image::class) && strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION)) === 'png'
+            $this->sourceHasAlpha = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION)) === 'png'
                 ? ImageColor::fromPng($absolutePath)[0]
                 : $this->detectAlphaChannelFromPath($absolutePath);
             return $this->sourceHasAlpha;
@@ -1703,26 +1278,6 @@ class sGalleryBuilder
 
         $this->sourceHasAlpha = false;
         return false;
-    }
-
-    /**
-     * Persistently mark current source as containing transparency.
-     *
-     * @return void
-     */
-    private function markTransparentSource(): void
-    {
-        $this->sourceHasAlpha = true;
-    }
-
-    /**
-     * Persistently mark current source as opaque.
-     *
-     * @return void
-     */
-    private function clearTransparentSource(): void
-    {
-        $this->sourceHasAlpha = false;
     }
 
     /**
