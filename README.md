@@ -1,7 +1,7 @@
 # sGallery for Evolution CMS
 ![sGallery](https://user-images.githubusercontent.com/12029039/169609394-08ea36d6-2393-4261-aff2-348f73a6103c.png)
 [![Latest Stable Version](https://img.shields.io/packagist/v/seiger/sgallery?label=version)](https://packagist.org/packages/seiger/sgallery)
-[![Evolution CMS version requirement](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FSeiger%2FsGallery%2Fmain%2Fcomposer.json&query=%24.require%5B%27evolution-cms%2Fevolution%27%5D&label=CMS&prefix=Evolution%20&color=brightgreen)](https://github.com/evolution-cms/evolution)
+[![Evolution CMS version requirement](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FSeiger%2FsGallery%2F1.x%2Fcomposer.json&query=%24.require%5B%27evolution-cms%2Fevolution%27%5D&label=CMS&prefix=Evolution%20&color=brightgreen)](https://github.com/evolution-cms/evolution)
 [![PHP: 8.4, 8.5 and 8.6](https://img.shields.io/badge/PHP-8.4_%7C_8.5_%7C_8.6-777BB4?logo=php&logoColor=white)](#compatibility)
 [![Issues](https://img.shields.io/github/issues/Seiger/sgallery)](https://github.com/Seiger/sgallery/issues)
 [![Stars](https://img.shields.io/packagist/stars/Seiger/sgallery)](https://packagist.org/packages/seiger/sgallery)
@@ -263,10 +263,10 @@ Just paste this code in your View backend
 {!!sGallery::initialiseView()->viewType('section')->itemType('product')->idType('i')!!}
 ```
 
-[See full documentation here](https://seiger.github.io/sGallery/)
+[Public documentation](https://seiger.github.io/sGallery/) · [Documentation sources](docs/README.md)
 
 ## Background image optimization
 
-Slow transformations can be processed by the optional sTask ImageOptimizationWorker, while the frontend temporarily serves the original. See [background image optimization](docs/pages/background-image-optimization.md) for requirements, timing limits and recovery behavior.
+Slow transformations can be processed by the optional sTask ImageOptimizationWorker, while the frontend temporarily serves the original. See [background image optimization](docs/en/background-image-optimization.md) for requirements, timing limits and recovery behavior.
 
-Documentation: [English](docs/pages/background-image-optimization.md) · [Українська](docs/pages/uk/background-image-optimization.md) · [Русский](docs/pages/ru/background-image-optimization.md)
+Documentation: [English](docs/en/background-image-optimization.md) · [Українська](docs/uk/background-image-optimization.md) · [Русский](docs/ru/background-image-optimization.md)
