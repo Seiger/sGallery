@@ -7,6 +7,14 @@ sidebar_position: 4
 
 # Verwendung in Blade
 
+## Vorschaubild aus einer Datei
+
+Übergeben Sie den Dateipfad an `@thumb`. Die Direktive gibt die maskierte URL eines auf 240 × 120 Pixel zugeschnittenen Vorschaubilds aus.
+
+```blade
+<img src="@thumb($item->src)" alt="{{ $item->alt }}">
+```
+
 ## Bilder einer Ressource
 
 Durchlaufen Sie die Sammlung und prüfen Sie den Typ jedes Eintrags. Verwenden Sie die maskierte Blade-Ausgabe für URL und Alternativtext.

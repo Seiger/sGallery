@@ -6,9 +6,12 @@ use Seiger\sGallery\Models\sGalleryModel;
 class GalleryCache
 {
     /** Map a local source to the existing relative derivative directory. @since 1.9.0 */
-    public static function directoryFor(string $source): string
+    public static function directoryFor(string $source, bool $publicThumbnail = false): string
     {
         $directory = sGalleryModel::imageCacheDir();
+        if ($publicThumbnail && $directory === sGalleryModel::CACHE_DIR) {
+            $directory .= 'images/sgallery/';
+        }
         foreach (explode('/', str_replace('\\', '/', pathinfo($source, PATHINFO_DIRNAME))) as $segment) {
             if ($segment !== '.') {
                 $directory .= is_numeric($segment) ? $segment : ($segment[0] ?? '');

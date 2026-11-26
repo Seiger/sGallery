@@ -357,9 +357,12 @@ try {
     $filterFailures = [];
     foreach ($cases as $name => [$filter, $tolerance]) {
         $options = $filterOptions($filter);
-        [, , $old] = $render("phpThumb $name", fn () => $legacy($filterSource, $options), [96, 72, 'image/png']);
-        [$url, , $new] = $render("Native helper $name", fn () => $native($filterSource, $options), [96, 72, 'image/png']);
-        if ($url === $filterSource || $delta($sample, $new) <= 0) {
+        // Give each filter its own filename because the legacy helper truncates the option hash to three digits.
+        $caseSource = "assets/images/filter-$name.png";
+        $check(copy(EVO_BASE_PATH . $filterSource, EVO_BASE_PATH . $caseSource), "Copy $name fixture");
+        [, , $old] = $render("phpThumb $name", fn () => $legacy($caseSource, $options), [96, 72, 'image/png']);
+        [$url, , $new] = $render("Native helper $name", fn () => $native($caseSource, $options), [96, 72, 'image/png']);
+        if ($url === $caseSource || $delta($sample, $new) <= 0) {
             $filterFailures[] = "$name did not change the source";
         }
         // phpThumb uses different algorithms for color filters and skips some convolutions with system libgd.

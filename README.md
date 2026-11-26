@@ -65,13 +65,6 @@ failed work follows the existing retry and cooldown rules.
 | JPEG XL (still image) | — | Read with a JPEG XL decoder |
 | TIFF (single page) | — | Read |
 
-### Compatibility
-
-- Evolution CMS **3.6 or later in the 3.x series**
-- PHP **8.4, 8.5 and 8.6** (minimum 8.4)
-- Composer **2.2+**
-- One of: **MySQL 8.0+** / **MariaDB 10.5+** / **PostgreSQL 10+** / **SQLite 3.25+**
-
 ### Image processing
 
 With a compatible GD or Imagick codec, the Builder can

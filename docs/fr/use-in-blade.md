@@ -7,6 +7,14 @@ sidebar_position: 4
 
 # Utilisation dans Blade
 
+## Miniature à partir d’un fichier
+
+Passez le chemin du fichier à `@thumb`. La directive affiche l’URL échappée d’une miniature recadrée à 240 × 120 pixels.
+
+```blade
+<img src="@thumb($item->src)" alt="{{ $item->alt }}">
+```
+
 ## Images d’une ressource
 
 Parcourez la collection et vérifiez le type de chaque entrée. Utilisez la syntaxe Blade avec échappement pour l’URL et le texte alternatif.

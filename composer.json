@@ -26,7 +26,8 @@
   "extra": {
     "laravel": {
       "providers": [
-        "Seiger\\sGallery\\sGalleryServiceProvider"
+        "Seiger\\sGallery\\sGalleryServiceProvider",
+        "Seiger\\sGallery\\Providers\\ThumbServiceProvider"
       ],
       "aliases": {
         "sGallery": "Seiger\\sGallery\\Facades\\sGallery"

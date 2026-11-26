@@ -423,6 +423,13 @@ class sGalleryBuilder
         return $this->quality($quality);
     }
 
+    /** Keep Blade thumbnails under the cache directory served by Evolution's webserver templates. @internal */
+    public function usePublicThumbnailCache(): self
+    {
+        $this->params['publicThumbnail'] = true;
+        return $this;
+    }
+
     /**
      * Get the URL of the processed file (resized, formatted).
      *
@@ -488,7 +495,7 @@ class sGalleryBuilder
                     return sGalleryModel::NOIMAGE;
                 }
                 $imageName = str_replace('.' . pathinfo($this->file, PATHINFO_EXTENSION), '', pathinfo($this->file, PATHINFO_BASENAME));
-                $chacheFile = GalleryCache::directoryFor($this->file);
+                $chacheFile = GalleryCache::directoryFor($this->file, ($this->params['publicThumbnail'] ?? false) === true);
                 $nativeAlpha = false;
                 $nativeIcc = false;
                 $nativeTiming = null;

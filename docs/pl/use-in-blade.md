@@ -7,6 +7,14 @@ sidebar_position: 4
 
 # Użycie w Blade
 
+## Miniatura z pliku
+
+Przekaż ścieżkę pliku do `@thumb`. Dyrektywa wypisuje adres URL miniatury przyciętej do 240 × 120 pikseli i koduje znaki specjalne HTML.
+
+```blade
+<img src="@thumb($item->src)" alt="{{ $item->alt }}">
+```
+
 ## Obrazy zasobu
 
 Przejdź po kolekcji i sprawdź typ każdej pozycji. Dla adresu URL i tekstu alternatywnego używaj składni Blade z escapowaniem.

@@ -64,6 +64,15 @@ class sGallery
         return $this->builder->file($input);
     }
 
+    /** Generate a thumbnail with the package's default geometry. */
+    public function thumb(?string $file): string
+    {
+        return $this->file($file)
+            ->fit($this->defaultFit(), $this->defaultWidth(), $this->defaultHeight())
+            ->usePublicThumbnailCache()
+            ->getFile();
+    }
+
     /** Return a site-relative thumbnail URL for an Evolution CMS helper call. */
     public function phpThumb($input = '', $options = '', $webp = true): string
     {

@@ -7,6 +7,14 @@ sidebar_position: 4
 
 # Using sGallery in Blade Templates
 
+## Thumbnail from a file
+
+Pass the file path to `@thumb`. It prints the escaped URL of a thumbnail cropped to 240 × 120 pixels.
+
+```blade
+<img src="@thumb($item->src)" alt="{{ $item->alt }}">
+```
+
 Select a gallery by parent, block and locale. Use the media type to choose markup and Blade's escaped expressions to output URLs and text.
 
 ---
