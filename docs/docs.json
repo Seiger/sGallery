@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "package": "seiger/sgallery",
+  "title": "sGallery",
+  "canonicalLocale": "uk",
+  "visibility": "public",
+  "generated": false,
+  "legacy": false,
+  "audience": [
+    "manager-users",
+    "developers",
+    "integrators"
+  ],
+  "status": "complete",
+  "locales": {
+    "en": "complete",
+    "uk": "complete",
+    "de": "complete",
+    "fr": "complete",
+    "pl": "complete",
+    "ru": "complete"
+  },
+  "entrypoints": {
+    "overview": {
+      "type": "explanation",
+      "path": "uk/README.md",
+      "status": "complete"
+    },
+    "user": {
+      "type": "how-to",
+      "path": "uk/user-guide.md",
+      "status": "complete"
+    },
+    "developer": {
+      "type": "explanation",
+      "path": "uk/developer-guide.md",
+      "status": "complete"
+    },
+    "reference": {
+      "type": "reference",
+      "path": "uk/reference.md",
+      "status": "complete"
+    }
+  }
+}
