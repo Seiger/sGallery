@@ -1,4 +1,19 @@
 {
+  "docs.status.current": {
+    "message": "Aktualna"
+  },
+  "docs.status.previous": {
+    "message": "Poprzednia"
+  },
+  "docs.status.legacy": {
+    "message": "Archiwalna"
+  },
+  "docs.legacy.message": {
+    "message": "Czytasz dokumentację poprzedniej wersji."
+  },
+  "docs.legacy.current": {
+    "message": "Przejdź do aktualnej dokumentacji"
+  },
   "gallery.carousel": {
     "message": "Karuzela"
   },

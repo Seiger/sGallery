@@ -10,6 +10,20 @@ test('production registry has one explicit current major branch', () => {
     const config = loadConfig(path.resolve(__dirname, '../docs.config.json'));
     assert.equal(config.lines.filter((line) => line.status === 'current').length, 1);
     assert.equal(config.lines.find((line) => line.status === 'current').route, '');
+    assert.equal(config.localeSources.ru, 'uk');
+});
+
+test('localized site messages retain the Ukrainian keys and placeholders', () => {
+    const messages = (locale) => require(path.join(__dirname, '../i18n', locale, 'code.json'));
+    const canonical = messages('uk');
+    const placeholders = (message) => (message.match(/\{\w+\}/g) || []).sort();
+    for (const locale of ['de', 'fr', 'pl']) {
+        const translated = messages(locale);
+        assert.deepEqual(Object.keys(translated).sort(), Object.keys(canonical).sort(), locale);
+        for (const [key, {message}] of Object.entries(canonical)) {
+            assert.deepEqual(placeholders(translated[key].message), placeholders(message), locale + ' ' + key);
+        }
+    }
 });
 
 test('supports three lines and rejects ambiguous or unsafe registries', () => {
