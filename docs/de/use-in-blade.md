@@ -7,14 +7,30 @@ sidebar_position: 4
 
 # Verwendung in Blade
 
-Durchlaufen Sie die Einträge der aktuellen Ressource. Prüfen Sie den Medientyp und geben Sie URL und Alternativtext mit der maskierten Blade-Ausgabe aus.
+## Bilder einer Ressource
+
+Durchlaufen Sie die Sammlung und prüfen Sie den Typ jedes Eintrags. Verwenden Sie die maskierte Blade-Ausgabe für URL und Alternativtext.
 
 ```blade
 @foreach (sGallery::collections()->get() as $item)
     @if (sGallery::hasImage($item->type))
-        <img src="{{ $item->src }}" alt="{{ $item->alt }}" loading="lazy">
+        <img src="{{ sGallery::file($item->src)->fit('max', 800, 600)->format('webp')->getFile() }}"
+             alt="{{ $item->alt }}" loading="lazy">
     @endif
 @endforeach
 ```
 
-Für ein Produkt wählen Sie `itemType('product')` und `documentId((int) $product->id)`. Mit `blockName()` und `lang()` legen Sie Block und Sprache fest.
+## Produktgalerie oder benannter Block
+
+```php
+$items = sGallery::collections()
+    ->itemType('product')
+    ->documentId((int) $product->id)
+    ->blockName('slider')
+    ->lang('uk')
+    ->get();
+```
+
+Für die aktuelle Ressource können Sie Typ und ID weglassen. Rufen Sie einen einzelnen Eintrag mit `sGallery::first($itemType, $parentId, $lang, $block)` ab. Die Methode gibt auch ohne gefundenen Datensatz ein Modell zurück. Prüfen Sie vor der Ausgabe, ob der Datensatz vorhanden ist.
+
+Prüfen Sie Videos mit `sGallery::hasYoutube($item->type)`. Geben Sie für angehängte Dateien die maskierte URL `$item->src` aus. Siehe auch das [Entwicklerhandbuch](./developer-guide.md).

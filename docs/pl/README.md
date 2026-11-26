@@ -5,16 +5,18 @@ slug: /
 sidebar_position: 1
 ---
 
-# O sGallery
+# sGallery dla Evolution CMS
 
-sGallery dodaje galerie do zasobów Evolution CMS i modułów takich jak sCommerce. Redaktorzy mogą dołączać zdjęcia, pliki do pobrania i filmy YouTube, zmieniać kolejność oraz uzupełniać opisy w różnych językach.
+sGallery dodaje galerie do zasobów Evolution CMS i modułów takich jak sCommerce. W panelu administracyjnym można dodawać zdjęcia, pliki do pobrania i filmy z YouTube, zmieniać ich kolejność i uzupełniać pola w wielu językach.
 
-Builder tworzy miniatury i pliki WebP lub AVIF przy użyciu GD albo Imagick. Spatie Image i sTask są opcjonalne.
+![Galeria zasobu w panelu Evolution CMS](https://user-images.githubusercontent.com/12029039/169609394-08ea36d6-2393-4261-aff2-348f73a6103c.png)
 
-- [Instalacja](./getting-started.md)
-- [Przewodnik redaktora](./user-guide.md)
+Builder tworzy i zapisuje w pamięci podręcznej miniatury oraz pliki WebP i AVIF. Gdy Spatie Image nie jest zainstalowany, przetwarzanie obsługuje GD lub Imagick. Powolne przekształcenia można przekazać do sTask.
+
+- [Instalacja i pierwsza galeria](./getting-started.md)
+- [Poradnik redaktora](./user-guide.md)
 - [Konfiguracja](./configuration.md)
-- [Przewodnik dla deweloperów](./developer-guide.md)
-- [Formaty i metody](./reference.md)
+- [Poradnik programisty](./developer-guide.md)
+- [Formaty i metody Buildera](./reference.md)
 
-Oprogramowanie rozwija [Seiger IT](https://seigerit.com/).
+sGallery rozwija i utrzymuje [Seiger IT](https://seigerit.com/). Problemy zgłaszaj w [GitHub Issues](https://github.com/Seiger/sGallery/issues).

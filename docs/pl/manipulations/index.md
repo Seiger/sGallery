@@ -7,11 +7,9 @@ sidebar_position: 10
 
 # Przetwarzanie obrazów
 
-Otwórz źródło przez `sGallery::file()`, ustaw parametry i pobierz adres metodą `getFile()`.
+Utwórz Builder za pomocą `sGallery::file()`, przekaż parametry i wywołaj `getFile()`, aby pobrać adres URL.
 
-- [Zmiana rozmiaru](./resize.md)
-- [Dopasowanie](./fit.md)
-- [Kadrowanie](./crop.md)
-- [Optymalizacja obrazów](./optimization.md)
-- [Szerokość i wysokość](./width-and-height.md)
-- [Znaki wodne i formaty wyjściowe](../configuration.md)
+- [Zmiana rozmiaru](./resize.md) oraz [szerokość i wysokość](./width-and-height.md)
+- [Dopasowanie](./fit.md) i [kadrowanie](./crop.md)
+- [Optymalizacja i ostrość](./optimization.md)
+- [Konfiguracja znaków wodnych](../configuration.md#watermarks)

@@ -1,13 +1,13 @@
 ---
 id: fit
-title: Einpassen
+title: Anpassung
 slug: /manipulations/fit/
 sidebar_position: 2
 ---
 
-# Einpassen
+# Anpassung
 
-Mit `fit($method, $width, $height)` wählen Sie, wie das Bild eine Fläche in Pixeln ausfüllt. Ohne Höhenangabe entspricht die Höhe der Breite.
+Mit `fit($method, $width, $height)` legen Sie fest, wie das Bild in einen in Pixeln gemessenen Rahmen eingepasst wird. Ohne Höhenangabe gilt die Breite auch für die Höhe.
 
 ```php
 $url = sGallery::file($item->src)->fit('max', 500, 300)->getFile();
@@ -15,9 +15,11 @@ $url = sGallery::file($item->src)->fit('max', 500, 300)->getFile();
 
 | Modus | Ergebnis |
 | --- | --- |
-| `contain` | Passt das Bild unter Beibehaltung des Seitenverhältnisses ein. |
+| `contain` | Passt das Bild mit unveränderten Proportionen in den Rahmen ein. |
 | `max` | Passt das Bild ohne Vergrößerung ein. |
-| `fill` | Passt ohne Vergrößerung ein und füllt den übrigen Rand auf. |
-| `stretch` | Setzt die genauen Abmessungen, auch wenn sich das Seitenverhältnis ändert. |
-| `crop` | Füllt die Fläche aus und schneidet den Überstand ab. |
-| `fill-max` | Vergrößert bei Bedarf und füllt den übrigen Rand auf. |
+| `fill` | Passt das Bild ohne Vergrößerung ein und füllt die freien Ränder. |
+| `stretch` | Erzeugt die genauen Abmessungen. Die Proportionen können sich ändern. |
+| `crop` | Füllt den Rahmen aus und schneidet Überstände ab. |
+| `fill-max` | Passt das Bild ein, vergrößert es bei Bedarf und füllt die Ränder. |
+
+Für einen Ausschnitt nach Position oder Koordinaten verwenden Sie den [Zuschnitt](./crop.md).

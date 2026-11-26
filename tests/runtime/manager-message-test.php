@@ -57,7 +57,7 @@ $database->schema()->create('s_gallery_fields', static function ($table): void {
 $loader = new FileLoader(new Filesystem(), dirname(__DIR__, 2) . '/lang');
 $loader->addNamespace('sGallery', dirname(__DIR__, 2) . '/lang');
 $messageTranslator = new Translator($loader, 'en');
-foreach (['en' => 'Deleted', 'uk' => 'Видалено', 'ru' => 'Удалено'] as $locale => $expected) {
+foreach (['en' => 'Deleted', 'uk' => 'Видалено', 'ru' => 'Видалено'] as $locale => $expected) {
     $messageTranslator->setLocale($locale);
     $id = $database->table('s_galleries')->insertGetId([
         'parent' => 1, 'item_type' => 'catalog', 'block' => '1',

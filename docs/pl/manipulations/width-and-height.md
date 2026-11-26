@@ -7,7 +7,7 @@ sidebar_position: 5
 
 # Szerokość i wysokość
 
-`resize()`, `fit()` i `crop()` przyjmują wymiary w pikselach. Pominięta wysokość jest równa szerokości. Tryb zachowujący proporcje może mimo to utworzyć prostokątny wynik.
+`resize()`, `fit()` i `crop()` przyjmują wymiary w pikselach. Jeśli pominiesz wysokość, ramka ma równą szerokość i wysokość. Rzeczywisty rozmiar obrazu wynikowego zależy od [trybu dopasowania](./fit.md) i proporcji źródła.
 
 ```php
 $url = sGallery::file($item->src)->fit('max', 500, 300)->getFile();

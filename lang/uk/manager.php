@@ -21,4 +21,10 @@
     'tab_texts' => 'Зміст',
     'texts_for_file' => 'Тексти для файлу',
     'youtube_link' => 'Посилання на відео',
+    'invalid_youtube_link' => 'Некоректне посилання на YouTube.',
+    'file_not_added' => 'Не вдалося додати файл.',
+    'loaded_successfully' => 'Успішно завантажено',
+    'upload_failed' => 'Не вдалося завантажити файл.',
+    'unexpected_server_response' => 'Неочікувана відповідь сервера.',
+    'delete_failed' => 'Не вдалося видалити запис.',
 ];

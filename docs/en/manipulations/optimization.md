@@ -7,18 +7,22 @@ sidebar_position: 4
 
 # Image optimization
 
-Processed images are optimized by default when they are rendered through `sGallery::file()`.
-The optimization step runs after resizing, fitting, or cropping, so generated cache files stay as small as possible.
+Builder optimizes derivatives by default after resizing or cropping.
 
 Slow uncached transformations can be handed to the optional sTask worker while the
 frontend serves the original. See [background image optimization](../background-image-optimization.md)
 for the cooperative time budget, heartbeat requirements and cache recovery.
 
 ```php
-$image = sGallery::file($item->src)->fit('crop', 592, 320);
+$url = sGallery::file($item->src)
+    ->fit('crop', 592, 320)
+    ->format('webp')
+    ->quality(85)
+    ->sharpen(10)
+    ->getFile();
 ```
 
-You can disable optimization for a specific image when the output should be left untouched.
+Use `optimize(false)` to disable optimization for the current image.
 
 ```php
 $image = sGallery::file($item->src)
@@ -35,4 +39,4 @@ $image = sGallery::file($item->src)
     ->sharpen(10);
 ```
 
-Optimization and sharpening are included in the generated cache file name, so changing these options creates a separate cached derivative.
+Use `quality()` for a fixed quality. Builder can select WebP quality automatically when a value is omitted. Quality, sharpening and optimization affect the cache key.

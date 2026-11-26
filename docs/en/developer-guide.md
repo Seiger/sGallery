@@ -8,7 +8,7 @@ sidebar_position: 6
 
 ## Read a gallery
 
-Choose the parent type, its ID and, for named galleries, the block. Use `lang()` when the template needs a specific locale.
+`collections()` returns a Builder. Use `itemType()`, `documentId()` and `blockName()` to choose the parent and gallery. Use `lang()` when the template needs a specific locale.
 
 ```php
 $items = sGallery::collections()
@@ -42,4 +42,4 @@ $url = sGallery::file($item->src)
     ->getFile();
 ```
 
-Use the [image manipulation guides](./manipulations/index.md) for geometry, output and quality settings. For slower uncached transforms, see [background image optimization](./background-image-optimization.md).
+Without Spatie, Builder selects GD or Imagick based on the source and output formats. Use the [image manipulation guides](./manipulations/index.md) for geometry, output and quality settings. For slower uncached transforms, see [background image optimization](./background-image-optimization.md).

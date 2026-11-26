@@ -5,16 +5,18 @@ slug: /
 sidebar_position: 1
 ---
 
-# À propos de sGallery
+# sGallery pour Evolution CMS
 
-sGallery ajoute des galeries aux ressources Evolution CMS et à des modules comme sCommerce. Les rédacteurs peuvent joindre des images, des fichiers à télécharger et des vidéos YouTube, puis les classer et renseigner leurs textes par langue.
+sGallery ajoute des galeries aux ressources d’Evolution CMS et aux modules tels que sCommerce. Dans le gestionnaire, vous pouvez ajouter des photos, des fichiers à télécharger et des vidéos YouTube, les réordonner et renseigner leurs champs en plusieurs langues.
 
-Le Builder produit des vignettes et des images WebP ou AVIF avec GD ou Imagick. Spatie Image et sTask restent facultatifs.
+![Galerie d’une ressource dans le gestionnaire Evolution CMS](https://user-images.githubusercontent.com/12029039/169609394-08ea36d6-2393-4261-aff2-348f73a6103c.png)
 
-- [Installation](./getting-started.md)
+Sur le site, le Builder génère et met en cache les miniatures et les fichiers WebP et AVIF. Sans Spatie Image, GD ou Imagick assure le traitement. Vous pouvez utiliser sTask pour les transformations lentes.
+
+- [Installation et première galerie](./getting-started.md)
 - [Guide de rédaction](./user-guide.md)
 - [Configuration](./configuration.md)
-- [Guide du développeur](./developer-guide.md)
-- [Formats et méthodes](./reference.md)
+- [Guide de développement](./developer-guide.md)
+- [Formats et méthodes du Builder](./reference.md)
 
-Développé par [Seiger IT](https://seigerit.com/).
+[Seiger IT](https://seigerit.com/) développe et maintient sGallery. Signalez les problèmes sur [GitHub Issues](https://github.com/Seiger/sGallery/issues).

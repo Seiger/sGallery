@@ -7,11 +7,11 @@ sidebar_position: 3
 
 # Recadrage
 
-- Utilisez `crop($position, $width, $height)` pour choisir un emplacement parmi `topLeft`, `top`, `topRight`, `left`, `center`, `right`, `bottomLeft`, `bottom`, `bottomRight`.
-- `focalCrop($x, $y, $width, $height)` centre le cadre sur un point si possible puis le déplace vers l’intérieur près des bords.
-- `manualCrop($x, $y, $width, $height)` fixe le coin supérieur gauche. Le traitement natif limite le débordement et retourne l’original si ce coin tombe hors de l’image.
+- `crop($position, $width, $height)` extrait une zone à la position choisie. Les positions sont `topLeft`, `top`, `topRight`, `left`, `center`, `right`, `bottomLeft`, `bottom` et `bottomRight`.
+- `focalCrop($x, $y, $width, $height)` essaie de centrer le point indiqué dans le cadre. Près du bord, la méthode décale le cadre vers l’intérieur de l’image.
+- `manualCrop($x, $y, $width, $height)` extrait une zone à partir de son coin supérieur gauche. Le pilote natif coupe la partie qui dépasse à droite ou en bas. Il renvoie l’original si le point de départ se trouve hors de l’image.
 
-Les coordonnées partent du coin supérieur gauche de la source. La hauteur omise prend la valeur de la largeur.
+Les coordonnées sont mesurées en pixels depuis le coin supérieur gauche de l’image. Si la hauteur est omise, elle prend la valeur de la largeur.
 
 ```php
 $url = sGallery::file($item->src)->focalCrop(50, 50, 250, 200)->getFile();

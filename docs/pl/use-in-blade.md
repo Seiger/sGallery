@@ -7,14 +7,30 @@ sidebar_position: 4
 
 # Użycie w Blade
 
-Wybieraj wpisy według typu. Do wyświetlania adresów i tekstu alternatywnego korzystaj z escapowanych wyrażeń Blade.
+## Obrazy zasobu
+
+Przejdź po kolekcji i sprawdź typ każdej pozycji. Dla adresu URL i tekstu alternatywnego używaj składni Blade z escapowaniem.
 
 ```blade
 @foreach (sGallery::collections()->get() as $item)
     @if (sGallery::hasImage($item->type))
-        <img src="{{ $item->src }}" alt="{{ $item->alt }}" loading="lazy">
+        <img src="{{ sGallery::file($item->src)->fit('max', 800, 600)->format('webp')->getFile() }}"
+             alt="{{ $item->alt }}" loading="lazy">
     @endif
 @endforeach
 ```
 
-Dla produktu użyj `itemType('product')` i `documentId((int) $product->id)`. Metody `blockName()` i `lang()` wybierają blok i język.
+## Galeria produktu lub nazwany blok
+
+```php
+$items = sGallery::collections()
+    ->itemType('product')
+    ->documentId((int) $product->id)
+    ->blockName('slider')
+    ->lang('uk')
+    ->get();
+```
+
+Dla bieżącego zasobu możesz pominąć typ i identyfikator. Aby pobrać pojedynczą pozycję, użyj `sGallery::first($itemType, $parentId, $lang, $block)`. Metoda zwraca model również wtedy, gdy nie znajdzie pozycji. Przed wyświetleniem sprawdź, czy rekord istnieje.
+
+Rozpoznawaj filmy za pomocą `sGallery::hasYoutube($item->type)`. Dla załączonych plików wyświetl adres `$item->src` z escapowaniem. Zobacz też [poradnik programisty](./developer-guide.md).

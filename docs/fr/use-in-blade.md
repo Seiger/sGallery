@@ -7,14 +7,30 @@ sidebar_position: 4
 
 # Utilisation dans Blade
 
-Filtrez les entrées par type. Les expressions Blade échappées permettent d’afficher les URL et les textes alternatifs.
+## Images d’une ressource
+
+Parcourez la collection et vérifiez le type de chaque entrée. Utilisez la syntaxe Blade avec échappement pour l’URL et le texte alternatif.
 
 ```blade
 @foreach (sGallery::collections()->get() as $item)
     @if (sGallery::hasImage($item->type))
-        <img src="{{ $item->src }}" alt="{{ $item->alt }}" loading="lazy">
+        <img src="{{ sGallery::file($item->src)->fit('max', 800, 600)->format('webp')->getFile() }}"
+             alt="{{ $item->alt }}" loading="lazy">
     @endif
 @endforeach
 ```
 
-Pour un produit, utilisez `itemType('product')` et `documentId((int) $product->id)`. Choisissez un bloc et une langue avec `blockName()` et `lang()`.
+## Galerie de produit ou bloc nommé
+
+```php
+$items = sGallery::collections()
+    ->itemType('product')
+    ->documentId((int) $product->id)
+    ->blockName('slider')
+    ->lang('uk')
+    ->get();
+```
+
+Pour la ressource courante, omettez le type et l’identifiant. Pour un seul élément, utilisez `sGallery::first($itemType, $parentId, $lang, $block)`. La méthode renvoie un modèle même si elle ne trouve aucune entrée. Vérifiez l’existence de l’enregistrement avant l’affichage.
+
+Identifiez les vidéos avec `sGallery::hasYoutube($item->type)`. Pour les fichiers joints, affichez l’URL `$item->src` avec échappement. Consultez aussi le [guide de développement](./developer-guide.md).

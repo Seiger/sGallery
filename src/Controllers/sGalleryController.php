@@ -180,7 +180,7 @@ class sGalleryController
             }
         }
         if (!is_string($id) || !preg_match('/\A[A-Za-z0-9_-]{11}\z/', $id)) {
-            return response()->json(['success' => 0, 'error' => 'Invalid YouTube link.'], 422);
+            return response()->json(['success' => 0, 'error' => __('sGallery::manager.invalid_youtube_link')], 422);
         }
 
         return $this->previewResponse($this->saveGalleryFile($parent, $id, 'youtube'), 'Add Successfully!');
@@ -200,7 +200,7 @@ class sGalleryController
         $name = GalleryFiles::library($input, true);
         $path = $name === null ? null : GalleryFiles::local($name);
         if ($path === null || strlen($name) > 256) {
-            return response()->json(['success' => 0, 'error' => 'File not added.'], 422);
+            return response()->json(['success' => 0, 'error' => __('sGallery::manager.file_not_added')], 422);
         }
         try {
             $media = GalleryMedia::classify($path, pathinfo($name, PATHINFO_EXTENSION), 'library');
@@ -240,7 +240,7 @@ class sGalleryController
         $items = sGalleryField::where('key', $gallery->id)->get()->keyBy('lang');
         return response()->json([
             'success' => 1,
-            'message' => 'Get Successfully!',
+            'message' => __('sGallery::manager.loaded_successfully'),
             'tabs' => $this->view('partials.tabs', ['items' => $items, 'key' => $gallery->id])->render(),
         ]);
     }

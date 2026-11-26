@@ -7,7 +7,7 @@ sidebar_position: 2
 
 # Dopasowanie
 
-`fit($method, $width, $height)` określa, jak obraz ma zmieścić się w ramce podanej w pikselach. Domyślna wysokość jest równa szerokości.
+`fit($method, $width, $height)` określa sposób dopasowania obrazu do ramki mierzonej w pikselach. Jeśli pominiesz wysokość, jest ona równa szerokości.
 
 ```php
 $url = sGallery::file($item->src)->fit('max', 500, 300)->getFile();
@@ -15,9 +15,11 @@ $url = sGallery::file($item->src)->fit('max', 500, 300)->getFile();
 
 | Tryb | Wynik |
 | --- | --- |
-| `contain` | Mieści obraz w ramce, zachowując proporcje. |
-| `max` | Dopasowuje obraz bez powiększania. |
-| `fill` | Dopasowuje bez powiększania i wypełnia wolne miejsce. |
-| `stretch` | Ustawia dokładne rozmiary, w razie potrzeby zmieniając proporcje. |
-| `crop` | Wypełnia ramkę i odcina wystające fragmenty. |
-| `fill-max` | W razie potrzeby powiększa obraz, a następnie wypełnia tło. |
+| `contain` | Mieści obraz w ramce i zachowuje proporcje. |
+| `max` | Mieści obraz w ramce bez powiększania. |
+| `fill` | Dopasowuje bez powiększania i wypełnia wolne brzegi. |
+| `stretch` | Nadaje dokładne wymiary. Proporcje mogą się zmienić. |
+| `crop` | Wypełnia ramkę i przycina wystające krawędzie. |
+| `fill-max` | Dopasowuje obraz do ramki, w razie potrzeby powiększa i wypełnia brzegi. |
+
+Aby ustawić kadr według położenia lub współrzędnych, użyj [kadrowania](./crop.md).

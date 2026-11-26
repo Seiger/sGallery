@@ -269,4 +269,4 @@ Just paste this code in your View backend
 
 Slow transformations can be processed by the optional sTask ImageOptimizationWorker, while the frontend temporarily serves the original. See [background image optimization](docs/en/background-image-optimization.md) for requirements, timing limits and recovery behavior.
 
-Documentation: [English](docs/en/background-image-optimization.md) · [Українська](docs/uk/background-image-optimization.md) · [Русский](docs/ru/background-image-optimization.md)
+Documentation: [English](docs/en/background-image-optimization.md) · [Українська](docs/uk/background-image-optimization.md)

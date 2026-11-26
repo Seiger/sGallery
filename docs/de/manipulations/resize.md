@@ -7,9 +7,11 @@ sidebar_position: 1
 
 # Größe ändern
 
-`resize($width, $height)` nimmt zwei Werte in Pixeln entgegen. Ohne Höhenangabe verwendet der Builder die Breite für beide Werte. Mit [Einpassen](./fit.md) lässt sich das Bild in eine feste Fläche einpassen.
+`resize($width, $height)` erwartet die Abmessungen in Pixeln. Ohne Höhenangabe verwendet Builder den Wert der Breite.
 
 ```php
 $url = sGallery::file($item->src)->resize(250, 200)->getFile();
 $equalBounds = sGallery::file($item->src)->resize(250)->getFile();
 ```
+
+Zum Einpassen in einen Rahmen oder zum proportionalen Zuschneiden verwenden Sie [fit](./fit.md).

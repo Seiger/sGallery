@@ -1,17 +1,15 @@
 ---
 id: index
-title: Transformation des images
+title: Traitement des images
 slug: /manipulations/
 sidebar_position: 10
 ---
 
-# Transformation des images
+# Traitement des images
 
-Ouvrez la source avec `sGallery::file()`, appliquez vos transformations et récupérez l’URL avec `getFile()`.
+Créez un Builder avec `sGallery::file()`, ajoutez vos paramètres et appelez `getFile()` pour obtenir l’URL.
 
-- [Redimensionnement](./resize.md)
-- [Ajustement](./fit.md)
-- [Recadrage](./crop.md)
-- [Optimisation des images](./optimization.md)
-- [Largeur et hauteur](./width-and-height.md)
-- [Filigranes et formats de sortie](../configuration.md)
+- [Redimensionnement](./resize.md) et [largeur et hauteur](./width-and-height.md)
+- [Ajustement](./fit.md) et [recadrage](./crop.md)
+- [Optimisation et netteté](./optimization.md)
+- [Configuration des filigranes](../configuration.md#watermarks)

@@ -6,8 +6,16 @@ sidebar_position: 5
 
 # Redaktionshandbuch
 
-Öffnen Sie eine Ressource im Manager und wechseln Sie zur Galerie. Laden Sie ein Bild hoch, wählen Sie mit passenden Rechten eine Datei aus der Bibliothek oder fügen Sie einen YouTube-Link hinzu. Ziehen Sie die Einträge in die gewünschte Reihenfolge.
+## Medien hinzufügen und sortieren
 
-In der Bearbeitungsmaske ändern Sie Alternativtext, Titel, Beschreibung und Link. Bei mehrsprachigen Websites bearbeiten Sie die entsprechenden Sprachregister. Beim Entfernen eines Bibliothekseintrags bleibt die Originaldatei erhalten.
+1. Öffnen Sie die Ressource im Evolution CMS Manager und wechseln Sie zur Galerie-Registerkarte oder zum benannten Block, der der Vorlage zugewiesen ist.
+2. Laden Sie ein Bild hoch oder wählen Sie eine vorhandene Datei aus der Bibliothek, sofern Ihre Rolle dies erlaubt. Verwenden Sie für Videos die YouTube-Aktion. Dateien können Sie in Integrationen mit einem Download-Bereich hochladen.
+3. Ziehen Sie die Einträge in die gewünschte Reihenfolge und prüfen Sie das Bild in der Vorschau.
 
-Fehlt eine Registerkarte oder Aktion, prüfen Sie [Vorlage und Berechtigungen](./configuration.md).
+## Beschriftungen und Löschen
+
+Bearbeiten Sie Alternativtext, Titel, Beschreibung oder Link im Formular des Eintrags. Wenn sLang eingerichtet ist, füllen Sie die benötigten Sprachregister aus. Verwenden Sie für inhaltlich wichtige Bilder einen aussagekräftigen Alternativtext.
+
+Beim Löschen eines hochgeladenen Galerieeintrags wird seine Datei entfernt. Beim Entfernen einer Verknüpfung aus der gemeinsamen Bibliothek bleibt die Originaldatei erhalten.
+
+Wenn eine Registerkarte oder Schaltfläche fehlt, prüfen Sie die [Vorlagenzuordnung und die Berechtigungen](./configuration.md#manager-gallery-permissions).
