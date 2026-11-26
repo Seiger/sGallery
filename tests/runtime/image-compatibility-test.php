@@ -7,6 +7,7 @@ use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Facade;
 use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Models\sGalleryModel;
+use Seiger\sGallery\Services\ImageAnimation;
 use Seiger\sGallery\Services\NativeImage;
 use Seiger\sGallery\sGallery;
 
@@ -140,6 +141,7 @@ try {
 
     $helper = new HelperProcessor(evo());
     $legacy = static fn (string $input, string $options): string => $helper->phpThumb($input, $options, false);
+    $native = static fn (string $input, string $options): string => (new sGallery())->phpThumb($input, $options, false);
     $gallery = static fn (string $input): sGalleryBuilder => (new sGallery())->file($input)->quality(75);
     $pixel = static fn (GdImage $image, int $x, int $y): array =>
         imagecolorsforindex($image, imagecolorat($image, $x, $y));
@@ -214,6 +216,9 @@ try {
     $check($pixel($legacyFill, 0, 0)['alpha'] > 120, 'GD phpThumb far=C pads WebP with transparency');
     $check($isWhite($pixel($galleryFill, 0, 0)), 'sGallery fill pads WebP with white');
     $check($isGreen($pixel($legacyFill, 40, 40)) && $isGreen($pixel($galleryFill, 40, 40)), 'Both fill modes center the source');
+    [, , $nativeFill] = $render('Native helper far=C', fn () => $native($landscape, 'w=80,h=80,far=C,q=75,f=webp'), $square);
+    $check($pixel($nativeFill, 0, 0)['alpha'] > 120 && $isGreen($pixel($nativeFill, 40, 40)),
+        'Native helper matches legacy transparent padding and centering');
 
     [, , $legacySmall] = $render('phpThumb far=C small', fn () => $legacy($small, 'w=80,h=80,far=C,q=75,f=webp'), $square);
     [, , $gallerySmall] = $render('sGallery fill small', fn () => $gallery($small)->fit('fill', 80, 80)->format('webp')->getFile(), $square);
@@ -222,15 +227,20 @@ try {
     $check($isGreen($pixel($galleryEnlarged, 40, 23)), 'fill-max enlarges the small source');
 
     $legacyCropCall = fn () => $legacy($landscape, 'w=80,h=80,zc=C,q=75,f=webp');
+    $nativeCropCall = fn () => $native($landscape, 'w=80,h=80,zc=C,q=75,f=webp');
     $galleryCropCall = fn () => $gallery($landscape)->fit('crop', 80, 80)->format('webp')->getFile();
     [$legacyUrl, $legacyPath, $legacyCrop] = $render('phpThumb zc=C', $legacyCropCall, $square);
+    [$nativeUrl, $nativePath, $nativeCrop] = $render('Native helper zc=C', $nativeCropCall, $square);
     [$galleryUrl, $galleryPath, $galleryCrop] = $render('sGallery crop', $galleryCropCall, $square);
     $check($isGreen($pixel($legacyCrop, 40, 3)) && $isGreen($pixel($galleryCrop, 40, 3)), 'Both center crops fill the canvas to the top');
     $check($pixel($legacyCrop, 4, 40)['red'] > 170 && $pixel($galleryCrop, 4, 40)['red'] > 170, 'Center crop retains the side color near the edge');
     $check(!str_contains($legacyUrl, '://') && str_starts_with($galleryUrl, EVO_SITE_URL), 'Helper returns a relative URL, Builder returns a site URL');
+    $check($isGreen($pixel($nativeCrop, 40, 3)) && $pixel($nativeCrop, 4, 40)['red'] > 170 && !str_contains($nativeUrl, '://'),
+        'Native helper matches the center crop and relative URL');
 
     foreach ([
         ['phpThumb warm cache', $legacyCropCall, $legacyUrl, $legacyPath],
+        ['Native helper warm cache', $nativeCropCall, $nativeUrl, $nativePath],
         ['sGallery warm cache', $galleryCropCall, $galleryUrl, $galleryPath],
     ] as [$label, $call, $url, $path]) {
         $hash = hash_file('sha256', $path);
@@ -243,6 +253,7 @@ try {
     }
 
     $render('phpThumb one width bound', fn () => $legacy($portrait, 'w_24,q_75,f_webp'), [24, 48, 'image/webp']);
+    $render('Native helper one width bound', fn () => $native($portrait, 'w_24,q_75,f_webp'), [24, 48, 'image/webp']);
     $render('sGallery resize one bound', fn () => $gallery($portrait)->resize(24)->format('webp')->getFile(), [12, 24, 'image/webp']);
     $render('phpThumb default PNG', fn () => $legacy($landscape, 'w=80,h=80'), [80, 40, 'image/png']);
     $render('sGallery original PNG', fn () => $gallery($landscape)->fit('max', 80, 80)->format('original')->getFile(), [80, 40, 'image/png']);
@@ -267,13 +278,16 @@ try {
     $legacyOrientation = extension_loaded('exif') ? [20, 40] : [40, 20];
     $galleryOrientation = $galleryDriver === 'imagick' || extension_loaded('exif') ? [20, 40] : [40, 20];
     $render('phpThumb EXIF ar=x', fn () => $legacy($oriented, 'w=40,h=40,ar=x,q=75,f=webp'), [...$legacyOrientation, 'image/webp']);
+    $render('Native helper EXIF ar=x', fn () => $native($oriented, 'w=40,h=40,ar=x,q=75,f=webp'), [...$galleryOrientation, 'image/webp']);
     $render('sGallery EXIF orientation', fn () => $gallery($oriented)->fit('max', 40, 40)->format('webp')->getFile(), [...$galleryOrientation, 'image/webp']);
 
     $watermark = rawurlencode('wmi|' . EVO_BASE_PATH . $mark . '|BR|100|3|3');
     [, , $legacyMark] = $render('phpThumb watermark', fn () => $legacy($landscape, "w=80&h=80&f=png&fltr[]=$watermark"), [80, 40, 'image/png']);
+    [, , $nativeMark] = $render('Native helper watermark', fn () => $native($landscape, "w=80&h=80&f=png&fltr[]=$watermark"), [80, 40, 'image/png']);
     [, , $galleryMark] = $render('sGallery watermark', fn () => $gallery($landscape)->fit('max', 80, 80)->format('png')
         ->watermark($mark, ['position' => 'bottom-right', 'width' => '16px', 'padding' => '3px'])->getFile(), [80, 40, 'image/png']);
     $check($isGreen($pixel($legacyMark, 68, 28)) && $isGreen($pixel($galleryMark, 68, 28)), 'Both watermarks draw the center stripe in the lower right');
+    $check($isGreen($pixel($nativeMark, 68, 28)), 'Native helper matches the legacy watermark position');
 
     $animations = [
         'gif' => 'R0lGODlhDAAIAPAAAP8AAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQADwAAACwAAAAADAAIAAACCISPqcvtD2MqACH5BAAVAAAALAAAAAAMAAgAgAAA/wAAAAIIhI+py+0PYyoAOw==',
@@ -285,10 +299,11 @@ try {
         file_put_contents($sourcePath, base64_decode($bytes, true));
         $original = EVO_SITE_URL . $animationSource;
         $resizeAnimation = fn (): string => $gallery($animationSource)->format($format)->fit('stretch', 6, 4)->getFile();
+        $nativeAnimation = $native($animationSource, "w=6,h=4,iar=1,f=$format");
         $check($gallery($animationSource)->format('jpeg')->getFile() === $original, 'A still-only output preserves the animated original');
         $url = $resizeAnimation();
         if (!class_exists(Imagick::class) || !NativeImage::canEncode($format, 'imagick')) {
-            $check($url === $original, 'GD serves the animated original');
+            $check($url === $original && $nativeAnimation === $animationSource, 'GD serves the animated original');
             continue;
         }
 
@@ -296,6 +311,11 @@ try {
         $check($url !== $original && is_file($path), "Builder generates an animated $format derivative");
         $rendered = new Imagick($path);
         $input = new Imagick($sourcePath);
+        $check($nativeAnimation !== $animationSource &&
+            getimagesize(EVO_BASE_PATH . $nativeAnimation)[0] === 6 &&
+            ImageAnimation::timing(EVO_BASE_PATH . $nativeAnimation, $format === 'gif' ? IMAGETYPE_GIF : IMAGETYPE_WEBP) ===
+                ImageAnimation::timing($sourcePath, $format === 'gif' ? IMAGETYPE_GIF : IMAGETYPE_WEBP),
+            "Native helper resizes $format and preserves its frame timing and loop");
         $check($rendered->getNumberImages() === 2 && $rendered->getImageWidth() === 6 && $rendered->getImageHeight() === 4,
             "Builder preserves both frames of a resized $format");
         foreach ($rendered as $index => $frame) {

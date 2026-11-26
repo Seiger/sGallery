@@ -124,7 +124,7 @@ try {
     }
     file_put_contents(EVO_BASE_PATH . 'invalid.heic', 'not an image');
     $rejects(fn () => NativeImage::open('invalid.heic', 'png'), 'Invalid or unsupported gallery image source.');
-    foreach (['heic', 'heif', 'tiff', 'bmp'] as $format) {
+    foreach (['heic', 'heif', 'tiff'] as $format) {
         $rejects(fn () => NativeImage::open($source, $format), 'Unsupported native image format.');
     }
     if ($imagickCanRead('TIFF', $sourceFixtures['little-endian TIFF'][3])) {

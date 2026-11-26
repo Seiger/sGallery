@@ -4,6 +4,9 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Seiger\sGallery\Builders\sGalleryBuilder;
 use Seiger\sGallery\Models\sGalleryModel;
+use Seiger\sGallery\Services\GalleryFiles;
+use Seiger\sGallery\Services\GalleryMedia;
+use Seiger\sGallery\Services\PhpThumbOptions;
 
 /**
  * Class sGallery
@@ -59,6 +62,70 @@ class sGallery
         }
 
         return $this->builder->file($input);
+    }
+
+    /** Return a site-relative thumbnail URL for an Evolution CMS helper call. */
+    public function phpThumb($input = '', $options = '', $webp = true): string
+    {
+        $prefix = rtrim(EVO_SITE_URL, '/') . '/';
+        $source = is_string($input) ? trim($input) : '';
+        $remote = false;
+        if (str_starts_with($source, $prefix)) {
+            $source = substr($source, strlen($prefix));
+        } elseif (preg_match('~\Ahttps?://~i', $source)) {
+            $remote = GalleryMedia::link($source);
+        }
+        if ($remote) {
+            return $source;
+        }
+
+        $source = ltrim(rawurldecode($source), '/');
+        $path = GalleryFiles::local($source);
+        if ($path === null) {
+            $source = 'assets/images/noimage.png';
+            $path = GalleryFiles::local($source);
+            if ($path === null) {
+                return substr(sGalleryModel::NOIMAGE, strlen($prefix));
+            }
+        }
+
+        $original = GalleryFiles::url($source);
+        $extension = strtolower(pathinfo($source, PATHINFO_EXTENSION));
+        if ($extension === 'svg') {
+            return substr($original, strlen($prefix));
+        }
+
+        $parameters = PhpThumbOptions::parse(is_string($options) ? $options : '');
+        $format = $parameters->format($extension);
+        $quality = $parameters->quality($extension);
+        try {
+            $base = (new sGalleryBuilder())->file($source)->thumbnail($parameters, $format, $format, $quality)->getFile();
+            if ($webp && !in_array($format, ['gif', 'webp'], true) &&
+                (@getimagesize($path)[2] ?? null) !== IMAGETYPE_GIF &&
+                $base !== $original && $base !== sGalleryModel::NOIMAGE && !str_ends_with($base, '.webp') &&
+                self::acceptsThumbnailWebp()) {
+                $candidate = (new sGalleryBuilder())->file($source)->thumbnail($parameters, 'webp', $format, $quality)->getFile();
+                if ($candidate !== $original && $candidate !== sGalleryModel::NOIMAGE) {
+                    $base = $candidate;
+                }
+            }
+            return str_starts_with($base, $prefix) ? substr($base, strlen($prefix)) : $base;
+        } catch (\RuntimeException | \ValueError) {
+            return substr($original, strlen($prefix));
+        }
+    }
+
+    /** An explicitly accepted WebP type enables the companion thumbnail. */
+    private static function acceptsThumbnailWebp(): bool
+    {
+        foreach (explode(',', $_SERVER['HTTP_ACCEPT'] ?? '') as $entry) {
+            [$type, $attributes] = array_pad(explode(';', $entry, 2), 2, '');
+            if (strtolower(trim($type)) === 'image/webp' &&
+                (!preg_match('/(?:^|;)\s*q\s*=\s*([0-9.]+)/i', $attributes, $quality) || (float) $quality[1] > 0)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

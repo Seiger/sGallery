@@ -15,6 +15,7 @@ use Seiger\sGallery\Services\ImageOptimizationQueue;
 use Seiger\sGallery\Services\ImageSource;
 use Seiger\sGallery\Services\NativeAnimation;
 use Seiger\sGallery\Services\NativeImage;
+use Seiger\sGallery\Services\PhpThumbOptions;
 use Seiger\sGallery\Services\Watermark;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
@@ -410,6 +411,18 @@ class sGalleryBuilder
         return $files;
     }
 
+    /** Configure an isolated thumbnail request using the helper's output defaults. @internal */
+    public function thumbnail(PhpThumbOptions $options, string $format, string $baseFormat, int $quality): self
+    {
+        $this->params = [
+            'format' => $format,
+            'phpThumb' => $options->query(),
+            'phpThumbBase' => $baseFormat,
+            'phpThumbAssets' => $options->assetRevision(),
+        ];
+        return $this->quality($quality);
+    }
+
     /**
      * Get the URL of the processed file (resized, formatted).
      *
@@ -433,7 +446,11 @@ class sGalleryBuilder
         if ($localPath !== null) {
             $extension = strtolower(pathinfo($localPath, PATHINFO_EXTENSION));
 
-            if ($this->params !== null && !in_array($extension, ['svg'])) {
+            if ($this->params !== null && $extension !== 'svg') {
+                $thumbnail = isset($this->params['phpThumb']) ? PhpThumbOptions::parse($this->params['phpThumb']) : null;
+                if ($thumbnail !== null && !$this->thumbnailAssetsMatch($thumbnail)) {
+                    return $this->originalImageUrl();
+                }
                 $sourceVersion = ImageSource::version($localPath);
                 if ($sourceVersion === null || ($this->queuedSourceVersion !== null && $sourceVersion !== $this->queuedSourceVersion)) {
                     if ($this->backgroundOptimization) throw new \RuntimeException('Image optimization source changed while queued.');
@@ -458,7 +475,8 @@ class sGalleryBuilder
                 }
                 $animated = ImageAnimation::isAnimated($localPath, $dimensions[2] ?? 0);
                 if (!$animated && $this->shouldTransform(false) && in_array($dimensions[2] ?? null,
-                    [IMAGETYPE_GIF, IMAGETYPE_WEBP, IMAGETYPE_AVIF, IMAGETYPE_BMP, IMAGETYPE_TIFF_II, IMAGETYPE_TIFF_MM], true)) {
+                    [IMAGETYPE_GIF, IMAGETYPE_WEBP, IMAGETYPE_AVIF, IMAGETYPE_BMP, IMAGETYPE_TIFF_II, IMAGETYPE_TIFF_MM,
+                        IMAGETYPE_ICO, IMAGETYPE_WBMP], true)) {
                     $nativeInput = NativeImage::inspectRasterInput($localPath, $dimensions, $this->backgroundOptimization);
                     if ($nativeInput === null) return $this->originalImageUrl();
                 }
@@ -495,10 +513,11 @@ class sGalleryBuilder
                 if ($format === 'original') {
                     $format = $nativeAnimationFormat ?? $extension;
                 }
-                if (!in_array($format, ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'], true)) {
+                if (!in_array($format, $thumbnail === null ? ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'] : PhpThumbOptions::FORMATS, true)) {
                     return $this->originalImageUrl();
                 }
-                if ($animated && !in_array($format, ['gif', 'webp'], true)) {
+                if ($animated && (!in_array($format, ['gif', 'webp'], true) ||
+                    ($thumbnail !== null && $thumbnail->byteTarget() !== null))) {
                     return $this->originalImageUrl();
                 }
                 if ($nativeAnimationFormat !== null) {
@@ -510,6 +529,9 @@ class sGalleryBuilder
 
                 $nativeOrientation = $nativeInput['orientation'] ?? ($dimensions[2] === IMAGETYPE_JPEG
                     ? NativeImage::readJpegOrientation($localPath) : 1);
+                if ($thumbnail !== null) {
+                    $nativeOrientation = $thumbnail->orientation($nativeOrientation);
+                }
 
                 // Build cache filename with transformation parameters
                 $fit = $this->params['fit'] ?? null;
@@ -538,6 +560,11 @@ class sGalleryBuilder
                 $ext .= '-src' . substr(hash('sha256', $sourceFile . "\0" . json_encode($sourceVersion)), 0, 32);
                 // Keep the native cache namespace used on 1.x.
                 $ext .= '-native';
+                if ($thumbnail !== null) {
+                    $ext .= '-thumb' . substr(hash('sha256', json_encode([
+                        $this->params['phpThumb'], $this->params['phpThumbBase'], $this->params['phpThumbAssets'],
+                    ], JSON_THROW_ON_ERROR)), 0, 24);
+                }
                 if (isset($this->params['watermark'])) {
                     $sourceHash = hash_file('sha256', $localPath);
                     $cacheParams = $this->params;
@@ -568,7 +595,7 @@ class sGalleryBuilder
                 $cachedSize = is_file($cachedPath) ? filesize($cachedPath) : false;
                 $animationType = $format === 'gif' ? IMAGETYPE_GIF : IMAGETYPE_WEBP;
                 if ($cachedSize > 0 && ($format !== 'avif' || $this->isAvifFile($cachedPath)) &&
-                    (@getimagesize($cachedPath)['mime'] ?? null) === 'image/' . ($format === 'jpg' ? 'jpeg' : $format) &&
+                    NativeImage::hasFormat($cachedPath, $format) &&
                     (!$animated || ImageAnimation::timing($cachedPath, $animationType) === $nativeTiming) &&
                     ImageSource::version($localPath) === $sourceVersion) {
                     return $this->derivativeUrl($sourceFile, $chacheFile . $imageName);
@@ -588,7 +615,11 @@ class sGalleryBuilder
                 // The cache is missing, empty or mislabeled.
                 $this->optimizationJob = $this->optimizationDescriptor($format, $sourceVersion);
                 $queue = new ImageOptimizationQueue();
-                $fitsMemory = $this->fitsMemoryBudget($localPath, $dimensions, $nativeOrientation);
+                $fitsMemory = $thumbnail === null ? $this->fitsMemoryBudget($localPath, $dimensions, $nativeOrientation)
+                    : $thumbnail->embeddedOnly() || ImageMemoryBudget::allows(
+                        (float) $dimensions[0] * $dimensions[1] + $thumbnail->estimatedPixels($dimensions[0], $dimensions[1]),
+                        (int) @filesize($localPath), $this->backgroundOptimization,
+                    );
                 if ($this->backgroundOptimization && !$fitsMemory) {
                     throw new \RuntimeException('Image optimization exceeds the worker memory budget.');
                 }
@@ -603,10 +634,10 @@ class sGalleryBuilder
                     $this->sourceHasAlpha = $nativeAlpha;
                     try {
                         if ($nativeTiming !== null) {
-                            $this->renderNativeAnimation($sourceFile, $localPath, $dimensions, $nativeTiming, $format, $encodingPath);
+                            $this->renderNativeAnimation($sourceFile, $localPath, $dimensions, $nativeTiming, $format, $encodingPath, $thumbnail);
                         } else {
                             $this->renderWithDrivers(
-                                $sourceFile, $format, $encodingPath, $nativeOrientation, $nativeAlpha, $nativeIcc, $nativeInputFormat,
+                                $sourceFile, $format, $encodingPath, $nativeOrientation, $nativeAlpha, $nativeIcc, $nativeInputFormat, $thumbnail,
                             );
                         }
                     } catch (OptimizationDeferred $e) {
@@ -619,16 +650,18 @@ class sGalleryBuilder
                         $imageName = preg_replace('/\.avif$/i', '.webp', $imageName);
                         $encodingPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName . $atomicSuffix . '.webp';
                         $this->renderWithDrivers(
-                            $sourceFile, $format, $encodingPath, $nativeOrientation, $nativeAlpha, $nativeIcc, $nativeInputFormat,
+                            $sourceFile, $format, $encodingPath, $nativeOrientation, $nativeAlpha, $nativeIcc, $nativeInputFormat, $thumbnail,
                         );
                     }
                     $this->assertSourceUnchanged($localPath, $sourceVersion);
+                    $this->assertThumbnailAssetsUnchanged($thumbnail);
                     $publishedPath = $cacheDirectory . DIRECTORY_SEPARATOR . $imageName;
                     if (!chmod($encodingPath, 0644 & ~umask()) || !rename($encodingPath, $publishedPath)) {
                         throw new \RuntimeException('Cannot publish generated image.');
                     }
                     try {
                         $this->assertSourceUnchanged($localPath, $sourceVersion);
+                        $this->assertThumbnailAssetsUnchanged($thumbnail);
                     } catch (\RuntimeException $error) {
                         if (is_file($publishedPath)) unlink($publishedPath);
                         throw $error;
@@ -664,7 +697,7 @@ class sGalleryBuilder
     private function shouldTransform(bool $animated): bool
     {
         $format = $this->params['format'] ?? null;
-        return $this->backgroundOptimization || $this->qualityExplicit || ($this->optimizationExplicit && !empty($this->params['optimize'])) ||
+        return isset($this->params['phpThumb']) || $this->backgroundOptimization || $this->qualityExplicit || ($this->optimizationExplicit && !empty($this->params['optimize'])) ||
             isset($this->params['watermark']) || ($this->params['sharpen'] ?? 0) > 0 ||
             in_array($format, $animated ? ['gif', 'webp'] : ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'], true) ||
             isset($this->params['w'], $this->params['h']);
@@ -689,6 +722,7 @@ class sGalleryBuilder
         bool $nativeAlpha,
         bool $nativeIcc,
         ?string $nativeInputFormat,
+        ?PhpThumbOptions $thumbnail,
     ): void
     {
         $drivers = $nativeIcc ? ['imagick'] : ['imagick', 'gd'];
@@ -697,6 +731,11 @@ class sGalleryBuilder
         foreach ($drivers as $driver) {
             $this->checkOptimizationBudget();
             try {
+                if ($thumbnail?->embeddedOnly()) {
+                    $image = NativeImage::openExifThumbnail($source, $format, $driver);
+                    $image->saveToPath($output, $this->quality);
+                    return;
+                }
                 $image = NativeImage::open($source, $format, $driver);
                 if ($nativeInputFormat !== null) {
                     $frame = $image->frame();
@@ -718,18 +757,23 @@ class sGalleryBuilder
                 if ($nativeAlpha) {
                     $image = $image->withPixelAlpha();
                 }
-                $image = $this->transformNative($image, $format);
-                if ($nativeAlpha) {
+                $image = $thumbnail === null ? $this->transformNative($image, $format)
+                    : $thumbnail->transform($image, $format, $this->params['phpThumbBase']);
+                if ($thumbnail !== null && $format === 'gif') {
+                    $image = $image->withGifTransparency();
+                } elseif ($thumbnail === null && $nativeAlpha) {
                     $image = $image->withWhiteJpegBackground();
                     if ($format === 'gif') {
                         $image = $image->withGifTransparency();
                     }
                 }
-                if ($nativeIcc && $format !== 'gif') {
+                if ($nativeIcc && in_array($format, ['jpg', 'jpeg', 'png', 'webp', 'avif'], true)) {
                     $image->tagSrgb();
                 }
                 $image->optimize(!empty($this->params['optimize']));
-                if ($format === 'webp') {
+                if ($thumbnail?->byteTarget() !== null) {
+                    $this->saveThumbnailWithinTarget($image, $output, $format, $thumbnail->byteTarget());
+                } elseif ($format === 'webp') {
                     $this->saveWebpImage($image, $output);
                 } else {
                     $this->checkOptimizationBudget();
@@ -782,16 +826,20 @@ class sGalleryBuilder
      * @param array{loops: int, delays: list<int>} $timing Original container playback metadata.
      * @since 1.9.0
      */
-    private function renderNativeAnimation(string $source, string $path, array $dimensions, array $timing, string $format, string $output): void
-    {
+    private function renderNativeAnimation(
+        string $source, string $path, array $dimensions, array $timing, string $format, string $output,
+        ?PhpThumbOptions $thumbnail,
+    ): void {
         $overlay = null;
         $targetBytes = 0;
         $qualities = $format === 'webp' ? $this->getWebpOutputQualities() : [$this->quality];
         foreach ($qualities as $index => $quality) {
             NativeAnimation::render(
                 $path, $dimensions, $timing, $format, $output, $quality,
-                function (\Imagick $frame) use ($source, $format, &$overlay, &$targetBytes): \Imagick {
-                    $image = $this->transformNative(NativeImage::fromFrame($frame, $source, $format), $format, $overlay);
+                function (\Imagick $frame) use ($source, $format, $thumbnail, &$overlay, &$targetBytes): \Imagick {
+                    $image = NativeImage::fromFrame($frame, $source, $format);
+                    $image = $thumbnail === null ? $this->transformNative($image, $format, $overlay)
+                        : $thumbnail->transform($image, $format, $this->params['phpThumbBase']);
                     $targetBytes = $this->getPageSpeedImageTargetBytes($image);
                     return $image->frame();
                 },
@@ -803,6 +851,65 @@ class sGalleryBuilder
                 return;
             }
             unlink($output);
+        }
+    }
+
+    /** Keep the first candidate that meets maxb, or the smallest verified candidate. */
+    private function saveThumbnailWithinTarget(NativeImage $image, string $output, string $format, int $target): void
+    {
+        $candidate = $output . '.candidate.' . $format;
+        $smallest = PHP_INT_MAX;
+        $palette = in_array($format, ['png', 'gif'], true);
+        $qualities = [$this->quality];
+        if (in_array($format, ['jpg', 'jpeg', 'webp', 'avif'], true)) {
+            for ($quality = $this->quality - 10; $quality > 1; $quality -= 10) {
+                $qualities[] = $quality;
+            }
+            if ($this->quality > 1) {
+                $qualities[] = 1;
+            }
+        }
+        try {
+            $attempts = $palette ? [null, 128, 64, 32, 16, 8, 4, 2] : $qualities;
+            foreach ($attempts as $attempt) {
+                $this->checkOptimizationBudget();
+                $frame = $palette && $attempt !== null ? $image->limitColors($attempt) : $image;
+                $frame->saveToPath($candidate, $palette ? $this->quality : $attempt);
+                clearstatcache(true, $candidate);
+                $size = filesize($candidate);
+                if ($size === false) {
+                    throw new \RuntimeException('Cannot read the thumbnail byte-size candidate.');
+                }
+                if ($size < $smallest) {
+                    if (!rename($candidate, $output)) {
+                        throw new \RuntimeException('Cannot stage the thumbnail byte-size candidate.');
+                    }
+                    $smallest = $size;
+                }
+                if ($smallest <= $target) {
+                    break;
+                }
+            }
+        } finally {
+            if (is_file($candidate)) {
+                unlink($candidate);
+            }
+        }
+    }
+
+    private function thumbnailAssetsMatch(PhpThumbOptions $thumbnail): bool
+    {
+        try {
+            return $thumbnail->assetRevision() === $this->params['phpThumbAssets'];
+        } catch (\RuntimeException) {
+            return false;
+        }
+    }
+
+    private function assertThumbnailAssetsUnchanged(?PhpThumbOptions $thumbnail): void
+    {
+        if ($thumbnail !== null && !$this->thumbnailAssetsMatch($thumbnail)) {
+            throw new \RuntimeException('A thumbnail overlay changed during processing.');
         }
     }
 
@@ -888,8 +995,13 @@ class sGalleryBuilder
         if (!is_string($file) || !is_array($params) ||
             ((array_key_exists('w', $params) || array_key_exists('h', $params)) &&
                 !self::validDimensions($params['w'] ?? null, $params['h'] ?? null)) ||
-            !in_array($params['format'] ?? 'webp', self::OUTPUT_FORMATS, true)) {
+            !in_array($params['format'] ?? 'webp', isset($params['phpThumb']) ? PhpThumbOptions::FORMATS : self::OUTPUT_FORMATS, true)) {
             throw new \RuntimeException('Invalid gallery optimization parameters.');
+        }
+        if (isset($params['phpThumb']) && (!is_string($params['phpThumb']) ||
+            !in_array($params['phpThumbBase'] ?? null, PhpThumbOptions::FORMATS, true) ||
+            !is_string($params['phpThumbAssets'] ?? null))) {
+            throw new \RuntimeException('Invalid gallery thumbnail job.');
         }
         foreach (['focalCenterX', 'focalCenterY', 'startX', 'startY'] as $coordinate) {
             if (array_key_exists($coordinate, $params) && (!is_int($params[$coordinate]) || $params[$coordinate] < 0)) {

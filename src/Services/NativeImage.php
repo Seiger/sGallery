@@ -28,10 +28,12 @@ final class NativeImage
         IMAGETYPE_GIF => ['GIF', 'imagecreatefromgif', 'imagegif', 'GIF Read Support'],
         IMAGETYPE_WEBP => ['WEBP', 'imagecreatefromwebp', 'imagewebp', 'WebP Support'],
         IMAGETYPE_AVIF => ['AVIF', 'imagecreatefromavif', 'imageavif', 'AVIF Support'],
+        IMAGETYPE_BMP => ['BMP', 'imagecreatefrombmp', 'imagebmp', 'BMP Support'],
+        IMAGETYPE_ICO => ['ICO', null, null, null],
+        IMAGETYPE_WBMP => ['WBMP', 'imagecreatefromwbmp', 'imagewbmp', 'WBMP Support'],
     ];
 
     private const READ_ONLY_FORMATS = [
-        IMAGETYPE_BMP => ['BMP', 'imagecreatefrombmp'],
         IMAGETYPE_TIFF_II => ['TIFF', null],
         IMAGETYPE_TIFF_MM => ['TIFF', null],
     ];
@@ -108,6 +110,36 @@ final class NativeImage
         throw new RuntimeException('No native image driver could read the source and encode the requested format.');
     }
 
+    /** Verify the actual raster type, including formats reserved for the thumbnail helper. */
+    public static function hasFormat(string $path, string $format): bool
+    {
+        return (@getimagesize($path)[2] ?? null) === self::type($format);
+    }
+
+    /** Decode only the camera's embedded JPEG thumbnail from a validated local source. */
+    public static function openExifThumbnail(string $source, string $format, string $driver): self
+    {
+        $path = GalleryFiles::local($source);
+        $bytes = $path !== null && function_exists('exif_thumbnail') ? @exif_thumbnail($path) : false;
+        $metadata = $bytes === false ? false : @getimagesizefromstring($bytes);
+        if ($metadata === false || $metadata[2] !== IMAGETYPE_JPEG ||
+            !self::hasMemoryFor($metadata[0], $metadata[1], strlen($bytes))) {
+            throw new RuntimeException('No usable embedded JPEG thumbnail.');
+        }
+        if ($driver === 'imagick') {
+            $image = new Imagick();
+            if (!$image->readImageBlob($bytes) || $image->getNumberImages() !== 1) {
+                throw new RuntimeException('Cannot decode the embedded JPEG thumbnail.');
+            }
+        } else {
+            $image = @imagecreatefromstring($bytes);
+            if ($image === false) {
+                throw new RuntimeException('Cannot decode the embedded JPEG thumbnail.');
+            }
+        }
+        return new self($image, self::type($format), $path);
+    }
+
     /** Check whether the selected backend can write and verify the requested output. @since 1.9.0 */
     public static function canEncode(string $format, string $driver): bool
     {
@@ -122,7 +154,8 @@ final class NativeImage
     {
         [, $decoder, $encoder, $capability] = self::READ_WRITE_FORMATS[$type];
         $outputCapability = $type === IMAGETYPE_GIF ? 'GIF Create Support' : $capability;
-        return !empty($capabilities[$outputCapability]) && function_exists($decoder) && function_exists($encoder);
+        return $outputCapability !== null && !empty($capabilities[$outputCapability]) &&
+            function_exists($decoder) && function_exists($encoder);
     }
 
     /** Encode a frame already transformed by the Builder while protecting the local source. @since 1.9.0 */
@@ -202,7 +235,7 @@ final class NativeImage
     {
         $type = $dimensions[2] ?? null;
         $format = (self::READ_WRITE_FORMATS[$type] ?? self::READ_ONLY_FORMATS[$type] ?? [null])[0];
-        if (!in_array($format, ['GIF', 'WEBP', 'AVIF', 'BMP', 'TIFF'], true)) return null;
+        if (!in_array($format, ['GIF', 'WEBP', 'AVIF', 'BMP', 'TIFF', 'ICO', 'WBMP'], true)) return null;
         if (class_exists(Imagick::class) && Imagick::queryFormats($format) !== []) {
             $metadata = self::inspectImagickInput($path, $format, $background);
             // Some WebP ping implementations omit ICC even though the decoder exposes it.
@@ -210,9 +243,12 @@ final class NativeImage
             if ($metadata !== null && !$metadata['icc'] && $color === ImageColor::UNSUPPORTED) return null;
             // TIFF ping can omit its ExtraSamples alpha channel; retain it conservatively.
             if ($metadata !== null) return [...$metadata, 'dimensions' => $dimensions,
-                'alpha' => $metadata['alpha'] || $format === 'TIFF', 'icc' => $metadata['icc'] || $color === ImageColor::ICC];
+                'alpha' => $metadata['alpha'] || in_array($format, ['TIFF', 'ICO'], true), 'icc' => $metadata['icc'] || $color === ImageColor::ICC];
         }
-        if ($format === 'TIFF') return null;
+        if (in_array($format, ['TIFF', 'ICO'], true)) return null;
+        if ($format === 'WBMP') {
+            return ['dimensions' => $dimensions, 'alpha' => false, 'icc' => false, 'orientation' => 1];
+        }
         [$alpha, $color] = ImageColor::fromRaster($path, $type);
         return $color === ImageColor::UNSUPPORTED ? null : [
             'dimensions' => $dimensions, 'alpha' => $alpha, 'icc' => $color === ImageColor::ICC, 'orientation' => 1,
@@ -609,6 +645,90 @@ final class NativeImage
         throw new RuntimeException('The native image driver could not center the gallery image.');
     }
 
+    /** Keep the source identity and requested format while replacing the decoded frame. */
+    public function withFrame(GdImage|Imagick $frame): self
+    {
+        $result = new self($frame, $this->outputType, $this->source);
+        $result->expectSrgb = $this->expectSrgb;
+        $result->optimizeEncoding = $this->optimizeEncoding;
+        return $result;
+    }
+
+    /** Reduce the palette on a copy so the full-color candidate remains available. */
+    public function limitColors(int $colors): self
+    {
+        [$width, $height] = $this->dimensions();
+        if (!self::hasMemoryFor($width, $height)) {
+            throw new RuntimeException('Insufficient memory budget to reduce thumbnail colors.');
+        }
+        if ($this->image instanceof Imagick) {
+            $image = clone $this->image;
+            $success = $image->quantizeImage($colors, Imagick::COLORSPACE_SRGB, 0, false, false);
+        } else {
+            $image = self::cropFrame($this->image, 0, 0, $width, $height);
+            $success = (!imageistruecolor($image) ? imagepalettetotruecolor($image) : true) &&
+                imagetruecolortopalette($image, false, $colors);
+        }
+        if (!$success) {
+            throw new RuntimeException('Cannot reduce the thumbnail color palette.');
+        }
+        return $this->withFrame($image);
+    }
+
+    /** Place the frame on a thumbnail canvas at a caller-selected position. */
+    public function onCanvas(int $width, int $height, int $x, int $y, ?string $color): self
+    {
+        if (!self::hasMemoryFor($width, $height)) {
+            throw new RuntimeException('Insufficient memory budget for the thumbnail canvas.');
+        }
+        if ($this->image instanceof Imagick) {
+            $canvas = new Imagick();
+            $success = $canvas->newImage($width, $height, $color === null ? 'transparent' : '#' . $color, 'PNG') &&
+                $canvas->setImageAlphaChannel($color === null ? Imagick::ALPHACHANNEL_ACTIVATE : Imagick::ALPHACHANNEL_OPAQUE) &&
+                $canvas->compositeImage($this->image, Imagick::COMPOSITE_OVER, $x, $y) &&
+                ($color === null || $canvas->setImageAlphaChannel(Imagick::ALPHACHANNEL_OPAQUE));
+        } else {
+            $canvas = self::newGdFrame($width, $height);
+            $success = imagefill($canvas, 0, 0, $color === null ? 0x7f000000 : (int) hexdec($color)) &&
+                imagealphablending($canvas, $color !== null) &&
+                imagecopy($canvas, $this->image, $x, $y, 0, 0, imagesx($this->image), imagesy($this->image));
+        }
+        if (!$success) {
+            throw new RuntimeException('Cannot compose the thumbnail canvas.');
+        }
+        return $this->withFrame($canvas);
+    }
+
+    /** Rotate counterclockwise by the legacy helper's angle convention. */
+    public function rotate(float $angle, ?string $color = null): self
+    {
+        if ($angle === 0.0) {
+            return $this;
+        }
+        [$width, $height] = $this->dimensions();
+        $radians = deg2rad($angle);
+        $cos = abs(cos($radians));
+        $sin = abs(sin($radians));
+        if (!ImageMemoryBudget::allows(($width * $cos + $height * $sin) * ($height * $cos + $width * $sin), 0, PHP_SAPI === 'cli')) {
+            throw new RuntimeException('Insufficient memory budget to rotate the thumbnail.');
+        }
+
+        if ($this->image instanceof Imagick) {
+            $image = clone $this->image;
+            if (!$image->rotateImage($color === null ? 'transparent' : '#' . $color, -$angle) ||
+                !$image->setImagePage(0, 0, 0, 0)) {
+                throw new RuntimeException('Cannot rotate the thumbnail.');
+            }
+        } else {
+            $image = imagerotate($this->withPixelAlpha()->frame(), $angle, $color === null ? 0x7f000000 : (int) hexdec($color));
+            if ($image === false) {
+                throw new RuntimeException('Cannot rotate the thumbnail.');
+            }
+            imagesavealpha($image, true);
+        }
+        return $this->withFrame($image);
+    }
+
     /** Copy a rectangle without resampling or discarding transparent pixels. @since 1.9.0 */
     private static function cropFrame(GdImage|Imagick $image, int $x, int $y, int $width, int $height): GdImage|Imagick
     {
@@ -802,7 +922,7 @@ final class NativeImage
                 }
                 $success = match ($this->outputType) {
                     IMAGETYPE_PNG => @$encoder($this->image, $path, $this->optimizeEncoding ? 9 : min(9, (int) round((100 - $quality) / 10))),
-                    IMAGETYPE_GIF => @$encoder($this->image, $path),
+                    IMAGETYPE_GIF, IMAGETYPE_BMP, IMAGETYPE_WBMP => @$encoder($this->image, $path),
                     default => @$encoder($this->image, $path, $quality),
                 };
             } finally {
@@ -943,6 +1063,9 @@ final class NativeImage
             'gif' => IMAGETYPE_GIF,
             'webp' => IMAGETYPE_WEBP,
             'avif' => IMAGETYPE_AVIF,
+            'bmp' => IMAGETYPE_BMP,
+            'ico' => IMAGETYPE_ICO,
+            'wbmp' => IMAGETYPE_WBMP,
             default => throw new InvalidArgumentException('Unsupported native image format.'),
         };
     }

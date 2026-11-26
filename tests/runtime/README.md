@@ -24,6 +24,11 @@ for the earlier direct Composer resolution on PHP 8.6.
 `tests/ci/run-runtime.sh` verifies the Composer fixture and runs every runtime
 test, including the phpThumb comparison and sTask job replay.
 
+`phpthumb-test.php` checks normalization, output formats, geometry, EXIF,
+the byte target, ordered filters, and source and watermark cache revisions.
+`image-compatibility-test.php` compares the old and native helpers on the same
+sources for padding, zoom crop, a single dimension, and watermark placement.
+
 `optional-image-test.php` rejects any attempt to load legacy image packages
 during Builder transformations. It also verifies original-file fallbacks,
 watermark validation and background-job behavior.

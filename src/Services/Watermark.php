@@ -58,7 +58,12 @@ class Watermark
         }
 
         $overlay ??= self::prepareNative($image, $mark, $format);
-        [$stamp, $x, $y] = $overlay;
+        return self::composite($image, ...$overlay);
+    }
+
+    /** Composite a prepared still overlay using the frame's current driver. */
+    public static function composite(NativeImage $image, GdImage|Imagick $stamp, int $x, int $y): NativeImage
+    {
         $image = $image->withPixelAlpha();
         $frame = $image->frame();
         if ($frame instanceof Imagick && $stamp instanceof Imagick) {
@@ -123,7 +128,7 @@ class Watermark
     }
 
     /** Multiply per-pixel opacity so transparent pixels stay transparent. @since 1.9.0 */
-    private static function setNativeOpacity(GdImage|Imagick $frame, int $opacity): void
+    public static function setNativeOpacity(GdImage|Imagick $frame, int $opacity): void
     {
         if ($opacity === 100) {
             return;

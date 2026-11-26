@@ -157,6 +157,22 @@ When upgrading from 1.x, matching native derivatives are reused and queued sTask
 jobs keep their existing descriptor format. Derivatives previously generated with
 Spatie stay on disk. New requests use the native cache key.
 
+### phpThumb compatibility
+
+Existing templates can pass phpThumb options to
+`sGallery::phpThumb('assets/photo.jpg', 'w=320,h=240,zc=C,f=webp', false)`.
+The method returns a site-relative URL for local files. Use escaped Blade
+interpolation when rendering it. Options accept commas, ampersands and the
+legacy `w_320` syntax. Use the third argument to disable automatic WebP.
+An explicit `f=webp` still requests WebP.
+
+The helper supports aspect-ratio and orientation bounds, source cropping,
+positioned zoom crop and padding, exact stretching, rotation, EXIF thumbnails
+and a best-effort `maxb` byte target. BMP, ICO and WBMP output require a suitable
+codec. The filters `rot`, `flip`, `gray`, `neg`, `brit`, `cont`, `gam`,
+`crop`, `size` and local image watermark `wmi` run in request order. Unsupported
+filters return the original. `bgt` and raster `dpi` leave the result unchanged.
+
 ## Install by artisan package installer
 
 Go to You /core/ folder:
