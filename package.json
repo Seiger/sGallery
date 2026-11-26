@@ -1,0 +1,24 @@
+{
+  "name": "sgallery-docs",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {"node": ">=22"},
+  "scripts": {
+    "docs:prepare": "node scripts/prepare.cjs",
+    "docs:matrix": "node scripts/matrix.cjs",
+    "start": "docusaurus start",
+    "build": "docusaurus build",
+    "serve": "docusaurus serve --host 127.0.0.1",
+    "test": "node --test tests/*.test.cjs tests/*.test.mjs",
+    "test:build": "node tests/build-fixture.cjs"
+  },
+  "dependencies": {
+    "@docusaurus/core": "3.10.2",
+    "@docusaurus/plugin-content-docs": "3.10.2",
+    "@docusaurus/plugin-client-redirects": "3.10.2",
+    "@docusaurus/preset-classic": "3.10.2",
+    "@docusaurus/theme-classic": "3.10.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

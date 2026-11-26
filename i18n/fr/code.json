@@ -1,0 +1,32 @@
+{
+  "gallery.carousel": {
+    "message": "Carrousel"
+  },
+  "gallery.label": {
+    "message": "Captures d’écran sGallery"
+  },
+  "gallery.slide": {
+    "message": "Diapositive"
+  },
+  "gallery.screenshot": {
+    "message": "Capture {number}"
+  },
+  "gallery.open": {
+    "message": "Ouvrir {title} en taille réelle"
+  },
+  "gallery.unavailable": {
+    "message": "Image indisponible. Ouvrir l’original."
+  },
+  "gallery.previous": {
+    "message": "Capture précédente"
+  },
+  "gallery.next": {
+    "message": "Capture suivante"
+  },
+  "gallery.show": {
+    "message": "Afficher la capture {number} : {title}"
+  },
+  "gallery.hint": {
+    "message": "Utilisez les flèches ou balayez pour parcourir les images. Sélectionnez une image pour l’ouvrir en taille réelle."
+  }
+}

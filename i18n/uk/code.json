@@ -1,0 +1,47 @@
+{
+  "docs.status.current": {
+    "message": "Актуальна"
+  },
+  "docs.status.previous": {
+    "message": "Попередня"
+  },
+  "docs.status.legacy": {
+    "message": "Застаріла"
+  },
+  "docs.legacy.message": {
+    "message": "Ти читаєш документацію попередньої версії."
+  },
+  "docs.legacy.current": {
+    "message": "Перейти до актуальної документації"
+  },
+  "gallery.carousel": {
+    "message": "Карусель"
+  },
+  "gallery.label": {
+    "message": "Скриншоти sGallery"
+  },
+  "gallery.slide": {
+    "message": "Слайд"
+  },
+  "gallery.screenshot": {
+    "message": "Скриншот {number}"
+  },
+  "gallery.open": {
+    "message": "Відкрити «{title}» у повному розмірі"
+  },
+  "gallery.unavailable": {
+    "message": "Зображення недоступне. Відкрити оригінал."
+  },
+  "gallery.previous": {
+    "message": "Попередній скриншот"
+  },
+  "gallery.next": {
+    "message": "Наступний скриншот"
+  },
+  "gallery.show": {
+    "message": "Показати скриншот {number}: {title}"
+  },
+  "gallery.hint": {
+    "message": "Перемикайте стрілками або свайпом. Натисніть зображення, щоб відкрити його в повному розмірі."
+  }
+}

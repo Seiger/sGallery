@@ -1,0 +1,14 @@
+{
+  "defaultLocale": "en",
+  "locales": {
+    "en": "English",
+    "uk": "Українська",
+    "de": "Deutsch",
+    "fr": "Français",
+    "pl": "Polski",
+    "ru": "Русский"
+  },
+  "lines": [
+    {"version": "1.x", "branch": "1.x", "label": "1.x", "status": "current"}
+  ]
+}

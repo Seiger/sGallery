@@ -1,0 +1,32 @@
+{
+  "gallery.carousel": {
+    "message": "Karussell"
+  },
+  "gallery.label": {
+    "message": "sGallery-Screenshots"
+  },
+  "gallery.slide": {
+    "message": "Folie"
+  },
+  "gallery.screenshot": {
+    "message": "Screenshot {number}"
+  },
+  "gallery.open": {
+    "message": "{title} in voller Größe öffnen"
+  },
+  "gallery.unavailable": {
+    "message": "Bild nicht verfügbar. Originalbild öffnen."
+  },
+  "gallery.previous": {
+    "message": "Vorheriger Screenshot"
+  },
+  "gallery.next": {
+    "message": "Nächster Screenshot"
+  },
+  "gallery.show": {
+    "message": "Screenshot {number} anzeigen: {title}"
+  },
+  "gallery.hint": {
+    "message": "Mit den Pfeilen oder durch Wischen blättern. Ein Bild auswählen, um es in voller Größe zu öffnen."
+  }
+}

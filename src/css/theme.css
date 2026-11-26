@@ -1,0 +1,83 @@
+:root {
+    --ifm-color-primary: #2563eb;
+    --ifm-color-primary-dark: #1d4ed8;
+    --ifm-color-primary-darker: #1e40af;
+    --ifm-color-primary-darkest: #1e3a8a;
+    --ifm-color-primary-light: #3b82f6;
+    --ifm-color-primary-lighter: #60a5fa;
+    --ifm-color-primary-lightest: #93c5fd;
+    --ifm-background-color: #f4f6f9;
+    --ifm-background-surface-color: #ffffff;
+    --ifm-font-color-base: #27364b;
+    --ifm-color-content-secondary: #63748b;
+    --ifm-heading-color: #14243a;
+    --ifm-font-family-base: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --ifm-font-size-base: 15px;
+    --ifm-line-height-base: 1.7;
+    --ifm-navbar-height: 4rem;
+    --ifm-navbar-shadow: none;
+    --ifm-global-radius: 8px;
+    --doc-sidebar-width: 280px;
+    --docs-border: #e1e7ef;
+    --docs-active: #eaf1ff;
+    --ifm-toc-border-color: var(--docs-border);
+}
+
+[data-theme='dark'] {
+    --ifm-color-primary: #8bb8ff;
+    --ifm-color-primary-dark: #71a7ff;
+    --ifm-color-primary-darker: #5c9aff;
+    --ifm-color-primary-darkest: #3380ff;
+    --ifm-color-primary-light: #a4c8ff;
+    --ifm-color-primary-lighter: #bdd7ff;
+    --ifm-color-primary-lightest: #d6e6ff;
+    --ifm-background-color: #111823;
+    --ifm-background-surface-color: #192330;
+    --ifm-navbar-background-color: #192330;
+    --ifm-font-color-base: #d8e2ef;
+    --ifm-color-content-secondary: #9caec4;
+    --ifm-heading-color: #edf3fa;
+    --docs-border: #2e3b4d;
+    --docs-active: #253d5c;
+}
+
+.navbar {border-bottom: 1px solid var(--docs-border); padding-inline: 24px;}
+.navbar__brand {gap: 8px;}
+.navbar__title {font-size: 19px; font-weight: 650; letter-spacing: -.4px;}
+.navbar__link {font-size: 14px;}
+.dropdown__menu {border: 1px solid var(--docs-border); border-radius: 10px; padding: 8px;}
+.theme-doc-sidebar-container {background: var(--ifm-background-surface-color); border-color: var(--docs-border) !important;}
+.theme-doc-sidebar-menu {padding: 16px 8px; font-size: 14px;}
+.menu__link {border-radius: 6px; padding: 8px 12px;}
+.menu__link--active {background: var(--docs-active); font-weight: 600;}
+.menu__list .menu__list {border-left: 1px solid var(--docs-border); margin-left: 14px; padding-left: 8px;}
+.theme-doc-markdown {background: var(--ifm-background-surface-color); border: 1px solid var(--docs-border); border-radius: 12px; padding: 32px;}
+.markdown h1 {font-size: 2rem; letter-spacing: -.65px; line-height: 1.25;}
+.markdown h2 {font-size: 1.45rem; border-bottom: 1px solid var(--docs-border); padding-bottom: 10px;}
+.markdown img {max-width: 100%; height: auto; border-radius: 8px;}
+.markdown pre {border: 1px solid var(--docs-border); font-size: 13px;}
+.markdown table {font-size: 14px;}
+.theme-doc-breadcrumbs {margin: 8px 0 20px;}
+.table-of-contents {font-size: 13px;}
+.docs-legacy {border: 1px solid #bd8d2d; border-radius: 8px; background: #fff7e5; color: #694a0c; padding: 16px 20px; margin-bottom: 20px;}
+[data-theme='dark'] .docs-legacy {background: #352e1e; color: #f5d28c;}
+.docs-legacy a {text-decoration: underline;}
+.docs-developer-credit {background: var(--ifm-background-surface-color); border-top: 1px solid var(--docs-border); padding: 12px 8px; text-align: center; font-size: 13px; line-height: 1.5;}
+.docs-sidebar-credit {flex-shrink: 0;}
+.docs-mobile-credit {display: none;}
+.footer__copyright {color: var(--ifm-color-content-secondary);}
+:focus-visible {outline: 2px solid var(--ifm-color-primary); outline-offset: 3px;}
+
+@media (min-width: 997px) {
+    main > .container {padding: 28px 32px 48px !important;}
+}
+@media (max-width: 996px) {
+    .main-wrapper {padding-bottom: calc(48px + env(safe-area-inset-bottom));}
+    .docs-mobile-credit {display: block; position: fixed; inset: auto 0 0; z-index: 20; padding-bottom: env(safe-area-inset-bottom); background: var(--ifm-background-surface-color);}
+    .navbar {padding-inline: 16px;}
+    .theme-doc-markdown {padding: 24px;}
+}
+@media (max-width: 480px) {
+    .theme-doc-markdown {padding: 20px 16px; border-radius: 8px;}
+    .markdown h1 {font-size: 1.7rem;}
+}

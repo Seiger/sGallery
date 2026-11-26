@@ -1,0 +1,8 @@
+/node_modules/
+/.docusaurus/
+/.generated/
+/.sources/
+/build/
+/build-fixture/
+/.test-output/
+/.DS_Store

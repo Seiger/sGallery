@@ -1,0 +1,56 @@
+.gallery {
+    margin: 1.5rem 0;
+    padding: .75rem;
+    border: 1px solid var(--docs-border);
+    border-radius: var(--ifm-global-radius);
+    background: var(--ifm-background-surface-color);
+}
+
+.stage {touch-action: pan-y pinch-zoom;}
+.slide[hidden] {display: none;}
+.imageLink {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: clamp(14rem, 50vw, 34rem);
+    border-radius: .25rem;
+    overflow: hidden;
+}
+.imageLink .image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    margin: 0;
+}
+.error {padding: 2rem; text-align: center;}
+.controls {display: flex; align-items: center; justify-content: center; gap: .5rem; margin-top: .75rem;}
+.arrow, .dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: 44px;
+    min-height: 44px;
+    padding: .5rem;
+    border: 1px solid transparent;
+    border-radius: .35rem;
+    background: transparent;
+    color: var(--ifm-font-color-base);
+    cursor: pointer;
+}
+.arrow {font-size: 1.4rem; border-color: var(--docs-border);}
+.arrow:hover, .dot:hover {background: var(--ifm-color-emphasis-100);}
+.arrow:focus-visible, .dot:focus-visible, .imageLink:focus-visible {outline: 3px solid var(--ifm-color-primary); outline-offset: 2px;}
+.dots {display: flex; flex-wrap: wrap; justify-content: center; min-width: 0;}
+.dot span {width: 9px; height: 9px; border-radius: 50%; background: var(--ifm-color-content-secondary);}
+.dot[aria-current="true"] span {background: var(--ifm-color-primary); outline: 2px solid var(--ifm-color-primary); outline-offset: 3px;}
+.caption {margin: .5rem 0 0; text-align: center; font-weight: 600; overflow-wrap: anywhere;}
+.hint {margin: .25rem 0 0; text-align: center; color: var(--ifm-color-content-secondary); font-size: .85rem;}
+
+@media (max-width: 480px) {
+    .gallery {padding: .4rem;}
+    .controls {gap: 0;}
+    .imageLink {height: clamp(12rem, 65vw, 20rem);}
+}

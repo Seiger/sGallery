@@ -1,0 +1,32 @@
+{
+  "gallery.carousel": {
+    "message": "Karuzela"
+  },
+  "gallery.label": {
+    "message": "Zrzuty ekranu sGallery"
+  },
+  "gallery.slide": {
+    "message": "Slajd"
+  },
+  "gallery.screenshot": {
+    "message": "Zrzut ekranu {number}"
+  },
+  "gallery.open": {
+    "message": "Otwórz {title} w pełnym rozmiarze"
+  },
+  "gallery.unavailable": {
+    "message": "Obraz niedostępny. Otwórz oryginał."
+  },
+  "gallery.previous": {
+    "message": "Poprzedni zrzut ekranu"
+  },
+  "gallery.next": {
+    "message": "Następny zrzut ekranu"
+  },
+  "gallery.show": {
+    "message": "Pokaż zrzut ekranu {number}: {title}"
+  },
+  "gallery.hint": {
+    "message": "Przeglądaj strzałkami lub gestem przesunięcia. Wybierz obraz, aby otworzyć go w pełnym rozmiarze."
+  }
+}

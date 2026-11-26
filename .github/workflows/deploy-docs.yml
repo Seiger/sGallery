@@ -1,0 +1,104 @@
+name: Build and deploy branch documentation
+
+on:
+  push:
+    branches: [docs]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Shared by site changes and calls from every package branch.
+concurrency:
+  group: sgallery-documentation-pages
+  cancel-in-progress: false
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      site-sha: ${{ steps.site.outputs.commit }}
+    steps:
+      - name: Checkout documentation site
+        id: site
+        uses: actions/checkout@v4
+        with:
+          ref: docs
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read version registry
+        id: matrix
+        run: node scripts/matrix.cjs
+
+  sources:
+    needs: configure
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJSON(needs.configure.outputs.matrix) }}
+    steps:
+      - name: Checkout canonical branch documentation only
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
+          path: source
+          sparse-checkout: docs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Share branch documentation with build
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-${{ matrix.version }}
+          path: |
+            source/docs/
+            !source/docs/audit/**
+            !source/docs/testing/**
+            !source/docs/design/**
+            !source/docs/releases/**
+          if-no-files-found: error
+          retention-days: 1
+
+  build:
+    needs: [configure, sources]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.configure.outputs.site-sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: documentation-*
+          path: .sources
+      - name: Arrange downloaded branch trees
+        run: node scripts/artifacts.cjs
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:build
+      - run: npm run docs:prepare
+      - run: npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy documentation
+        id: deployment
+        uses: actions/deploy-pages@v4
