@@ -47,6 +47,12 @@ try {
         $result = $thumb($source, 'w=10,h=10,far=C', false);
         if ($can('png')) {
             $check($result !== $source && $info($result) === [10, 10, IMAGETYPE_PNG], 'Imagick alone generates a padded PNG');
+            $font = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
+            if (is_readable($font)) {
+                copy($font, $root . 'assets/images/font.ttf');
+                $text = $thumb($source, 'f=png&fltr[]=' . rawurlencode('wmt|OK|6|TL|ffffff|assets/images/font.ttf|100|0'), false);
+                $check($text !== $source && $info($text) === [23, 11, IMAGETYPE_PNG], 'Imagick alone draws a local TrueType watermark');
+            }
         } else {
             $check($result === $source, 'Without image drivers the helper returns the original');
         }

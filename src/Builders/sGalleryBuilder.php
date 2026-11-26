@@ -758,7 +758,7 @@ class sGalleryBuilder
                     $image = $image->withPixelAlpha();
                 }
                 $image = $thumbnail === null ? $this->transformNative($image, $format)
-                    : $thumbnail->transform($image, $format, $this->params['phpThumbBase']);
+                    : $thumbnail->transform($image, $format, $this->params['phpThumbBase'], $this->checkOptimizationBudget(...));
                 if ($thumbnail !== null && $format === 'gif') {
                     $image = $image->withGifTransparency();
                 } elseif ($thumbnail === null && $nativeAlpha) {
@@ -839,7 +839,7 @@ class sGalleryBuilder
                 function (\Imagick $frame) use ($source, $format, $thumbnail, &$overlay, &$targetBytes): \Imagick {
                     $image = NativeImage::fromFrame($frame, $source, $format);
                     $image = $thumbnail === null ? $this->transformNative($image, $format, $overlay)
-                        : $thumbnail->transform($image, $format, $this->params['phpThumbBase']);
+                        : $thumbnail->transform($image, $format, $this->params['phpThumbBase'], $this->checkOptimizationBudget(...));
                     $targetBytes = $this->getPageSpeedImageTargetBytes($image);
                     return $image->frame();
                 },

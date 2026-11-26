@@ -655,7 +655,7 @@ final class NativeImage
     }
 
     /** Reduce the palette on a copy so the full-color candidate remains available. */
-    public function limitColors(int $colors): self
+    public function limitColors(int $colors, bool $dither = false): self
     {
         [$width, $height] = $this->dimensions();
         if (!self::hasMemoryFor($width, $height)) {
@@ -663,16 +663,25 @@ final class NativeImage
         }
         if ($this->image instanceof Imagick) {
             $image = clone $this->image;
-            $success = $image->quantizeImage($colors, Imagick::COLORSPACE_SRGB, 0, false, false);
+            $success = $image->quantizeImage($colors, Imagick::COLORSPACE_SRGB, 0, $dither, false);
         } else {
             $image = self::cropFrame($this->image, 0, 0, $width, $height);
             $success = (!imageistruecolor($image) ? imagepalettetotruecolor($image) : true) &&
-                imagetruecolortopalette($image, false, $colors);
+                imagetruecolortopalette($image, $dither, $colors);
         }
         if (!$success) {
             throw new RuntimeException('Cannot reduce the thumbnail color palette.');
         }
         return $this->withFrame($image);
+    }
+
+    /** Source substitutions understood by the legacy text watermark. */
+    public function sourceMetrics(): array
+    {
+        $dimensions = @getimagesize($this->source);
+        $bytes = (int) @filesize($this->source);
+        return ['^X' => $dimensions[0] ?? 0, '^Y' => $dimensions[1] ?? 0, '^Fb' => $bytes,
+            '^Fk' => round($bytes / 1024), '^Fm' => round($bytes / 1048576)];
     }
 
     /** Place the frame on a thumbnail canvas at a caller-selected position. */

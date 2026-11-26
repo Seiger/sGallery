@@ -135,7 +135,7 @@ class Watermark
         }
         $factor = $opacity / 100;
         if ($frame instanceof Imagick) {
-            if (!$frame->setImageAlphaChannel(Imagick::ALPHACHANNEL_ACTIVATE) ||
+            if ((!$frame->getImageAlphaChannel() && !$frame->setImageAlphaChannel(Imagick::ALPHACHANNEL_OPAQUE)) ||
                 !$frame->evaluateImage(Imagick::EVALUATE_MULTIPLY, $factor, Imagick::CHANNEL_ALPHA)) {
                 throw new \RuntimeException('Cannot set the native gallery watermark opacity.');
             }

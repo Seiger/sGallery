@@ -169,9 +169,22 @@ An explicit `f=webp` still requests WebP.
 The helper supports aspect-ratio and orientation bounds, source cropping,
 positioned zoom crop and padding, exact stretching, rotation, EXIF thumbnails
 and a best-effort `maxb` byte target. BMP, ICO and WBMP output require a suitable
-codec. The filters `rot`, `flip`, `gray`, `neg`, `brit`, `cont`, `gam`,
-`crop`, `size` and local image watermark `wmi` run in request order. Unsupported
-filters return the original. `bgt` and raster `dpi` leave the result unchanged.
+codec. Filters in `fltr[]` run in request order.
+
+- Color and tone use `brit`, `cont`, `ds`, `sat`, `gray`, `clr`, `sep`,
+  `gam`, `neg`, `th`, `rcd`, `lvl`, `wb`, `hist` and `stc`.
+- Geometry and composition use `flip`, `crop`, `size`, `rot`, `ric`, `elip`,
+  `mask`, `bvl`, `fram`, `drop`, `bord`, `over`, `wmi` and `wmt`.
+- Sharpness and blur use `edge`, `emb`, `blur`, `gblr`, `sblr`, `mean`,
+  `smth` and `usm`.
+
+Use a site-local still image for masks and image overlays. A text watermark
+can use a site-local TrueType or OpenType font. Without a font path, it uses
+the GD bitmap face or an available Imagick font. Updating a filter asset creates
+a new cache URL. Pixel values can differ between drivers, including at
+antialiased edges, in quantized palettes and in blur. Unsupported filters or
+unavailable local assets return the original. `bgt` and raster `dpi` leave the
+result unchanged.
 
 ## Install by artisan package installer
 

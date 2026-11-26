@@ -28,6 +28,11 @@ test, including the phpThumb comparison and sTask job replay.
 the byte target, ordered filters, and source and watermark cache revisions.
 `image-compatibility-test.php` compares the old and native helpers on the same
 sources for padding, zoom crop, a single dimension, and watermark placement.
+It also compares all added legacy filters on one patterned source, with pixel
+tolerances for differences between GD and Imagick. On system libgd it verifies
+bundled-GD reference pixels where phpThumb uses a different color formula
+and checks the legacy no-op where phpThumb skips convolution. When DejaVu Sans and
+FreeType are available, it checks TrueType placement and font replacement.
 
 `optional-image-test.php` rejects any attempt to load legacy image packages
 during Builder transformations. It also verifies original-file fallbacks,

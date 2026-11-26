@@ -50,6 +50,7 @@ define('EVO_SITE_URL', 'https://image-compatibility.test/');
 
 // The helper prefers the ImageMagick CLI if it finds it. Keep the phpThumb baseline on GD.
 $previousPath = getenv('PATH');
+$previousDirectory = getcwd();
 putenv('PATH=' . $root);
 unset($_SERVER['HTTP_ACCEPT']);
 
@@ -73,6 +74,7 @@ $check = static function (bool $condition, string $label): void {
 };
 
 try {
+    $check(chdir($root), 'The legacy helper uses the fixture for relative temporary files');
     /** Supply configuration and capture generation errors without bootstrapping Evolution. @since 1.9.0 */
     $GLOBALS['imageCompatibilityCore'] = new class extends Core {
         /** Avoid the application bootstrap for this filesystem-only fixture. @since 1.9.0 */
@@ -289,6 +291,127 @@ try {
     $check($isGreen($pixel($legacyMark, 68, 28)) && $isGreen($pixel($galleryMark, 68, 28)), 'Both watermarks draw the center stripe in the lower right');
     $check($isGreen($pixel($nativeMark, 68, 28)), 'Native helper matches the legacy watermark position');
 
+    $filterSource = 'assets/images/filters.png';
+    $sample = imagecreatetruecolor(96, 72);
+    imagefilledrectangle($sample, 0, 0, 95, 71, 0xa0502d);
+    imagefilledrectangle($sample, 32, 0, 63, 71, 0x418c5a);
+    imagefilledrectangle($sample, 64, 0, 95, 71, 0x234196);
+    for ($i = 0; $i < 16; $i++) {
+        imagefilledrectangle($sample, 12 + $i * 4, 22, 15 + $i * 4, 46, (55 + 9 * $i) << 16 | (160 - 6 * $i) << 8 | (32 + 10 * $i));
+    }
+    imagepng($sample, EVO_BASE_PATH . $filterSource);
+    $maskPath = 'assets/images/mask.png';
+    $mask = imagecreatetruecolor(96, 72);
+    imagefilledrectangle($mask, 32, 0, 63, 71, 0x808080);
+    imagefilledrectangle($mask, 64, 0, 95, 71, 0xffffff);
+    imagepng($mask, EVO_BASE_PATH . $maskPath);
+    $filterOptions = static fn (string $filter): string => 'f=png&fltr[]=' . rawurlencode($filter);
+    $delta = static function (GdImage $left, GdImage $right) use ($pixel): float {
+        $total = 0;
+        for ($y = 0; $y < imagesy($left); $y++) {
+            for ($x = 0; $x < imagesx($left); $x++) {
+                $a = $pixel($left, $x, $y);
+                $b = $pixel($right, $x, $y);
+                $total += 2 * abs($a['alpha'] - $b['alpha']);
+                foreach (['red', 'green', 'blue'] as $channel) {
+                    $total += abs($a[$channel] - $b[$channel]) * (1 - max($a['alpha'], $b['alpha']) / 127);
+                }
+            }
+        }
+        return $total / (4 * imagesx($left) * imagesy($left));
+    };
+    $cases = [
+        'ds' => ['ds|25', 2],
+        'sat' => ['sat|20', 2],
+        'clr' => ['clr|40|4020e0', 2],
+        'sep' => ['sep|30|a28065', 3],
+        'th' => ['th|110', 2],
+        'rcd' => ['rcd|6|0', 20],
+        'lvl' => ['lvl|*|2|0.1', 3],
+        'wb' => ['wb|aac8dc', 2],
+        'hist' => ['hist|rg||0.4|0.4|BR|75|3|3', 7],
+        'stc' => ['stc|a0502d|5|10', 2],
+        'ric' => ['ric|13|10', 3],
+        'elip' => ['elip', 4],
+        'mask' => ['mask|' . EVO_BASE_PATH . $maskPath . '|0', 3],
+        'bvl' => ['bvl|5|ffeecc|123456', 9],
+        'fram' => ['fram|6|2|345678|ffffff|000000', 12],
+        'drop' => ['drop|8|6|2c3145|225|100', 12],
+        'bord' => ['bord|4|9|7|223344', 12],
+        'over' => ['over|' . EVO_BASE_PATH . $mark . '|0|6|60', 6],
+        'wmt' => ['wmt|Sample ^x|3|TL|fefefe||100|5', 3],
+        'edge' => ['edge', 18],
+        'emb' => ['emb', 35],
+        'blur' => ['blur|1', 5],
+        'gblr' => ['gblr', 4],
+        'sblr' => ['sblr', 8],
+        'mean' => ['mean', 8],
+        'smth' => ['smth|6', 5],
+        'usm' => ['usm|80|0.5|3', 8],
+    ];
+    $bundledGd = str_contains(gd_info()['GD Version'], 'bundled');
+    $bundledColors = [
+        'ds' => [192, 112, 77], 'sat' => [134, 54, 19], 'clr' => [186, 93, 135],
+        'sep' => [149, 138, 130], 'edge' => [127, 127, 127], 'emb' => [127, 127, 127],
+    ];
+    $filterFailures = [];
+    foreach ($cases as $name => [$filter, $tolerance]) {
+        $options = $filterOptions($filter);
+        [, , $old] = $render("phpThumb $name", fn () => $legacy($filterSource, $options), [96, 72, 'image/png']);
+        [$url, , $new] = $render("Native helper $name", fn () => $native($filterSource, $options), [96, 72, 'image/png']);
+        if ($url === $filterSource || $delta($sample, $new) <= 0) {
+            $filterFailures[] = "$name did not change the source";
+        }
+        // phpThumb uses different algorithms for color filters and skips some convolutions with system libgd.
+        if (!$bundledGd && isset($bundledColors[$name])) {
+            $actual = array_slice(array_values($pixel($new, 4, 6)), 0, 3);
+            if (max(array_map(static fn (int $a, int $b): int => abs($a - $b), $actual, $bundledColors[$name])) > 2) {
+                $filterFailures[] = "$name does not match the bundled-GD reference pixel";
+            }
+            continue;
+        }
+        if (!$bundledGd && in_array($name, ['sblr', 'mean', 'smth'], true)) {
+            $check($delta($sample, $old) === 0.0, "Legacy $name is a no-op on system libgd");
+            continue;
+        }
+        $distance = $delta($old, $new);
+        if ($distance > $tolerance) {
+            $filterFailures[] = "$name differs from phpThumb by $distance channel levels (limit $tolerance)";
+        }
+    }
+    $check($filterFailures === [], implode("\n", $filterFailures));
+    $under = $filterOptions('over|' . EVO_BASE_PATH . $mark . '|1|5|65');
+    [, , $oldUnder] = $render('phpThumb underlay', fn () => $legacy($alpha, $under), [96, 48, 'image/png']);
+    [, , $newUnder] = $render('Native helper underlay', fn () => $native($alpha, $under), [96, 48, 'image/png']);
+    $check($delta($oldUnder, $newUnder) <= 7 && $pixel($newUnder, 0, 0)['alpha'] === 0,
+        'Underlay fills transparent regions and keeps the legacy canvas');
+    $testFont = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
+    if (function_exists('imagettfbbox') && is_readable($testFont)) {
+        $font = 'assets/images/font.ttf';
+        $legacyFont = 'assets/images/legacy-font.ttf';
+        $check(copy($testFont, EVO_BASE_PATH . $font) && copy($testFont, EVO_BASE_PATH . $legacyFont), 'A local test font is available');
+        $options = $filterOptions('wmt|Gallery|10|TL|fefefe|' . EVO_BASE_PATH . $font . '|100|5');
+        $legacyOptions = $filterOptions('wmt|Gallery|10|TL|fefefe|' . EVO_BASE_PATH . $legacyFont . '|100|5');
+        [, , $old] = $render('phpThumb TrueType watermark', fn () => $legacy($filterSource, $legacyOptions), [96, 72, 'image/png']);
+        [$fontUrl, , $new] = $render('Native TrueType watermark', fn () => $native($filterSource, $options), [96, 72, 'image/png']);
+        $check($fontUrl !== $filterSource && $delta($sample, $new) > 0 && $delta($old, $new) <= 5,
+            'Both helpers draw a comparable TrueType watermark at the top left');
+        $boldFont = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
+        if (is_readable($boldFont)) {
+            $check(copy($boldFont, EVO_BASE_PATH . $font), 'The test font can be replaced in place');
+            $check($native($filterSource, $options) !== $fontUrl && is_file(EVO_BASE_PATH . $fontUrl),
+                'Replacing a local font creates a new derivative and preserves the previous file');
+        }
+    }
+    $maskOptions = $filterOptions('mask|' . $maskPath);
+    $oldMask = $native($filterSource, $maskOptions);
+    imagefilledrectangle($mask, 0, 0, 95, 71, 0xffffff);
+    imagepng($mask, EVO_BASE_PATH . $maskPath);
+    $check($native($filterSource, $maskOptions) !== $oldMask && is_file(EVO_BASE_PATH . $oldMask),
+        'Changing the local mask creates a new derivative and leaves the older URL usable');
+    $check($native($filterSource, $filterOptions('mask|assets/images/missing-mask.png')) === $filterSource,
+        'An unavailable mask uses the original');
+
     $animations = [
         'gif' => 'R0lGODlhDAAIAPAAAP8AAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQADwAAACwAAAAADAAIAAACCISPqcvtD2MqACH5BAAVAAAALAAAAAAMAAgAgAAA/wAAAAIIhI+py+0PYyoAOw==',
         'webp' => 'UklGRsAAAABXRUJQVlA4WAoAAAACAAAACwAABwAAQU5JTQYAAAD/////AABBTk1GSAAAAAAAAAAAAAsAAAcAAJYAAAJWUDggMAAAANABAJ0BKgwACAACADQloAJ0ugH4AAOwAP7wxAv/ILlhdcjX/yA/5Af8gP/48gAAAEFOTUZEAAAAAAAAAAAACwAABwAA0gAAAFZQOCAsAAAAlAEAnQEqDAAIAAAANCWgAnS6AAOYAP75k2//kB//kB//kB//ID/iF3sgMAA=',
@@ -299,7 +422,7 @@ try {
         file_put_contents($sourcePath, base64_decode($bytes, true));
         $original = EVO_SITE_URL . $animationSource;
         $resizeAnimation = fn (): string => $gallery($animationSource)->format($format)->fit('stretch', 6, 4)->getFile();
-        $nativeAnimation = $native($animationSource, "w=6,h=4,iar=1,f=$format");
+        $nativeAnimation = $native($animationSource, "w=6,h=4,iar=1,f=$format&fltr[]=th%7C100");
         $check($gallery($animationSource)->format('jpeg')->getFile() === $original, 'A still-only output preserves the animated original');
         $url = $resizeAnimation();
         if (!class_exists(Imagick::class) || !NativeImage::canEncode($format, 'imagick')) {
@@ -345,6 +468,7 @@ try {
 } finally {
     restore_error_handler();
     putenv($previousPath === false ? 'PATH' : 'PATH=' . $previousPath);
+    chdir($previousDirectory);
     $files = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
         RecursiveIteratorIterator::CHILD_FIRST

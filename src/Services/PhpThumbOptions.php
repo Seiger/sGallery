@@ -99,20 +99,22 @@ final class PhpThumbOptions
         return $this->values['maxb'] ?? null;
     }
 
-    /** Include each local overlay revision in the cache key and queued job. */
+    /** Include each local filter file revision in the cache key and queued job. */
     public function assetRevision(): string
     {
         $revisions = [];
         foreach ($this->filters as $filter) {
-            if (str_starts_with($filter, 'wmi|')) {
-                $parts = explode('|', $filter);
-                $path = GalleryFiles::local(self::overlayPath($parts[1] ?? ''));
-                $revision = $path === null ? null : ImageSource::version($path);
-                if ($revision === null || ImageAnimation::isAnimated($path, @getimagesize($path)[2] ?? 0)) {
-                    throw new RuntimeException('Invalid local thumbnail watermark.');
-                }
-                $revisions[] = $revision;
+            $parts = explode('|', $filter);
+            $font = $parts[0] === 'wmt';
+            if (!in_array($parts[0], ['mask', 'over', 'wmi'], true) && (!$font || ($parts[5] ?? '') === '')) {
+                continue;
             }
+            $path = PhpThumbDecorations::asset($parts[$font ? 5 : 1] ?? '', $font);
+            $revision = ImageSource::version($path);
+            if ($revision === null) {
+                throw new RuntimeException('Cannot identify the thumbnail filter asset revision.');
+            }
+            $revisions[] = $revision;
         }
         return hash('sha256', json_encode($revisions, JSON_THROW_ON_ERROR));
     }
@@ -137,7 +139,7 @@ final class PhpThumbOptions
     }
 
     /** Apply the compatibility geometry and ordered filters to a decoded frame. */
-    public function transform(NativeImage $image, string $format, string $baseFormat): NativeImage
+    public function transform(NativeImage $image, string $format, string $baseFormat, callable $check): NativeImage
     {
         if ($this->embeddedOnly()) {
             return $image;
@@ -170,7 +172,8 @@ final class PhpThumbOptions
         $alphaOutput = in_array($baseFormat, ['png', 'webp', 'gif', 'avif', 'ico'], true);
         $image = $this->fit($image, $width, $height, $background ?? ($alphaOutput ? null : 'ffffff'));
         foreach ($this->filters as $filter) {
-            $image = $this->filter($image, $filter, $format);
+            $check();
+            $image = $this->filter($image, $filter, $format, $check);
         }
         if (!$alphaOutput || $background !== null) {
             [$width, $height] = $image->dimensions();
@@ -290,18 +293,26 @@ final class PhpThumbOptions
         return $image->withFrame($frame);
     }
 
-    private function filter(NativeImage $image, string $filter, string $format): NativeImage
+    private function filter(NativeImage $image, string $filter, string $format, callable $check): NativeImage
     {
-        [$operation, $a, $b, $c, $d, $e, $f] = array_pad(explode('|', $filter), 7, '');
+        [$operation, $parameters] = array_pad(explode('|', $filter, 2), 2, '');
+        $args = explode('|', $parameters, 12);
+        if (in_array($operation, PhpThumbEffects::FILTERS, true)) {
+            return PhpThumbEffects::apply($image, $operation, $args, $check);
+        }
+        if (in_array($operation, PhpThumbDecorations::FILTERS, true)) {
+            return PhpThumbDecorations::apply($image, $operation, $args, $format, $check);
+        }
+        [$a, $b, $c, $d, $e, $f] = array_pad($args, 6, '');
         return match ($operation) {
             'rot' => $image->rotate(self::number($a, -360, 360), self::color($b)),
-            'flip' => $image->orientFromExif(match ($a) {
-                'x' => 2, 'y' => 4, default => throw new RuntimeException('Invalid thumbnail flip axis.'),
+            'flip' => $image->orientFromExif(match (strtolower($a)) {
+                'x' => 2, 'y' => 4, 'xy', 'yx' => 3, default => 1,
             }),
             'gray', 'neg', 'brit', 'cont', 'gam' => $this->colorFilter($image, $operation, $a),
             'crop' => $this->cropMargins($image, $a, $b, $c, $d),
             'size' => $this->resizeFilter($image, $a, $b, (bool) $c),
-            'wmi' => $this->watermark($image, $format, $a, $b, $c, $d, $e, $f),
+            'wmi' => $this->watermark($image, $format, $a, $b, $c, $d, $e, $f, $check),
             default => throw new RuntimeException('Unsupported thumbnail filter.'),
         };
     }
@@ -355,17 +366,19 @@ final class PhpThumbOptions
     }
 
     /** Decode a local still watermark and position it with phpThumb's independent margins. */
-    private function watermark(NativeImage $image, string $format, string $file, string $align, string $opacity, string $x, string $y, string $angle): NativeImage
+    private function watermark(NativeImage $image, string $format, string $file, string $align, string $opacity, string $x, string $y, string $angle, callable $check): NativeImage
     {
-        $source = self::overlayPath($file);
-        $frame = $image->frame();
-        $stamp = NativeImage::open($source, $format, $frame instanceof Imagick ? 'imagick' : 'gd')->withPixelAlpha();
+        $stamp = PhpThumbDecorations::openOverlay($image, $file, $format);
         if (($rotation = self::number($angle, -360, 360)) !== 0.0) {
             $stamp = $stamp->rotate($rotation);
         }
         [$width, $height] = $image->dimensions();
         [$stampWidth, $stampHeight] = $stamp->dimensions();
-        if (preg_match('/\A(-?\d+)x(-?\d+)\z/D', $align, $coordinates)) {
+        if ($align === '*') {
+            return PhpThumbDecorations::place($image, $stamp, $align, (int) self::number($opacity, 0, 100, 50),
+                self::pixels(self::number($x, 0, $width, 5), $width), self::pixels(self::number($y, 0, $height, 5), $height), $check);
+        }
+        if (preg_match('/\A(-?\d+)x(-?\d+)\z/i', $align, $coordinates)) {
             if ($x !== '' || $y !== '') {
                 $stamp = $this->resizeFilter($stamp, $x, $y, false);
                 [$stampWidth, $stampHeight] = $stamp->dimensions();
@@ -386,11 +399,6 @@ final class PhpThumbOptions
         $stampFrame = $stamp->frame();
         Watermark::setNativeOpacity($stampFrame, (int) self::number($opacity, 0, 100, 100));
         return Watermark::composite($image, $stampFrame, $left, $top);
-    }
-
-    private static function overlayPath(string $file): string
-    {
-        return str_starts_with($file, EVO_BASE_PATH) ? substr($file, strlen(EVO_BASE_PATH)) : ltrim($file, '/');
     }
 
     private static function number(string $value, float $min, float $max, float $default = 0): float
